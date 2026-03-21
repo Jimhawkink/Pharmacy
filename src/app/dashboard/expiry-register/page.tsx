@@ -1,4 +1,5 @@
 'use client';
+// Alpha Pharmacy - Expiry Register v1.0
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
