@@ -48,7 +48,7 @@ export default function ExpiryRegisterPage() {
             drug_type: b.pharmacy_products.drug_type || '',
         }));
         setItems(mapped);
-        const cats = [...new Set(mapped.map(i => i.category).filter(Boolean))];
+        const cats = Array.from(new Set(mapped.map(i => i.category).filter(Boolean)));
         setCategories(cats);
         setLoading(false);
     }, [outletId]);
