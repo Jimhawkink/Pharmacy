@@ -100,6 +100,7 @@ export default function LoginPage() {
 
         try {
             // Query pharmacy_users table (case-insensitive username match)
+            console.log('Attempting login for:', username);
             const { data, error: dbError } = await supabase
                 .from('pharmacy_users')
                 .select('*')
@@ -107,14 +108,24 @@ export default function LoginPage() {
                 .eq('active', true)
                 .single();
 
-            if (dbError || !data) {
-                setError('Invalid username or password');
-                logActivity('Login', `Failed login attempt for username: ${username}`, 'Invalid credentials');
+            console.log('DB Response:', { data, dbError });
+
+            if (dbError) {
+                setError(`DB Error: ${dbError.message} (Code: ${dbError.code})`);
+                setIsLoading(false);
+                return;
+            }
+
+            if (!data) {
+                setError('No user found with that username');
                 setIsLoading(false);
                 return;
             }
 
             // Check password
+            console.log('Checking password match...');
+            console.log('Stored hash:', JSON.stringify(data.password_hash));
+            console.log('Entered pw:', JSON.stringify(password));
             if (data.password_hash === password || data.pin === password) {
                 // Load user's outlets
                 const { data: outletLinks } = await supabase
@@ -149,11 +160,11 @@ export default function LoginPage() {
                     completeLogin(data, outlet.outlet_id, outlet.outlet_name);
                 }
             } else {
-                setError('Invalid username or password');
+                setError(`Password mismatch. DB has ${data.password_hash?.length} chars, you entered ${password.length} chars`);
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error('Login error:', err);
-            setError('Connection error. Please try again.');
+            setError(`Error: ${err?.message || JSON.stringify(err)}`);
         }
 
         setIsLoading(false);
