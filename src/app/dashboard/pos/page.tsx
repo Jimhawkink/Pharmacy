@@ -1,3 +1,4 @@
+// Pharmacy POS v2.1 — 23 Mar 2026
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, completeSaleTransaction, getNextReceiptNumber } from '@/lib/supabase';
