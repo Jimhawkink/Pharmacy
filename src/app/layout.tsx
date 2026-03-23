@@ -6,8 +6,8 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-    title: 'Alpha Plus Retail System',
-    description: 'Professional Retail Management System',
+    title: 'Alpha Retail Pharmacy Management System',
+    description: 'Professional Pharmacy Management & POS System',
 };
 
 export default function RootLayout({
