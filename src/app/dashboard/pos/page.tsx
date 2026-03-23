@@ -270,9 +270,8 @@ export default function PharmacyPOS() {
         try {
             const user = JSON.parse(localStorage.getItem('user') || '{}');
             const { data: shift, error } = await supabase.from('pharmacy_shift_instances').insert({
-                shift_date: new Date().toISOString().split('T')[0], shift_type: 'Day',
-                start_time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-                opening_cash: amt, shift_status: 'Open', opened_by: user.name || 'Pharmacist', outlet_id: outletId,
+                shift_date: new Date().toISOString().split('T')[0],
+                opening_cash: amt, shift_status: 'Open', opened_by: user.name || 'Pharmacist', created_by: user.name || 'Pharmacist', outlet_id: outletId,
             }).select('shift_instance_id').single();
             if (error) throw error;
             setCurrentShiftId(shift.shift_instance_id); setRegisterOpen(true);
@@ -305,9 +304,10 @@ export default function PharmacyPOS() {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         if (currentShiftId) {
             await supabase.from('pharmacy_shift_instances').update({
-                end_time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-                closing_cash: closeData?.totalCash || 0, total_sales: closeData?.totalSales || 0,
+                actual_end_time: new Date().toISOString(),
+                closing_cash: closeData?.totalCash || 0,
                 shift_status: 'Closed', closed_by: user.name || 'Pharmacist',
+                closed_date: new Date().toISOString(),
             }).eq('shift_instance_id', currentShiftId);
         }
         setRegisterOpen(false); setCurrentShiftId(null); setShowCloseReg(false); setCloseData(null);
