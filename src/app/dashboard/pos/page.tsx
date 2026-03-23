@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, completeSaleTransaction, getNextReceiptNumber } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
@@ -30,49 +30,36 @@ interface CreditCustomer {
 const getDaysUntil = (d: string) => Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
 const getExpiryColor = (d: number) => d < 0 ? 'bg-red-500 text-white' : d <= 30 ? 'bg-orange-100 text-orange-700' : d <= 90 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700';
 
-const CapsuleSvg = () => (
-    <svg viewBox="0 0 100 100" className="h-[80px] w-[80px]">
-        <rect x="20" y="30" width="60" height="40" rx="20" fill="#14b8a6" opacity="0.2"/>
-        <rect x="20" y="30" width="30" height="40" rx="20" fill="#14b8a6" opacity="0.6"/>
-        <rect x="50" y="30" width="30" height="40" rx="20" fill="#0d9488" opacity="0.9"/>
-        <ellipse cx="35" cy="50" rx="5" ry="8" fill="white" opacity="0.3"/>
-    </svg>
-);
-
 const MPESA_API_URL = 'https://enlqpifpxuecxxozyiak.supabase.co/functions/v1';
 const MPESA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVubHFwaWZweHVlY3h4b3p5aWFrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYwMjUzNjgsImV4cCI6MjA4MTYwMTM2OH0.-z3-2Mf3SkkZR3ZryOGyG-60jWERX9YLKIee048OziE';
 const fmtPhone = (p: string) => { let c = p.replace(/[\s+\-]/g, ''); if (c.startsWith('0')) c = '254' + c.substring(1); else if (!c.startsWith('254')) c = '254' + c; return c; };
 const validPhone = (p: string) => /^(07\d{8}|01\d{8}|254\d{9})$/.test(p.replace(/[\s+\-]/g, ''));
 
-//  PRODUCT CARD  exact same as retail but with batch info 
+// Product Card - Fixed Height, Compact Design (EXACT retail copy)
 const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }) => (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow h-[240px] flex flex-col" title={product.name}>
-        <div className="h-[110px] bg-gray-50 flex items-center justify-center flex-shrink-0 relative">
-            <CapsuleSvg />
-            {product.requires_prescription && (
-                <span className="absolute top-1 left-1 px-1.5 py-0.5 bg-red-500 text-white text-[8px] font-black rounded"> Rx</span>
+        {/* Image - Fixed 110px */}
+        <div className="h-[110px] bg-gray-50 flex items-center justify-center flex-shrink-0">
+            {product.imageUrl ? (
+                <img src={product.imageUrl} alt={product.name} className="max-h-[100px] max-w-[100px] object-contain" onError={(e) => { (e.target as HTMLImageElement).src = '/no-image.png'; }} />
+            ) : (
+                <img src="/no-image.png" alt="No image" className="h-[100px] w-[100px] object-contain" />
             )}
         </div>
+        {/* Content */}
         <div className="flex-1 p-2 flex flex-col">
-            <h3 className="text-[12px] font-medium text-gray-800 line-clamp-1">{product.name}</h3>
-            <p className="text-[9px] text-gray-400 truncate">SKU: {product.barcode || product.id}</p>
-            <div className="h-[18px] flex items-center gap-1">
+            <h3 className="text-[12px] font-medium text-gray-800 line-clamp-1 cursor-default" title={product.name}>{product.name}</h3>
+            <p className="text-[9px] text-gray-400 truncate" title={`SKU: ${product.barcode || product.id}`}>SKU: {product.barcode || product.id}</p>
+            <div className="h-[18px] flex items-center">
                 <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[8px]">{product.category || 'General'}</span>
             </div>
             <div className="flex-1"></div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-2">
                 <span className="text-[15px] font-bold text-gray-900">Ksh {product.salesPrice.toLocaleString()}</span>
                 <div className="flex flex-col gap-0.5">
-                    {product.batches.slice(0, 2).map((b, i) => (
-                        <span key={i} className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${getExpiryColor(b.days)}`}>
-                             {b.batch_number} {b.qty}u {b.days < 0 ? 'EXP' : b.days + 'd'}
-                        </span>
-                    ))}
-                    {product.batches.length === 0 && (
-                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${product.availableQty > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                             {product.availableQty} {product.salesUnit}
-                        </span>
-                    )}
+                    <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${product.availableQty > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                        🔢 {product.availableQty} {product.salesUnit}
+                    </span>
                 </div>
             </div>
             <button onClick={(e) => { e.stopPropagation(); if (product.availableQty > 0) onAdd(); }} disabled={product.availableQty === 0}
@@ -556,6 +543,7 @@ export default function PharmacyPOS() {
                                 </button>
                             ))}
                         </div>
+                        <button onClick={() => setShowBatchModal(false)} className="w-full mt-4 py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50 transition-colors">Cancel</button>
                     </div>
                 </div>
             )}
