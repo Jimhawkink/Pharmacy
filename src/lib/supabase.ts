@@ -244,25 +244,27 @@ export async function completeSaleTransaction(sale: {
 
     // 4. Handle credit sale
     if (sale.paymentMethod === 'CREDIT' && sale.customerName) {
-        await supabase.rpc('increment_credit_balance', {
-            p_customer_name: sale.customerName,
-            p_amount: sale.total,
-        }).then(() => {}).catch(() => {
+        try {
+            await supabase.rpc('increment_credit_balance', {
+                p_customer_name: sale.customerName,
+                p_amount: sale.total,
+            });
+        } catch {
             // Fallback: manual update
-            supabase
-                .from('pharmacy_credit_customers')
-                .select('customer_id, current_balance')
-                .eq('customer_name', sale.customerName)
-                .single()
-                .then(({ data: cust }) => {
-                    if (cust) {
-                        supabase
-                            .from('pharmacy_credit_customers')
-                            .update({ current_balance: (cust.current_balance || 0) + sale.total })
-                            .eq('customer_id', cust.customer_id);
-                    }
-                });
-        });
+            try {
+                const { data: cust } = await supabase
+                    .from('pharmacy_credit_customers')
+                    .select('customer_id, current_balance')
+                    .eq('customer_name', sale.customerName as string)
+                    .single();
+                if (cust) {
+                    await supabase
+                        .from('pharmacy_credit_customers')
+                        .update({ current_balance: (cust.current_balance || 0) + sale.total })
+                        .eq('customer_id', cust.customer_id);
+                }
+            } catch { /* silent fallback */ }
+        }
     }
 
     return saleRecord;
