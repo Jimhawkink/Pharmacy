@@ -67,3 +67,8 @@ CREATE POLICY "Allow all access to pharmacy_users" ON public.pharmacy_users FOR 
 ALTER TABLE public.pharmacy_user_outlets ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow all access to pharmacy_user_outlets" ON public.pharmacy_user_outlets;
 CREATE POLICY "Allow all access to pharmacy_user_outlets" ON public.pharmacy_user_outlets FOR ALL USING (true) WITH CHECK (true);
+
+-- CRITICAL: Grant permissions to anon and authenticated roles
+GRANT ALL ON public.pharmacy_users TO anon, authenticated;
+GRANT ALL ON public.pharmacy_user_outlets TO anon, authenticated;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
