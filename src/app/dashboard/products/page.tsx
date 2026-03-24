@@ -573,7 +573,14 @@ export default function ProductsPage() {
                                                                 <span className="text-xs text-gray-400 ml-1">(Ksh {bProfit.toLocaleString()})</span>
                                                             </td>
                                                             <td className="px-3 py-2">
-                                                                {!b.batch_id && <button onClick={() => removeBatch(idx)} className="p-1 hover:bg-red-100 rounded text-red-400">🗑️</button>}
+                                                                <button onClick={async () => {
+                                                                    if (b.batch_id) {
+                                                                        if (!confirm('Delete this saved batch? Stock will no longer be tracked for it.')) return;
+                                                                        await supabase.from('pharmacy_batches').update({ status: 'Deleted' }).eq('batch_id', b.batch_id);
+                                                                        toast.success('Batch deleted');
+                                                                    }
+                                                                    removeBatch(idx);
+                                                                }} className="p-1 hover:bg-red-100 rounded text-red-400" title="Delete batch">🗑️</button>
                                                             </td>
                                                         </tr>
                                                     );

@@ -1,0 +1,86 @@
+﻿   Γû▓ Next.js 14.0.4
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/56) ...
+
+   Generating static pages (14/56) 
+
+   Generating static pages (28/56) 
+
+   Generating static pages (42/56) 
+
+ Γ£ô Generating static pages (56/56) 
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+Γöî Γùï /                                    9.5 kB          142 kB
+Γö£ Γùï /_not-found                          872 B          82.8 kB
+Γö£ Γùï /dashboard                           77.6 kB         210 kB
+Γö£ Γùï /dashboard/activity-log              9.26 kB         141 kB
+Γö£ Γùï /dashboard/advances                  9.97 kB         142 kB
+Γö£ Γùï /dashboard/batches                   8.82 kB         141 kB
+Γö£ Γùï /dashboard/bill-payment              12.9 kB         145 kB
+Γö£ Γùï /dashboard/bills                     11.3 kB         144 kB
+Γö£ Γùï /dashboard/butchery                  8.34 kB         147 kB
+Γö£ Γùï /dashboard/butchery/batches          9.52 kB         148 kB
+Γö£ Γùï /dashboard/butchery/meat-types       8.35 kB         147 kB
+Γö£ Γùï /dashboard/butchery/pos              11.5 kB         150 kB
+Γö£ Γùï /dashboard/butchery/sales-report     8.85 kB         148 kB
+Γö£ Γùï /dashboard/butchery/stock            8.85 kB         148 kB
+Γö£ Γùï /dashboard/butchery/weight-loss      9.29 kB         148 kB
+Γö£ Γùï /dashboard/categories                8.88 kB         141 kB
+Γö£ Γùï /dashboard/company                   10.4 kB         143 kB
+Γö£ Γùï /dashboard/credit-customers          6.07 kB         146 kB
+Γö£ Γùï /dashboard/credit-payments           6.46 kB         146 kB
+Γö£ Γùï /dashboard/dish-movement             9.81 kB         142 kB
+Γö£ Γùï /dashboard/expenses                  8.45 kB         141 kB
+Γö£ Γùï /dashboard/expiry-register           10.2 kB         142 kB
+Γö£ Γùï /dashboard/food-notes                9.27 kB         141 kB
+Γö£ Γùï /dashboard/ingredients               9.91 kB         142 kB
+Γö£ Γùï /dashboard/low-stock                 7.49 kB         140 kB
+Γö£ Γùï /dashboard/outlets                   6.04 kB         146 kB
+Γö£ Γùï /dashboard/payroll                   12.3 kB         144 kB
+Γö£ Γùï /dashboard/pos                       11 kB           143 kB
+Γö£ Γùï /dashboard/products                  12.1 kB         144 kB
+Γö£ ╬╗ /dashboard/products/lookup/[pid]     9.03 kB         148 kB
+Γö£ Γùï /dashboard/purchase                  9.28 kB         149 kB
+Γö£ Γùï /dashboard/purchase-return           8.07 kB         140 kB
+Γö£ Γùï /dashboard/purchases                 8.37 kB         148 kB
+Γö£ Γùï /dashboard/recipe                    10.8 kB         143 kB
+Γö£ Γùï /dashboard/reports/balance-sheet     9.74 kB         142 kB
+Γö£ Γùï /dashboard/reports/cash-book         10.4 kB         143 kB
+Γö£ Γùï /dashboard/reports/mpesa             10.4 kB         143 kB
+Γö£ Γùï /dashboard/reports/profit            10.5 kB         143 kB
+Γö£ Γùï /dashboard/reports/profit-loss       10.6 kB         143 kB
+Γö£ Γùï /dashboard/reports/sales             11.3 kB         143 kB
+Γö£ Γùï /dashboard/reports/stock             10.3 kB         142 kB
+Γö£ Γùï /dashboard/reports/trial-balance     10.3 kB         142 kB
+Γö£ Γùï /dashboard/sales                     10.5 kB         143 kB
+Γö£ Γùï /dashboard/sales-return              8.02 kB         140 kB
+Γö£ Γùï /dashboard/shift-reports             10 kB           142 kB
+Γö£ Γùï /dashboard/shifts                    12 kB           144 kB
+Γö£ Γùï /dashboard/stock-movement            9.77 kB         142 kB
+Γö£ Γùï /dashboard/stock-transfer            5.81 kB         146 kB
+Γö£ Γùï /dashboard/suppliers                 10.1 kB         142 kB
+Γö£ Γùï /dashboard/tables-rooms              9.83 kB         142 kB
+Γö£ Γùï /dashboard/tax-settings              9.51 kB         142 kB
+Γö£ Γùï /dashboard/units                     8.9 kB          141 kB
+Γö£ Γùï /dashboard/user-roles                9.75 kB         142 kB
+Γö£ Γùï /dashboard/users                     10.2 kB         142 kB
+Γö£ Γùï /dashboard/vouchers                  7.98 kB         140 kB
+Γöö ╬╗ /verify/[receiptNo]                  2.78 kB         135 kB
++ First Load JS shared by all            81.9 kB
+  Γö£ chunks/4938-c066d4e083f5c041.js      26.7 kB
+  Γö£ chunks/fd9d1056-72a1252325dac211.js  53.3 kB
+  Γö£ chunks/main-app-52a7aad59e2b3f45.js  223 B
+  Γöö chunks/webpack-d24f681230a62f59.js   1.74 kB
+
+
+Γùï  (Static)   prerendered as static content
+╬╗  (Dynamic)  server-rendered on demand using Node.js
+

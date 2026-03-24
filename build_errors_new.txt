@@ -1,0 +1,67 @@
+﻿   Γû▓ Next.js 14.0.4
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully
+   Linting and checking validity of types ...
+node.exe : Failed to 
+compile.
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~
+~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (Failed to com   
+ pile.:String) [],     
+RemoteException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+
+./src/lib/supabase.ts:2
+50:27
+Type error: Property 
+'catch' does not exist 
+on type 
+'PromiseLike<void>'.
+
+[0m [90m 248 |[39m  
+           p_customer_n
+ame[33m:[39m sale[33
+m.[39mcustomerName[33
+m,[39m[0m
+[0m [90m 249 |[39m  
+           
+p_amount[33m:[39m sal
+e[33m.[39mtotal[33m,
+[39m[0m
+[0m[31m[1m>[22m[39
+m[90m 250 |[39m      
+   
+})[33m.[39mthen(() 
+[33m=>[39m {})[33m.
+[39m[36mcatch[39m(() 
+[33m=>[39m {[0m
+[0m [90m     |[39m  
+                       
+  [31m[1m^[22m[39m
+[0m
+[0m [90m 251 |[39m  
+           [90m// 
+Fallback: manual 
+update[39m[0m
+[0m [90m 252 |[39m  
+           supabase[0m
+[0m [90m 253 |[39m  
+               [33m.[
+39m[36mfrom[39m([32m
+'pharmacy_credit_custom
+ers'[39m)[0m

@@ -1,4 +1,3 @@
-// Pharmacy POS v2.1 — 23 Mar 2026
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, completeSaleTransaction, getNextReceiptNumber } from '@/lib/supabase';
@@ -153,18 +152,18 @@ export default function PharmacyPOS() {
     const [mpesaReceipt, setMpesaReceipt] = useState('');
     const [payCustomerName, setPayCustomerName] = useState('');
     const [creditSearchPay, setCreditSearchPay] = useState('');
-    const [stkStatus, setStkStatus] = useState<'idle'|'sending'|'waiting'|'success'|'failed'>('idle');
+    const [stkStatus, setStkStatus] = useState<'idle' | 'sending' | 'waiting' | 'success' | 'failed'>('idle');
     const [stkMsg, setStkMsg] = useState('');
     const [checkoutId, setCheckoutId] = useState('');
     const pollRef = useRef<NodeJS.Timeout | null>(null);
     const doneRef = useRef(false);
     const searchRef = useRef<HTMLInputElement>(null);
 
-    const canDiscount = ['Admin','SuperAdmin','Super User','admin','superadmin'].includes(userRole);
+    const canDiscount = ['Admin', 'SuperAdmin', 'Super User', 'admin', 'superadmin'].includes(userRole);
 
     const toggleFullscreen = () => {
-        if (!document.fullscreenElement) document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
-        else document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => { });
+        else document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => { });
     };
 
     const loadData = useCallback(async () => {
@@ -245,7 +244,8 @@ export default function PharmacyPOS() {
         const existing = cart.findIndex(c => c.id === product.id && c.batchId === bId);
         if (existing >= 0) { setCart(prev => prev.map((c, i) => i === existing ? { ...c, qty: c.qty + 1 } : c)); }
         else {
-            setCart(prev => [...prev, { ...product, qty: 1, discount: 0, effectivePrice: price,
+            setCart(prev => [...prev, {
+                ...product, qty: 1, discount: 0, effectivePrice: price,
                 batchId: bId, batchNumber: batch?.batch_number || '', expiryDate: batch?.expiry_date || '',
                 daysUntilExpiry: batch?.expiry_date ? getDaysUntil(batch.expiry_date) : 999, sellingUnit: product.salesUnit,
             }]);
@@ -270,8 +270,9 @@ export default function PharmacyPOS() {
         try {
             const user = JSON.parse(localStorage.getItem('user') || '{}');
             const { data: shift, error } = await supabase.from('pharmacy_shift_instances').insert({
-                shift_date: new Date().toISOString().split('T')[0],
-                opening_cash: amt, shift_status: 'Open', opened_by: user.name || 'Pharmacist', created_by: user.name || 'Pharmacist', outlet_id: outletId,
+                shift_date: new Date().toISOString().split('T')[0], shift_type: 'Day',
+                start_time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+                opening_cash: amt, shift_status: 'Open', opened_by: user.name || 'Pharmacist', outlet_id: outletId,
             }).select('shift_instance_id').single();
             if (error) throw error;
             setCurrentShiftId(shift.shift_instance_id); setRegisterOpen(true);
@@ -294,20 +295,109 @@ export default function PharmacyPOS() {
             const totalMpesa = sales.filter((r: any) => (r.payment_method || '').toLowerCase().includes('mpesa')).reduce((s: number, r: any) => s + (r.total || 0), 0);
             const totalCredit = sales.filter((r: any) => (r.payment_method || '').toLowerCase().includes('credit')).reduce((s: number, r: any) => s + (r.total || 0), 0);
             const totalExp = (expData || []).reduce((s: number, e: any) => s + (e.amount || 0), 0);
-            setCloseData({ totalSales, totalCash, totalMpesa, totalCredit, totalExpenses: totalExp, openingCash: oCash, netSales: totalSales - totalExp - totalCredit, orderCount: sales.length });
+            // Calculate profit (revenue - purchase cost)
+            const saleIds = sales.map((s: any) => s.sale_id);
+            let totalCostPrice = 0;
+            if (saleIds.length > 0) {
+                const { data: itemsData } = await supabase.from('pharmacy_sales_items').select('quantity, purchase_price').in('sale_id', saleIds);
+                totalCostPrice = (itemsData || []).reduce((sum: number, item: any) => sum + ((item.purchase_price || 0) * (item.quantity || 0)), 0);
+            }
+            const profit = totalSales - totalCostPrice;
+            setCloseData({ totalSales, totalCash, totalMpesa, totalCredit, totalExpenses: totalExp, openingCash: oCash, netSales: totalSales - totalExp - totalCredit, orderCount: sales.length, profit });
             setShowCloseReg(true);
         } catch (err: any) { toast.error('Failed: ' + err.message); }
         setLoadingReg(false);
+    };
+
+    // Print Close Register Report on 80mm thermal — exact Alpha Retail format
+    const printCloseRegisterReport = () => {
+        if (!closeData) return;
+        const d = closeData;
+        const now = new Date();
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Close Register</title>
+<style>
+  @page{margin:0;size:80mm auto;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:Arial,sans-serif;font-size:11px;font-weight:700;width:80mm;padding:4mm;background:#fff;color:#000;line-height:1.4;}
+  .c{text-align:center;}
+  .r{display:flex;justify-content:space-between;padding:3px 0;border-bottom:0.5px dashed #ccc;}
+  .d{border:none;border-top:1px solid #000;margin:4px 0;}
+  .dd{border:none;border-top:1px dashed #000;margin:3px 0;}
+  .big{font-size:14px;font-weight:900;}
+  @media print{body{width:80mm;}}
+</style></head><body>
+  <div class="c">
+    <div style="font-size:14px;font-weight:900;text-transform:uppercase;">${storeName}</div>
+    <div style="font-size:9px;margin:2px 0;">Close Register Report</div>
+  </div>
+  <hr class="d">
+  <div class="c" style="margin:4px 0;">
+    <div style="background:#000;color:#fff;padding:4px 12px;display:inline-block;font-size:11px;font-weight:900;letter-spacing:1px;">END OF DAY REPORT</div>
+  </div>
+  <hr class="dd">
+  <div class="r"><span style="font-size:9px;">Date</span><span style="font-size:10px;">${now.toLocaleDateString('en-GB')}</span></div>
+  <div class="r"><span style="font-size:9px;">Time</span><span style="font-size:10px;">${now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span></div>
+  <div class="r"><span style="font-size:9px;">Total Orders</span><span style="font-size:10px;">${d.orderCount}</span></div>
+  <hr class="d">
+  <div class="c" style="font-size:9px;font-weight:900;letter-spacing:1px;margin:3px 0;">SALES BREAKDOWN</div>
+  <div class="r"><span>💵 Cash Sales</span><span class="big">Ksh ${d.totalCash.toLocaleString()}</span></div>
+  <div class="r"><span>📱 M-Pesa Sales</span><span class="big">Ksh ${d.totalMpesa.toLocaleString()}</span></div>
+  <div class="r"><span>📋 Credit Sales</span><span class="big">Ksh ${d.totalCredit.toLocaleString()}</span></div>
+  <hr class="dd">
+  <div style="background:#000;color:#fff;padding:5px 8px;margin:4px 0;display:flex;justify-content:space-between;">
+    <span style="font-size:11px;font-weight:900;">TOTAL SALES</span>
+    <span style="font-size:14px;font-weight:900;">Ksh ${d.totalSales.toLocaleString()}</span>
+  </div>
+  <hr class="d">
+  <div class="c" style="font-size:9px;font-weight:900;letter-spacing:1px;margin:3px 0;">DEDUCTIONS</div>
+  <div class="r"><span>💰 Total Expenses</span><span style="color:#c00;" class="big">Ksh ${d.totalExpenses.toLocaleString()}</span></div>
+  <div class="r"><span>📋 Total Credit</span><span style="color:#c00;" class="big">Ksh ${d.totalCredit.toLocaleString()}</span></div>
+  <hr class="d">
+  <div class="c" style="font-size:9px;font-weight:900;letter-spacing:1px;margin:3px 0;">CASH SUMMARY</div>
+  <div class="r"><span>🟢 Opening Cash</span><span class="big">Ksh ${d.openingCash.toLocaleString()}</span></div>
+  <div class="r"><span>💵 Cash Sales</span><span class="big">Ksh ${d.totalCash.toLocaleString()}</span></div>
+  <div class="r"><span>🔴 Expenses</span><span style="color:#c00;" class="big">-Ksh ${d.totalExpenses.toLocaleString()}</span></div>
+  <hr class="dd">
+  <div style="background:#000;color:#fff;padding:6px 8px;margin:4px 0;display:flex;justify-content:space-between;">
+    <span style="font-size:12px;font-weight:900;">NET SALES</span>
+    <span style="font-size:16px;font-weight:900;">Ksh ${d.netSales.toLocaleString()}</span>
+  </div>
+  <div style="background:#000;color:#fff;padding:5px 8px;margin:2px 0;display:flex;justify-content:space-between;">
+    <span style="font-size:10px;font-weight:900;">EXPECTED IN DRAWER</span>
+    <span style="font-size:13px;font-weight:900;">Ksh ${(d.openingCash + d.totalCash - d.totalExpenses).toLocaleString()}</span>
+  </div>
+  <div style="background:#000;color:#fff;padding:6px 8px;margin:4px 0;display:flex;justify-content:space-between;">
+    <span style="font-size:12px;font-weight:900;">📈 PROFIT</span>
+    <span style="font-size:16px;font-weight:900;">Ksh ${(d.profit || 0).toLocaleString()}</span>
+  </div>
+  <hr class="d">
+  <div class="c" style="padding:4px 0;">
+    <div style="font-size:8px;">Printed: ${now.toLocaleDateString('en-GB')} ${now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+    <div style="font-size:7px;margin-top:2px;color:#666;">Powered by Alpha Pharmacy POS</div>
+  </div>
+</body></html>`;
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;visibility:hidden;';
+        document.body.appendChild(iframe);
+        const doc = iframe.contentWindow?.document;
+        if (doc) {
+            doc.open(); doc.write(html); doc.close();
+            iframe.onload = () => {
+                setTimeout(() => {
+                    try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch (e) { console.error(e); }
+                    setTimeout(() => document.body.removeChild(iframe), 1000);
+                }, 300);
+            };
+        }
     };
 
     const finalizeClose = async () => {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
         if (currentShiftId) {
             await supabase.from('pharmacy_shift_instances').update({
-                actual_end_time: new Date().toISOString(),
-                closing_cash: closeData?.totalCash || 0,
+                end_time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+                closing_cash: closeData?.totalCash || 0, total_sales: closeData?.totalSales || 0,
                 shift_status: 'Closed', closed_by: user.name || 'Pharmacist',
-                closed_date: new Date().toISOString(),
             }).eq('shift_instance_id', currentShiftId);
         }
         setRegisterOpen(false); setCurrentShiftId(null); setShowCloseReg(false); setCloseData(null);
@@ -316,10 +406,73 @@ export default function PharmacyPOS() {
 
     const resetStk = () => { if (pollRef.current) clearInterval(pollRef.current); setStkStatus('idle'); setStkMsg(''); setCheckoutId(''); doneRef.current = false; };
 
+    // Print sale receipt on 80mm thermal
+    const printSaleReceipt = (receiptNumber: string, method: string, paid: number, changeAmt: number, custName?: string, mpesaCode?: string, custPhone?: string) => {
+        const now = new Date();
+        const itemsHtml = cart.map(c => {
+            const lineTotal = (c.effectivePrice * c.qty) - c.discount;
+            return `<div class="r"><span style="flex:2;">${c.name}${c.batchNumber ? ` [${c.batchNumber}]` : ''}${c.prescriptionNote ? '<br><span style="font-size:8px;color:#666;">℞ ' + c.prescriptionNote + '</span>' : ''}</span><span style="flex:0.5;text-align:center;">${c.qty}</span><span style="flex:1;text-align:right;">${c.effectivePrice.toLocaleString()}</span><span style="flex:1;text-align:right;font-weight:900;">${lineTotal.toLocaleString()}</span></div>`;
+        }).join('');
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Receipt</title>
+<style>
+  @page{margin:0;size:80mm auto;}
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:Arial,sans-serif;font-size:11px;font-weight:700;width:80mm;padding:4mm;background:#fff;color:#000;line-height:1.4;}
+  .c{text-align:center;}
+  .r{display:flex;padding:2px 0;border-bottom:0.5px dashed #eee;gap:4px;}
+  .d{border:none;border-top:1px solid #000;margin:4px 0;}
+  .dd{border:none;border-top:1px dashed #000;margin:3px 0;}
+  @media print{body{width:80mm;}}
+</style></head><body>
+  <div class="c">
+    <div style="font-size:14px;font-weight:900;text-transform:uppercase;">${storeName}</div>
+    <div style="font-size:9px;margin:2px 0;">Thank you for your purchase!</div>
+  </div>
+  <hr class="d">
+  <div class="r"><span>Receipt:</span><span style="font-weight:900;">${receiptNumber}</span></div>
+  <div class="r"><span>Date:</span><span>${now.toLocaleDateString('en-GB')} ${now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span></div>
+  ${custName ? `<div class="r"><span>Customer:</span><span>${custName}</span></div>` : ''}
+  ${custPhone ? `<div class="r"><span>Phone:</span><span>${custPhone}</span></div>` : ''}
+  <hr class="d">
+  <div class="r" style="font-weight:900;font-size:10px;"><span style="flex:2;">ITEM</span><span style="flex:0.5;text-align:center;">QTY</span><span style="flex:1;text-align:right;">PRICE</span><span style="flex:1;text-align:right;">TOTAL</span></div>
+  <hr class="dd">
+  ${itemsHtml}
+  <hr class="d">
+  <div class="r"><span>Subtotal:</span><span style="font-weight:900;">Ksh ${subtotal.toLocaleString()}</span></div>
+  ${totalDiscount > 0 ? `<div class="r"><span>Discount:</span><span style="color:#c00;">-Ksh ${totalDiscount.toLocaleString()}</span></div>` : ''}
+  <div style="background:#000;color:#fff;padding:5px 8px;margin:4px 0;display:flex;justify-content:space-between;">
+    <span style="font-size:12px;font-weight:900;">TOTAL</span>
+    <span style="font-size:16px;font-weight:900;">Ksh ${grandTotal.toLocaleString()}</span>
+  </div>
+  <div class="r"><span>Payment:</span><span style="font-weight:900;">${method}</span></div>
+  <div class="r"><span>Paid:</span><span>Ksh ${paid.toLocaleString()}</span></div>
+  ${changeAmt > 0 ? `<div class="r"><span>Change:</span><span style="font-weight:900;">Ksh ${changeAmt.toLocaleString()}</span></div>` : ''}
+  ${mpesaCode ? `<div class="r"><span>M-Pesa Ref:</span><span style="font-weight:900;">${mpesaCode}</span></div>` : ''}
+  <hr class="d">
+  <div class="c" style="padding:4px 0;">
+    <div style="font-size:8px;">Served by: ${JSON.parse(localStorage.getItem('user') || '{}').name || 'Pharmacist'}</div>
+    <div style="font-size:7px;margin-top:2px;color:#666;">Powered by Alpha Pharmacy POS</div>
+  </div>
+</body></html>`;
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;visibility:hidden;';
+        document.body.appendChild(iframe);
+        const doc = iframe.contentWindow?.document;
+        if (doc) {
+            doc.open(); doc.write(html); doc.close();
+            iframe.onload = () => {
+                setTimeout(() => {
+                    try { iframe.contentWindow?.focus(); iframe.contentWindow?.print(); } catch (e) { console.error(e); }
+                    setTimeout(() => document.body.removeChild(iframe), 1000);
+                }, 300);
+            };
+        }
+    };
+
     const completeSale = async (method: string, paid: number, receipt?: string, custName?: string, cId?: string, cPhone?: string) => {
         try {
             const user = JSON.parse(localStorage.getItem('user') || '{}');
-            await completeSaleTransaction({
+            const saleResult = await completeSaleTransaction({
                 receiptNo, subtotal, discount: totalDiscount, tax: 0, total: grandTotal,
                 paymentMethod: method, amountPaid: paid, change: Math.max(0, paid - grandTotal),
                 cashierName: user.name || 'Pharmacist', customerName: selectedCustomer?.customer_name || custName,
@@ -329,18 +482,25 @@ export default function PharmacyPOS() {
                     productId: c.id, productName: c.name, qty: c.qty, price: c.effectivePrice,
                     purchasePrice: c.costPrice, discount: c.discount,
                     batchId: c.batchId || undefined, batchNumber: c.batchNumber || undefined,
-                    expiryDate: c.expiryDate || undefined, prescriptionNote: c.prescriptionNote || undefined,
+                    expiryDate: c.expiryDate || undefined, notes: c.prescriptionNote || undefined,
                 })),
             });
             if (method === 'CREDIT' && selectedCustomer) {
                 const nb = (selectedCustomer.current_balance || 0) + grandTotal;
                 await supabase.from('pharmacy_credit_customers').update({ current_balance: nb }).eq('customer_id', selectedCustomer.customer_id);
             }
+            // Auto-print receipt
+            try {
+                printSaleReceipt(receiptNo, method, paid, Math.max(0, paid - grandTotal), selectedCustomer?.customer_name || custName, receipt, cPhone);
+            } catch (printErr) { console.error('Receipt print error:', printErr); }
             toast.success(`Sale ${receiptNo} completed!`);
             setCart([]); setShowPayment(false); setSelectedCustomer(null); setCustomerSearch('');
             resetStk(); setPayMethod('cash'); setAmountPaid(''); setMpesaPhone(''); setMpesaReceipt(''); setPayCustomerName(''); setCreditSearchPay('');
             const rn = await getNextReceiptNumber(outletId); setReceiptNo(rn); loadData(); loadCreditCustomers();
-        } catch (err: any) { toast.error(err.message || 'Sale failed'); }
+        } catch (err: any) {
+            console.error('Sale error:', err);
+            toast.error(`Sale failed: ${err?.message || err?.details || 'Unknown error'}`);
+        }
     };
 
     const handleSTK = async () => {
@@ -371,7 +531,7 @@ export default function PharmacyPOS() {
                             if (pollRef.current) clearInterval(pollRef.current);
                             setStkStatus('failed'); setStkMsg('Payment failed');
                         } else if (attempts >= 24) { if (pollRef.current) clearInterval(pollRef.current); setStkStatus('failed'); setStkMsg('Timeout'); }
-                    } catch {}
+                    } catch { }
                 }, 5000);
             } else { setStkStatus('failed'); setStkMsg(data.error || 'Failed'); }
         } catch (err: any) { setStkStatus('failed'); setStkMsg(err.message); }
@@ -566,7 +726,7 @@ export default function PharmacyPOS() {
                             <p className="text-sm opacity-90">Total Amount</p><p className="text-4xl font-bold">Ksh {grandTotal.toLocaleString()}</p>
                         </div>
                         <div className="grid grid-cols-4 gap-2 mb-6">
-                            {[{id:'cash',icon:'',label:'Cash'},{id:'mpesa',icon:'',label:'M-Pesa'},{id:'card',icon:'',label:'Card'},{id:'credit',icon:'',label:'Credit'}].map(m => (
+                            {[{ id: 'cash', icon: '', label: 'Cash' }, { id: 'mpesa', icon: '', label: 'M-Pesa' }, { id: 'card', icon: '', label: 'Card' }, { id: 'credit', icon: '', label: 'Credit' }].map(m => (
                                 <button key={m.id} onClick={() => { setPayMethod(m.id); resetStk(); }}
                                     className={`p-3 rounded-xl border-2 transition-all ${payMethod === m.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-gray-50'}`}>
                                     <span className="text-2xl block mb-1">{m.icon}</span><span className="text-xs font-medium text-gray-600">{m.label}</span>
@@ -578,7 +738,7 @@ export default function PharmacyPOS() {
                                 <input type="number" value={amountPaid} onChange={e => setAmountPaid(e.target.value)} placeholder="Amount received..."
                                     className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl text-lg font-bold focus:border-blue-500 outline-none" />
                                 <div className="grid grid-cols-6 gap-2">
-                                    {[100,200,500,1000,2000,5000].map(a => <button key={a} onClick={() => setAmountPaid(a.toString())} className="py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium">{a.toLocaleString()}</button>)}
+                                    {[100, 200, 500, 1000, 2000, 5000].map(a => <button key={a} onClick={() => setAmountPaid(a.toString())} className="py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium">{a.toLocaleString()}</button>)}
                                 </div>
                                 <button onClick={() => setAmountPaid(grandTotal.toString())} className="w-full py-2 bg-blue-100 hover:bg-blue-200 rounded-xl text-blue-700 font-medium">Exact ({grandTotal.toLocaleString()})</button>
                                 <div className="flex justify-between p-4 bg-green-50 rounded-xl border border-green-200"><span className="text-green-700 font-medium">Change:</span><span className="text-2xl font-bold text-green-600">Ksh {change.toLocaleString()}</span></div>
@@ -587,15 +747,15 @@ export default function PharmacyPOS() {
                         )}
                         {payMethod === 'mpesa' && (
                             <div className="space-y-3 mb-6">
-                                <input type="tel" value={mpesaPhone} onChange={e => setMpesaPhone(e.target.value)} placeholder=" 07XX XXX XXX" disabled={stkStatus==='sending'||stkStatus==='waiting'}
+                                <input type="tel" value={mpesaPhone} onChange={e => setMpesaPhone(e.target.value)} placeholder=" 07XX XXX XXX" disabled={stkStatus === 'sending' || stkStatus === 'waiting'}
                                     className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl text-lg focus:border-green-500 outline-none" />
                                 {stkStatus !== 'idle' && (
-                                    <div className={`p-4 rounded-xl flex items-center gap-3 ${stkStatus==='sending'||stkStatus==='waiting' ? 'bg-blue-50 border border-blue-300' : stkStatus==='success' ? 'bg-green-50 border border-green-300' : 'bg-red-50 border border-red-300'}`}>
-                                        {(stkStatus==='sending'||stkStatus==='waiting') && <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>}
+                                    <div className={`p-4 rounded-xl flex items-center gap-3 ${stkStatus === 'sending' || stkStatus === 'waiting' ? 'bg-blue-50 border border-blue-300' : stkStatus === 'success' ? 'bg-green-50 border border-green-300' : 'bg-red-50 border border-red-300'}`}>
+                                        {(stkStatus === 'sending' || stkStatus === 'waiting') && <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin"></div>}
                                         <span className="font-medium text-sm">{stkMsg}</span>
                                     </div>
                                 )}
-                                {(stkStatus==='idle'||stkStatus==='failed') && <button onClick={handleSTK} className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-lg shadow-lg"> Send STK Push</button>}
+                                {(stkStatus === 'idle' || stkStatus === 'failed') && <button onClick={handleSTK} className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold text-lg shadow-lg"> Send STK Push</button>}
                                 <div className="pt-3 border-t"><p className="text-xs text-gray-500 mb-2 text-center"> OR enter receipt manually </p>
                                     <input type="text" value={mpesaReceipt} onChange={e => setMpesaReceipt(e.target.value.toUpperCase())} placeholder="M-Pesa Receipt e.g. RLJ5XXXXXX" className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl outline-none" />
                                 </div>
@@ -609,23 +769,23 @@ export default function PharmacyPOS() {
                                     {creditCustomers.filter(c => !creditSearchPay || c.customer_name?.toLowerCase().includes(creditSearchPay.toLowerCase())).map(c => (
                                         <button key={c.customer_id} onClick={() => { setSelectedCustomer(c); setPayCustomerName(c.customer_name); setCreditSearchPay(''); }}
                                             className={`w-full text-left px-4 py-3 border-b last:border-0 ${selectedCustomer?.customer_id === c.customer_id ? 'bg-blue-50 border-l-4 border-l-blue-500' : 'hover:bg-gray-50'}`}>
-                                            <p className="font-semibold text-sm">{c.customer_name}</p><p className="text-xs text-gray-500">Bal: Ksh {(c.current_balance||0).toLocaleString()}</p>
+                                            <p className="font-semibold text-sm">{c.customer_name}</p><p className="text-xs text-gray-500">Bal: Ksh {(c.current_balance || 0).toLocaleString()}</p>
                                         </button>
                                     ))}
                                 </div>
                             </div>
                         )}
                         <div className="flex gap-3">
-                            <button onClick={() => { setShowPayment(false); resetStk(); }} className="flex-1 py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50" disabled={stkStatus==='sending'||stkStatus==='waiting'}>Cancel</button>
+                            <button onClick={() => { setShowPayment(false); resetStk(); }} className="flex-1 py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50" disabled={stkStatus === 'sending' || stkStatus === 'waiting'}>Cancel</button>
                             {stkStatus !== 'waiting' && stkStatus !== 'sending' && (
                                 <button onClick={() => {
-                                    if (payMethod==='credit' && !selectedCustomer) { toast.error('Select credit customer'); return; }
-                                    if (payMethod==='cash' && Number(amountPaid)<grandTotal) { toast.error('Insufficient amount'); return; }
-                                    if (payMethod==='mpesa' && !mpesaReceipt && stkStatus!=='success') { toast.error('Complete M-Pesa first'); return; }
-                                    completeSale(payMethod==='mpesa'?'MPESA':payMethod.toUpperCase(), payMethod==='cash'?Number(amountPaid):grandTotal, mpesaReceipt, selectedCustomer?.customer_name||payCustomerName, checkoutId, mpesaPhone);
-                                }} disabled={(payMethod==='mpesa'&&!mpesaReceipt&&stkStatus!=='success')||(payMethod==='credit'&&!selectedCustomer)}
-                                    className={`flex-1 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 ${(payMethod==='mpesa'&&!mpesaReceipt&&stkStatus!=='success')||(payMethod==='credit'&&!selectedCustomer)?'bg-gray-300 text-gray-500':'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg'}`}>
-                                     Complete Sale
+                                    if (payMethod === 'credit' && !selectedCustomer) { toast.error('Select credit customer'); return; }
+                                    if (payMethod === 'cash' && Number(amountPaid) < grandTotal) { toast.error('Insufficient amount'); return; }
+                                    if (payMethod === 'mpesa' && !mpesaReceipt && stkStatus !== 'success') { toast.error('Complete M-Pesa first'); return; }
+                                    completeSale(payMethod === 'mpesa' ? 'MPESA' : payMethod.toUpperCase(), payMethod === 'cash' ? Number(amountPaid) : grandTotal, mpesaReceipt, selectedCustomer?.customer_name || payCustomerName, checkoutId, mpesaPhone);
+                                }} disabled={(payMethod === 'mpesa' && !mpesaReceipt && stkStatus !== 'success') || (payMethod === 'credit' && !selectedCustomer)}
+                                    className={`flex-1 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 ${(payMethod === 'mpesa' && !mpesaReceipt && stkStatus !== 'success') || (payMethod === 'credit' && !selectedCustomer) ? 'bg-gray-300 text-gray-500' : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-lg'}`}>
+                                    Complete Sale
                                 </button>
                             )}
                         </div>
@@ -642,7 +802,7 @@ export default function PharmacyPOS() {
                         className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl text-lg font-bold focus:border-blue-500 outline-none mb-4" />
                     <div className="flex gap-3">
                         <button onClick={() => { setShowDiscountModal(false); setDiscountItem(null); }} className="flex-1 py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50">Cancel</button>
-                        <button onClick={() => { const d = Number(discountAmt) || 0; if (discountItem) setCart(prev => prev.map((c, i) => c.id===discountItem.id && c.batchId===discountItem.batchId ? {...c, discount: d} : c)); setShowDiscountModal(false); setDiscountItem(null); }}
+                        <button onClick={() => { const d = Number(discountAmt) || 0; if (discountItem) setCart(prev => prev.map((c, i) => c.id === discountItem.id && c.batchId === discountItem.batchId ? { ...c, discount: d } : c)); setShowDiscountModal(false); setDiscountItem(null); }}
                             className="flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-bold">Save</button>
                     </div>
                 </div></div>
@@ -657,7 +817,7 @@ export default function PharmacyPOS() {
                         className="w-full p-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-blue-500 outline-none mb-4 resize-none text-sm" />
                     <div className="flex gap-3">
                         <button onClick={() => { setShowRxModal(false); setRxItem(null); }} className="flex-1 py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50">Cancel</button>
-                        <button onClick={() => { if (rxItem) setCart(prev => prev.map(c => c.id===rxItem.id && c.batchId===rxItem.batchId ? {...c, prescriptionNote: rxNote} : c)); setShowRxModal(false); setRxItem(null); }}
+                        <button onClick={() => { if (rxItem) setCart(prev => prev.map(c => c.id === rxItem.id && c.batchId === rxItem.batchId ? { ...c, prescriptionNote: rxNote } : c)); setShowRxModal(false); setRxItem(null); }}
                             className="flex-1 py-3 bg-blue-500 text-white rounded-xl font-bold hover:bg-blue-600">Save Note</button>
                     </div>
                 </div></div>
@@ -672,11 +832,11 @@ export default function PharmacyPOS() {
                     <input type="number" value={openingAmount} onChange={e => setOpeningAmount(e.target.value)} placeholder="Enter amount (e.g., 5000)"
                         className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-green-500 outline-none text-xl font-bold text-center mb-4" autoFocus />
                     <div className="grid grid-cols-4 gap-2 mb-4">
-                        {[0,1000,2000,5000].map(a => <button key={a} onClick={() => setOpeningAmount(a.toString())} className="py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium text-gray-700">{a===0?'Zero':`Ksh ${a.toLocaleString()}`}</button>)}
+                        {[0, 1000, 2000, 5000].map(a => <button key={a} onClick={() => setOpeningAmount(a.toString())} className="py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium text-gray-700">{a === 0 ? 'Zero' : `Ksh ${a.toLocaleString()}`}</button>)}
                     </div>
                     <div className="p-4 bg-green-50 rounded-xl border border-green-200 mb-4 text-center">
                         <span className="text-green-700 font-medium text-sm">Opening Cash: </span>
-                        <span className="text-2xl font-bold text-green-600">Ksh {(Number(openingAmount)||0).toLocaleString()}</span>
+                        <span className="text-2xl font-bold text-green-600">Ksh {(Number(openingAmount) || 0).toLocaleString()}</span>
                     </div>
                     <div className="flex gap-3">
                         <button onClick={() => { setShowOpeningDrop(false); setOpeningAmount(''); }} className="flex-1 py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50">Cancel</button>
@@ -685,32 +845,98 @@ export default function PharmacyPOS() {
                 </div></div>
             )}
 
-            {/* Close Register */}
+            {/* Close Register — EXACT Alpha Retail layout */}
             {showCloseReg && closeData && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"><div className="bg-white rounded-2xl shadow-2xl p-6 w-[480px] max-w-[95vw] max-h-[90vh] overflow-y-auto">
-                    <h3 className="text-xl font-bold text-gray-800 mb-4"> Close Register  End of Day Report</h3>
-                    <div className="space-y-2 mb-4">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Sales Breakdown</p>
-                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl"><span className="text-gray-600"> Cash Sales</span><span className="font-bold text-gray-800 text-lg">Ksh {closeData.totalCash.toLocaleString()}</span></div>
-                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl"><span className="text-gray-600"> M-Pesa Sales</span><span className="font-bold text-green-600 text-lg">Ksh {closeData.totalMpesa.toLocaleString()}</span></div>
-                        <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl"><span className="text-gray-600"> Credit Sales</span><span className="font-bold text-orange-600 text-lg">Ksh {closeData.totalCredit.toLocaleString()}</span></div>
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl shadow-2xl p-6 w-[480px] max-w-[95vw] max-h-[90vh] overflow-y-auto">
+                        <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            🔴 Close Register — End of Day Report
+                        </h3>
+
+                        {/* Sales Breakdown */}
+                        <div className="space-y-2 mb-4">
+                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Sales Breakdown</p>
+                            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
+                                <span className="text-gray-600">💵 Cash Sales</span>
+                                <span className="font-bold text-gray-800 text-lg">Ksh {closeData.totalCash.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
+                                <span className="text-gray-600">📱 M-Pesa Sales</span>
+                                <span className="font-bold text-green-600 text-lg">Ksh {closeData.totalMpesa.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
+                                <span className="text-gray-600">📋 Credit Sales</span>
+                                <span className="font-bold text-orange-600 text-lg">Ksh {closeData.totalCredit.toLocaleString()}</span>
+                            </div>
+                        </div>
+
+                        {/* Total Sales */}
+                        <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl p-4 text-white mb-4">
+                            <div className="flex justify-between items-center">
+                                <span className="font-medium">Total Sales ({closeData.orderCount} orders)</span>
+                                <span className="text-2xl font-bold">Ksh {closeData.totalSales.toLocaleString()}</span>
+                            </div>
+                        </div>
+
+                        {/* Deductions */}
+                        <div className="space-y-2 mb-4">
+                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Deductions</p>
+                            <div className="flex justify-between items-center p-3 bg-red-50 rounded-xl border border-red-200">
+                                <span className="text-red-600">💰 Total Expenses</span>
+                                <span className="font-bold text-red-600 text-lg">-Ksh {closeData.totalExpenses.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center p-3 bg-orange-50 rounded-xl border border-orange-200">
+                                <span className="text-orange-600">📋 Total Credit</span>
+                                <span className="font-bold text-orange-600 text-lg">-Ksh {closeData.totalCredit.toLocaleString()}</span>
+                            </div>
+                        </div>
+
+                        {/* Cash Summary */}
+                        <div className="space-y-2 mb-4">
+                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Cash Summary</p>
+                            <div className="flex justify-between items-center p-3 bg-green-50 rounded-xl">
+                                <span className="text-gray-600">🟢 Opening Cash</span>
+                                <span className="font-bold text-gray-800">Ksh {closeData.openingCash.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center p-3 bg-green-50 rounded-xl">
+                                <span className="text-gray-600">Expected in Drawer</span>
+                                <span className="font-bold text-gray-800">Ksh {(closeData.openingCash + closeData.totalCash - closeData.totalExpenses).toLocaleString()}</span>
+                            </div>
+                        </div>
+
+                        {/* Net Sales */}
+                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-4 text-white mb-4">
+                            <div className="flex justify-between items-center">
+                                <span className="font-bold text-lg">NET SALES</span>
+                                <span className="text-3xl font-bold">Ksh {closeData.netSales.toLocaleString()}</span>
+                            </div>
+                        </div>
+
+                        {/* Profit */}
+                        <div className={`rounded-xl p-4 mb-6 ${(closeData?.profit || 0) >= 0 ? 'bg-gradient-to-r from-amber-400 to-yellow-500' : 'bg-gradient-to-r from-red-500 to-red-600'} text-white`}>
+                            <div className="flex justify-between items-center">
+                                <span className="font-bold text-lg">📈 PROFIT</span>
+                                <span className="text-3xl font-bold">Ksh {(closeData?.profit || 0).toLocaleString()}</span>
+                            </div>
+                        </div>
+
+                        {/* Actions — 3 buttons like Alpha Retail */}
+                        <div className="flex gap-3">
+                            <button onClick={() => { setShowCloseReg(false); setCloseData(null); }}
+                                className="flex-1 py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50">
+                                Cancel
+                            </button>
+                            <button onClick={printCloseRegisterReport}
+                                className="flex-1 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2">
+                                🖨️ Print Report
+                            </button>
+                            <button onClick={finalizeClose}
+                                className="flex-1 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-bold hover:shadow-lg transition-all">
+                                ✅ Close & Save
+                            </button>
+                        </div>
                     </div>
-                    <div className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl p-4 text-white mb-4">
-                        <div className="flex justify-between items-center"><span className="font-medium">Total Sales ({closeData.orderCount} orders)</span><span className="text-2xl font-bold">Ksh {closeData.totalSales.toLocaleString()}</span></div>
-                    </div>
-                    <div className="space-y-2 mb-4">
-                        <p className="text-xs font-semibold text-gray-500 uppercase">Deductions</p>
-                        <div className="flex justify-between items-center p-3 bg-red-50 rounded-xl border border-red-200"><span className="text-red-600"> Expenses</span><span className="font-bold text-red-600 text-lg">-Ksh {closeData.totalExpenses.toLocaleString()}</span></div>
-                        <div className="flex justify-between items-center p-3 bg-orange-50 rounded-xl border border-orange-200"><span className="text-orange-600"> Credit</span><span className="font-bold text-orange-600 text-lg">-Ksh {closeData.totalCredit.toLocaleString()}</span></div>
-                    </div>
-                    <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-4 text-white mb-6">
-                        <div className="flex justify-between items-center"><span className="font-bold text-lg">NET SALES</span><span className="text-3xl font-bold">Ksh {closeData.netSales.toLocaleString()}</span></div>
-                    </div>
-                    <div className="flex gap-3">
-                        <button onClick={() => { setShowCloseReg(false); setCloseData(null); }} className="flex-1 py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50">Cancel</button>
-                        <button onClick={finalizeClose} className="flex-1 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-bold hover:shadow-lg"> Close & Save</button>
-                    </div>
-                </div></div>
+                </div>
             )}
 
             {loadingReg && (<div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"><div className="bg-white rounded-2xl p-6 flex items-center gap-3"><div className="w-6 h-6 border-3 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span className="font-medium text-gray-700">Loading register data...</span></div></div>)}
