@@ -38,12 +38,25 @@ export default function ProfitReportPage() {
         if (!activeOutlet) return;
         setLoading(true);
         try {
-            // Get sales items in date range
-            const { data: salesItems } = await supabase
-                .from('pharmacy_sales_items')
-                .select('product_id, product_name, quantity, unit_price, subtotal, created_at')
-                .gte('created_at', `${dateFrom}T00:00:00`)
-                .lte('created_at', `${dateTo}T23:59:59`);
+            // Step 1: Get sale IDs from pharmacy_sales filtered by sale_datetime
+            const { data: salesData } = await supabase
+                .from('pharmacy_sales')
+                .select('sale_id')
+                .eq('outlet_id', outletId)
+                .gte('sale_datetime', `${dateFrom}T00:00:00`)
+                .lte('sale_datetime', `${dateTo}T23:59:59`);
+
+            const saleIds = (salesData || []).map(s => s.sale_id);
+
+            // Step 2: Get sales items for those sale IDs
+            let salesItems: any[] = [];
+            if (saleIds.length > 0) {
+                const { data } = await supabase
+                    .from('pharmacy_sales_items')
+                    .select('product_id, product_name, quantity, unit_price, total, purchase_price')
+                    .in('sale_id', saleIds);
+                salesItems = data || [];
+            }
 
             // Get product costs
             const { data: products } = await supabase
@@ -60,13 +73,14 @@ export default function ProfitReportPage() {
                 const key = item.product_name || 'Unknown';
                 const pid = item.product_id;
                 const info = costMap[pid] || { cost: 0, category: 'Uncategorized' };
+                const itemCost = item.purchase_price || info.cost;
                 if (!profitMap.has(key)) {
-                    profitMap.set(key, { name: key, category: info.category, qtySold: 0, revenue: 0, costPrice: info.cost, totalCost: 0, profit: 0, margin: 0 });
+                    profitMap.set(key, { name: key, category: info.category, qtySold: 0, revenue: 0, costPrice: itemCost, totalCost: 0, profit: 0, margin: 0 });
                 }
                 const e = profitMap.get(key)!;
                 e.qtySold += item.quantity || 0;
-                e.revenue += item.subtotal || 0;
-                e.totalCost += (info.cost * (item.quantity || 0));
+                e.revenue += item.total || (item.unit_price * item.quantity) || 0;
+                e.totalCost += (itemCost * (item.quantity || 0));
             });
 
             const result: ProfitItem[] = Array.from(profitMap.values()).map(p => ({

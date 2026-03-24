@@ -35,8 +35,8 @@ export default function TrialBalancePage() {
             const accts: TBAccount[] = [];
 
             // 1. Sales Revenue (Credit)
-            const { data: salesData } = await supabase.from('pharmacy_sales').select('total, payment_method')
-                .eq('outlet_id', outletId).gte('sale_datetime', `T00:00:00`).lte('sale_datetime', `T23:59:59`);
+            const { data: salesData } = await supabase.from('pharmacy_sales').select('sale_id, total, payment_method')
+                .eq('outlet_id', outletId).gte('sale_datetime', `${dateFrom}T00:00:00`).lte('sale_datetime', `${dateTo}T23:59:59`);
             const totalSales = (salesData || []).reduce((s, r) => s + (r.total || 0), 0);
             const cashSales = (salesData || []).filter(r => (r.payment_method || '').toLowerCase().includes('cash')).reduce((s, r) => s + (r.total || 0), 0);
             const mpesaSales = (salesData || []).filter(r => (r.payment_method || '').toLowerCase().includes('mpesa')).reduce((s, r) => s + (r.total || 0), 0);
@@ -54,8 +54,12 @@ export default function TrialBalancePage() {
             accts.push({ name: 'Accounts Receivable', code: '1300', debit: creditSales, credit: 0, type: 'Asset' });
 
             // 5. COGS (Debit = cost of goods sold)
-            const { data: salesItems } = await supabase.from('pharmacy_sales_items').select('product_id, quantity')
-                .gte('created_at', `${dateFrom}T00:00:00`).lte('created_at', `${dateTo}T23:59:59`);
+            const saleIds = (salesData || []).map(s => s.sale_id);
+            let salesItems: any[] = [];
+            if (saleIds.length > 0) {
+                const { data } = await supabase.from('pharmacy_sales_items').select('product_id, quantity, purchase_price').in('sale_id', saleIds);
+                salesItems = data || [];
+            }
             const { data: products } = await supabase.from('pharmacy_products').select('pid, purchase_cost').eq('outlet_id', outletId);
             const costMap: Record<number, number> = {};
             (products || []).forEach(p => { costMap[p.pid] = p.purchase_cost || 0; });

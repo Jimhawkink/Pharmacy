@@ -87,7 +87,10 @@ export default function DashboardPage() {
 
         try {
             // ── Today's Sales by payment method ──
-            const { data: todayData } = await supabase.from('pharmacy_sales').select('total, payment_method').eq('sale_datetime', today).eq('outlet_id', outletId);
+            const { data: todayData } = await supabase.from('pharmacy_sales').select('sale_id, total, payment_method')
+                .eq('outlet_id', outletId)
+                .gte('sale_datetime', `${today}T00:00:00`)
+                .lte('sale_datetime', `${today}T23:59:59`);
             const tData = todayData || [];
             setTodaySales(tData.reduce((s, r) => s + (r.total || 0), 0));
             setTodayOrders(tData.length);
@@ -96,7 +99,10 @@ export default function DashboardPage() {
             setTodayCredit(tData.filter(r => (r.payment_method || '').toLowerCase().includes('credit')).reduce((s, r) => s + (r.total || 0), 0));
 
             // ── Yesterday's Sales ──
-            const { data: yData } = await supabase.from('pharmacy_sales').select('total').eq('sale_datetime', yesterday).eq('outlet_id', outletId);
+            const { data: yData } = await supabase.from('pharmacy_sales').select('total')
+                .eq('outlet_id', outletId)
+                .gte('sale_datetime', `${yesterday}T00:00:00`)
+                .lte('sale_datetime', `${yesterday}T23:59:59`);
             setYesterdaySales((yData || []).reduce((s, r) => s + (r.total || 0), 0));
             setYesterdayOrders((yData || []).length);
 
@@ -119,9 +125,9 @@ export default function DashboardPage() {
             // ── Daily Sales Trend (by date range, broken by payment method) ──
             const { data: rangeSales } = await supabase
                 .from('pharmacy_sales')
-                .select('sale_datetime, total, payment_method')
-                .gte('sale_datetime', `T00:00:00`)
-                .lte('sale_datetime', `T23:59:59`)
+                .select('sale_id, sale_datetime, total, payment_method')
+                .gte('sale_datetime', `${dateFrom}T00:00:00`)
+                .lte('sale_datetime', `${dateTo}T23:59:59`)
                 .eq('outlet_id', outletId)
                 .order('sale_datetime');
 
@@ -134,7 +140,8 @@ export default function DashboardPage() {
                 salesMap.set(key, { date: key, cash: 0, mpesa: 0, credit: 0, total: 0, orders: 0 });
             }
             (rangeSales || []).forEach(s => {
-                const key = s.sale_datetime;
+                const key = (s.sale_datetime || '').split('T')[0];
+                if (!key) return;
                 if (!salesMap.has(key)) salesMap.set(key, { date: key, cash: 0, mpesa: 0, credit: 0, total: 0, orders: 0 });
                 const entry = salesMap.get(key)!;
                 const amt = s.total || 0;
@@ -146,13 +153,21 @@ export default function DashboardPage() {
             });
             setDailySales(Array.from(salesMap.values()).sort((a, b) => a.date.localeCompare(b.date)));
 
-            // ── Top Selling Products ──
-            const { data: salesItems } = await supabase
-                .from('pharmacy_sales_items')
-                .select('product_name, quantity, subtotal, created_at')
-                .gte('created_at', `${dateFrom}T00:00:00`)
-                .lte('created_at', `${dateTo}T23:59:59`)
-                .limit(1000);
+            // ── Top Selling Products (use sale IDs from range query) ──
+            const allRangeSaleIds = (rangeSales || []).map(s => s.sale_id || 0).filter(Boolean);
+            // Also use today's sale IDs if date range doesn't include today
+            const todaySaleIds = tData.map(s => s.sale_id).filter(Boolean);
+            const combinedIds = Array.from(new Set([...allRangeSaleIds, ...todaySaleIds]));
+            
+            let salesItems: any[] = [];
+            if (combinedIds.length > 0) {
+                const { data } = await supabase
+                    .from('pharmacy_sales_items')
+                    .select('product_name, quantity, total, unit_price')
+                    .in('sale_id', combinedIds)
+                    .limit(2000);
+                salesItems = data || [];
+            }
 
             const prodMap = new Map<string, { qty: number; revenue: number }>();
             (salesItems || []).forEach(item => {
@@ -160,7 +175,7 @@ export default function DashboardPage() {
                 if (!prodMap.has(name)) prodMap.set(name, { qty: 0, revenue: 0 });
                 const e = prodMap.get(name)!;
                 e.qty += item.quantity || 0;
-                e.revenue += item.subtotal || 0;
+                e.revenue += item.total || (item.unit_price * item.quantity) || 0;
             });
             setTopProducts(
                 Array.from(prodMap.entries())
@@ -189,7 +204,8 @@ export default function DashboardPage() {
             const { data: cashierData } = await supabase
                 .from('pharmacy_sales')
                 .select('created_by, total')
-                .gte('sale_datetime', `T00:00:00`).lte('sale_datetime', `T23:59:59`)
+                .gte('sale_datetime', `${dateFrom}T00:00:00`)
+                .lte('sale_datetime', `${dateTo}T23:59:59`)
                 .eq('outlet_id', outletId);
             const wMap = new Map<string, { sales: number; orders: number }>();
             (cashierData || []).forEach(s => {
