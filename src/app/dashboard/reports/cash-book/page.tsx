@@ -42,7 +42,7 @@ export default function CashBookPage() {
             const { data: salesData } = await supabase.from('pharmacy_sales')
                 .select('sale_datetime, receipt_no, customer_name, total, payment_method')
                 .eq('outlet_id', outletId)
-                .gte('sale_datetime', dateFrom).lte('sale_datetime', dateTo)
+                .gte('sale_datetime', `T00:00:00`).lte('sale_datetime', `T23:59:59`)
                 .ilike('payment_method', '%cash%')
                 .order('sale_datetime');
 

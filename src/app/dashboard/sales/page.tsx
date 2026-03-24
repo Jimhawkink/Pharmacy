@@ -63,13 +63,15 @@ export default function SalesPage() {
                 .from('pharmacy_sales')
                 .select('*')
                 .eq('outlet_id', outletId)
-                .eq('sale_datetime', filterDate)
+                .gte('sale_datetime', `${filterDate}T00:00:00`)
+                .lte('sale_datetime', `${filterDate}T23:59:59`)
                 .order('sale_datetime', { ascending: false });
             if (r1.error) {
                 const r2 = await supabase
                     .from('pharmacy_sales')
                     .select('*')
-                    .eq('sale_datetime', filterDate)
+                    .gte('sale_datetime', `${filterDate}T00:00:00`)
+                    .lte('sale_datetime', `${filterDate}T23:59:59`)
                     .order('sale_datetime', { ascending: false });
                 data = r2.data;
             } else {

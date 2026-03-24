@@ -105,8 +105,8 @@ export default function DishMovementPage() {
             const { data: salesData } = await supabase
                 .from('sales')
                 .select('sale_id, sale_datetime, status')
-                .gte('sale_datetime', dateFrom)
-                .lte('sale_datetime', dateTo);
+                .gte('sale_datetime', `T00:00:00`)
+                .lte('sale_datetime', `T23:59:59`);
 
             const saleIds = (salesData || []).map(s => s.sale_id);
 

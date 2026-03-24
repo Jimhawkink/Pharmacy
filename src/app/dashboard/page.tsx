@@ -120,8 +120,8 @@ export default function DashboardPage() {
             const { data: rangeSales } = await supabase
                 .from('pharmacy_sales')
                 .select('sale_datetime, total, payment_method')
-                .gte('sale_datetime', dateFrom)
-                .lte('sale_datetime', dateTo)
+                .gte('sale_datetime', `T00:00:00`)
+                .lte('sale_datetime', `T23:59:59`)
                 .eq('outlet_id', outletId)
                 .order('sale_datetime');
 
@@ -189,7 +189,7 @@ export default function DashboardPage() {
             const { data: cashierData } = await supabase
                 .from('pharmacy_sales')
                 .select('created_by, total')
-                .gte('sale_datetime', dateFrom).lte('sale_datetime', dateTo)
+                .gte('sale_datetime', `T00:00:00`).lte('sale_datetime', `T23:59:59`)
                 .eq('outlet_id', outletId);
             const wMap = new Map<string, { sales: number; orders: number }>();
             (cashierData || []).forEach(s => {

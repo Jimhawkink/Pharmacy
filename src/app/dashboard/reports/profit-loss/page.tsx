@@ -51,7 +51,7 @@ export default function ProfitLossPage() {
             // Gross Sales
             const { data: salesData } = await supabase
                 .from('pharmacy_sales').select('total').eq('outlet_id', outletId)
-                .gte('sale_datetime', dateFrom).lte('sale_datetime', dateTo);
+                .gte('sale_datetime', `T00:00:00`).lte('sale_datetime', `T23:59:59`);
             setGrossSales((salesData || []).reduce((s, r) => s + (r.total || 0), 0));
 
             // Sales Returns (currently zero if not tracked)

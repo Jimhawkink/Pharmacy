@@ -36,7 +36,7 @@ export default function TrialBalancePage() {
 
             // 1. Sales Revenue (Credit)
             const { data: salesData } = await supabase.from('pharmacy_sales').select('total, payment_method')
-                .eq('outlet_id', outletId).gte('sale_datetime', dateFrom).lte('sale_datetime', dateTo);
+                .eq('outlet_id', outletId).gte('sale_datetime', `T00:00:00`).lte('sale_datetime', `T23:59:59`);
             const totalSales = (salesData || []).reduce((s, r) => s + (r.total || 0), 0);
             const cashSales = (salesData || []).filter(r => (r.payment_method || '').toLowerCase().includes('cash')).reduce((s, r) => s + (r.total || 0), 0);
             const mpesaSales = (salesData || []).filter(r => (r.payment_method || '').toLowerCase().includes('mpesa')).reduce((s, r) => s + (r.total || 0), 0);

@@ -43,7 +43,7 @@ export default function SalesReportPage() {
         const { data, error } = await supabase
             .from('pharmacy_sales').select('*')
             .eq('outlet_id', outletId)
-            .gte('sale_datetime', dateFrom).lte('sale_datetime', dateTo)
+            .gte('sale_datetime', `${dateFrom}T00:00:00`).lte('sale_datetime', `${dateTo}T23:59:59`)
             .order('sale_datetime', { ascending: false });
         if (!error) setSales(data || []);
         setLoading(false);

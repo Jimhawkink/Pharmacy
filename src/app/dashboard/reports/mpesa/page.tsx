@@ -43,7 +43,7 @@ export default function MpesaReportPage() {
             const { data: salesData } = await supabase.from('pharmacy_sales')
                 .select('sale_datetime, receipt_no, customer_name, customer_phone, total, mpesa_receipt, payment_method')
                 .eq('outlet_id', outletId)
-                .gte('sale_datetime', dateFrom).lte('sale_datetime', dateTo)
+                .gte('sale_datetime', `T00:00:00`).lte('sale_datetime', `T23:59:59`)
                 .ilike('payment_method', '%mpesa%')
                 .order('sale_datetime', { ascending: false });
 
