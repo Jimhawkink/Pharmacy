@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, completeSaleTransaction, getNextReceiptNumber } from '@/lib/supabase';
+import { printCustomerReceipt, createReceiptData, loadCompanyInfo, CompanyInfo } from '@/lib/receiptPrinter';
 import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
 
@@ -36,36 +37,37 @@ const MPESA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIs
 const fmtPhone = (p: string) => { let c = p.replace(/[\s+\-]/g, ''); if (c.startsWith('0')) c = '254' + c.substring(1); else if (!c.startsWith('254')) c = '254' + c; return c; };
 const validPhone = (p: string) => /^(07\d{8}|01\d{8}|254\d{9})$/.test(p.replace(/[\s+\-]/g, ''));
 
-// Product Card (exact retail dimensions & colors, reduced height)
-const ProductCard = ({ product, onAdd }: { product: Product; onAdd: () => void }) => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow h-[185px] flex flex-col" title={product.name}>
-        <div className="h-[75px] bg-gray-50 flex items-center justify-center flex-shrink-0">
-            {product.imageUrl ? (
-                <img src={product.imageUrl} alt={product.name} className="max-h-[65px] max-w-[65px] object-contain" onError={(e) => { (e.target as HTMLImageElement).src = '/no-image.png'; }} />
-            ) : (
-                <img src="/no-image.png" alt="No image" className="h-[65px] w-[65px] object-contain" />
-            )}
-        </div>
-        <div className="flex-1 p-2 flex flex-col">
-            <h3 className="text-[12px] font-medium text-gray-800 line-clamp-1 cursor-default" title={product.name}>{product.name}</h3>
-            <p className="text-[9px] text-gray-400 truncate">SKU: {product.barcode || product.id}</p>
-            <div className="h-[18px] flex items-center">
-                <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[8px]">{product.category || 'General'}</span>
-            </div>
-            <div className="flex-1"></div>
-            <div className="flex items-center gap-2 mb-1.5">
-                <span className="text-[14px] font-bold text-gray-900">Ksh {product.salesPrice.toLocaleString()}</span>
-                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${product.availableQty > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                    {product.availableQty} {product.salesUnit}
+// Product Row for DataGrid (exact Alpha Retail style with batch/expiry columns)
+const ProductRow = ({ product, onAdd, idx }: { product: Product; onAdd: () => void; idx: number }) => {
+    const nearestBatch = product.batches?.[0];
+    return (
+        <tr className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors cursor-pointer`} onClick={() => { if (product.availableQty > 0) onAdd(); }}>
+            <td className="px-3 py-2 text-sm font-medium text-gray-800 max-w-[200px] truncate" title={product.name}>{product.name}</td>
+            <td className="px-3 py-2 text-xs text-gray-500">{product.category || 'General'}</td>
+            <td className="px-3 py-2 text-sm font-bold text-gray-800 text-right">Ksh {product.salesPrice.toLocaleString()}</td>
+            <td className="px-3 py-2 text-center">
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${product.availableQty > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                    {product.availableQty}
                 </span>
-            </div>
-            <button onClick={(e) => { e.stopPropagation(); if (product.availableQty > 0) onAdd(); }} disabled={product.availableQty === 0}
-                className={`w-full py-1.5 rounded-lg text-[11px] font-medium flex items-center justify-center gap-1 ${product.availableQty === 0 ? 'bg-gray-100 text-gray-400' : 'bg-emerald-500 text-white hover:bg-emerald-600 active:scale-[0.98]'}`}>
-                + Add to Cart
-            </button>
-        </div>
-    </div>
-);
+            </td>
+            <td className="px-3 py-2 text-xs font-mono text-purple-600">{nearestBatch?.batch_number || '—'}</td>
+            <td className="px-3 py-2 text-xs">
+                {nearestBatch ? (
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${nearestBatch.days < 0 ? 'bg-red-100 text-red-700' : nearestBatch.days <= 30 ? 'bg-orange-100 text-orange-700' : nearestBatch.days <= 90 ? 'bg-yellow-100 text-yellow-700' : 'bg-green-100 text-green-700'}`}>
+                        {nearestBatch.days < 0 ? 'EXPIRED' : `${nearestBatch.days}d`}
+                    </span>
+                ) : '—'}
+            </td>
+            <td className="px-3 py-2 text-center">
+                <button onClick={(e) => { e.stopPropagation(); if (product.availableQty > 0) onAdd(); }} disabled={product.availableQty === 0}
+                    className={`p-1.5 rounded-lg text-sm ${product.availableQty === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700'}`}
+                    title="Add to cart">
+                    ➕
+                </button>
+            </td>
+        </tr>
+    );
+};
 
 // Cart Item Row (exact retail with red X icon and discount icon)
 const CartItemRow = ({ item, onIncrease, onDecrease, onRemove, onEditDiscount, onEditRx, canDiscount = true }: {
@@ -472,26 +474,49 @@ export default function PharmacyPOS() {
     const completeSale = async (method: string, paid: number, receipt?: string, custName?: string, cId?: string, cPhone?: string) => {
         try {
             const user = JSON.parse(localStorage.getItem('user') || '{}');
+            const cashierName = user.name || 'Pharmacist';
             const saleResult = await completeSaleTransaction({
                 receiptNo, subtotal, discount: totalDiscount, tax: 0, total: grandTotal,
                 paymentMethod: method, amountPaid: paid, change: Math.max(0, paid - grandTotal),
-                cashierName: user.name || 'Pharmacist', customerName: selectedCustomer?.customer_name || custName,
+                cashierName, customerName: selectedCustomer?.customer_name || custName,
                 mpesaReceipt: receipt, shiftInstanceId: currentShiftId || undefined,
                 checkoutRequestId: cId, customerPhone: cPhone, outletId,
                 items: cart.map(c => ({
                     productId: c.id, productName: c.name, qty: c.qty, price: c.effectivePrice,
                     purchasePrice: c.costPrice, discount: c.discount,
                     batchId: c.batchId || undefined, batchNumber: c.batchNumber || undefined,
-                    expiryDate: c.expiryDate || undefined, notes: c.prescriptionNote || undefined,
+                    expiryDate: c.expiryDate || undefined,
                 })),
             });
             if (method === 'CREDIT' && selectedCustomer) {
                 const nb = (selectedCustomer.current_balance || 0) + grandTotal;
                 await supabase.from('pharmacy_credit_customers').update({ current_balance: nb }).eq('customer_id', selectedCustomer.customer_id);
             }
-            // Auto-print receipt
+            // Auto-print receipt — exact Alpha Retail receipt printer
             try {
-                printSaleReceipt(receiptNo, method, paid, Math.max(0, paid - grandTotal), selectedCustomer?.customer_name || custName, receipt, cPhone);
+                const company = await loadCompanyInfo();
+                const receiptData = createReceiptData(
+                    receiptNo,
+                    cart.map(c => ({
+                        name: c.name,
+                        qty: c.qty,
+                        price: c.effectivePrice,
+                        discount: c.discount,
+                        notes: c.prescriptionNote || undefined,
+                        batchNumber: c.batchNumber || undefined,
+                        expiryDate: c.expiryDate || undefined,
+                    })),
+                    method, paid, cashierName,
+                    {
+                        customerName: selectedCustomer?.customer_name || custName,
+                        customerPhone: cPhone,
+                        mpesaReceipt: receipt,
+                        discount: 0,
+                        tax: 0,
+                        isPaid: true,
+                    }
+                );
+                printCustomerReceipt(receiptData, company);
             } catch (printErr) { console.error('Receipt print error:', printErr); }
             toast.success(`Sale ${receiptNo} completed!`);
             setCart([]); setShowPayment(false); setSelectedCustomer(null); setCustomerSearch('');
@@ -639,14 +664,27 @@ export default function PharmacyPOS() {
                             <button onClick={() => setShowOpeningDrop(true)} className="px-6 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium shadow-md"> Open Register</button>
                         </div>
                     )}
-                    <div className="flex-1 overflow-y-auto">
+                    <div className="flex-1 overflow-y-auto bg-white rounded-xl border border-gray-200 shadow-sm">
                         {displayProducts.length > 0 ? (
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                                {displayProducts.map(p => <ProductCard key={p.id} product={p} onAdd={() => openBatchSelect(p)} />)}
-                            </div>
+                            <table className="w-full text-left">
+                                <thead className="sticky top-0 z-10">
+                                    <tr className="bg-gradient-to-r from-gray-100 to-gray-50 border-b-2 border-gray-200">
+                                        <th className="px-3 py-2.5 text-xs font-bold text-gray-600 uppercase tracking-wider">Product</th>
+                                        <th className="px-3 py-2.5 text-xs font-bold text-gray-600 uppercase tracking-wider">Category</th>
+                                        <th className="px-3 py-2.5 text-xs font-bold text-gray-600 uppercase tracking-wider text-right">Price</th>
+                                        <th className="px-3 py-2.5 text-xs font-bold text-gray-600 uppercase tracking-wider text-center">Stock</th>
+                                        <th className="px-3 py-2.5 text-xs font-bold text-gray-600 uppercase tracking-wider">Batch</th>
+                                        <th className="px-3 py-2.5 text-xs font-bold text-gray-600 uppercase tracking-wider">Expiry</th>
+                                        <th className="px-3 py-2.5 text-xs font-bold text-gray-600 uppercase tracking-wider text-center">Add</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {displayProducts.map((p, idx) => <ProductRow key={p.id} product={p} onAdd={() => openBatchSelect(p)} idx={idx} />)}
+                                </tbody>
+                            </table>
                         ) : (
                             <div className="flex-1 flex flex-col items-center justify-center text-gray-400 py-12">
-                                <span className="text-5xl mb-3">{searchQuery ? '' : ''}</span>
+                                <span className="text-5xl mb-3">{searchQuery ? '🔍' : '📦'}</span>
                                 <p className="text-lg font-medium">{searchQuery ? `No products found for "${searchQuery}"` : 'No products found'}</p>
                                 <p className="text-sm">{searchQuery ? 'Try a different search term' : 'Add products in the Products page'}</p>
                             </div>
