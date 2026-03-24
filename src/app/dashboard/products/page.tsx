@@ -20,6 +20,21 @@ interface PriceHistoryRow { id: number; date: string; old_buy: number; new_buy: 
 interface Category { category_id: number; category_name: string; icon: string; color: string; }
 interface Supplier { supplier_id: number; supplier_code: string; supplier_name: string; is_kitchen?: boolean; }
 interface Unit { unit_id: number; unit_name: string; abbreviation: string; }
+interface Batch {
+    batch_id?: number; batch_number: string; expiry_date: string;
+    manufacture_date: string; quantity: number; remaining_qty?: number;
+    purchase_cost: number; selling_price: number; status?: string;
+}
+
+const DRUG_TYPES = ['Tablet','Capsule','Syrup','Suspension','Injection','Cream','Ointment','Drops','Inhaler','Suppository','Powder','Gel','Spray','Patch','Sachet','Other'];
+const getDaysUntilExpiry = (d: string) => { if (!d) return 999; return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000); };
+const getExpiryBadge = (days: number) => {
+    if (days < 0) return <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">EXPIRED</span>;
+    if (days <= 7) return <span className="px-2 py-0.5 bg-red-100 text-red-600 rounded-full text-xs font-bold">{days}d ⚠️</span>;
+    if (days <= 30) return <span className="px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full text-xs font-bold">{days}d</span>;
+    if (days <= 90) return <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-bold">{days}d</span>;
+    return <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold">{days}d ✓</span>;
+};
 
 const defaultProduct: Omit<Product, 'pid' | 'product_code'> = {
     product_name: '', alias: '', vat_commodity: 'Standard', description: '', barcode: '',
@@ -116,6 +131,14 @@ export default function ProductsPage() {
     const [importErrors, setImportErrors] = useState<string[]>([]);
     const [importSuccessCount, setImportSuccessCount] = useState(0);
 
+    // Pharmacy-specific states
+    const [productBatches, setProductBatches] = useState<Record<number, Batch[]>>({});
+    const [batches, setBatches] = useState<Batch[]>([]);
+    const [newBatch, setNewBatch] = useState<Batch>({ batch_number: '', expiry_date: '', manufacture_date: '', quantity: 0, purchase_cost: 0, selling_price: 0 });
+    const [pharmForm, setPharmForm] = useState({ generic_name: '', manufacturer: '', drug_type: 'Tablet', dosage: '', requires_prescription: false, storage_conditions: '' });
+    const [editProduct, setEditProduct] = useState<Product | null>(null);
+    const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+
     // ─── DATA LOADING ───
     const loadProducts = useCallback(async () => {
         if (!activeOutlet) return; // Wait for outlet context to load on refresh
@@ -130,6 +153,14 @@ export default function ProductsPage() {
             }
             if (error) throw error;
             setProducts(data || []);
+            // Load batches for all products
+            if (data && data.length > 0) {
+                const pids = data.map((p: any) => p.pid);
+                const { data: allBatches } = await supabase.from('pharmacy_batches').select('*').in('product_id', pids).eq('status', 'Active').order('expiry_date', { ascending: true });
+                const batchMap: Record<number, Batch[]> = {};
+                (allBatches || []).forEach((b: any) => { if (!batchMap[b.product_id]) batchMap[b.product_id] = []; batchMap[b.product_id].push(b); });
+                setProductBatches(batchMap);
+            }
         }
         catch { toast.error('Failed to load products'); }
         setIsLoading(false);
@@ -219,10 +250,13 @@ export default function ProductsPage() {
 
     const openAddModal = async () => {
         setEditingProduct(null); const bc = await generateBarcode();
-        setFormData({ ...defaultProduct, barcode: bc, supplier_name: getKitchenSupplier() }); setOpeningBags(0); setOpeningPieces(0); setShowModal(true);
+        setFormData({ ...defaultProduct, barcode: bc, supplier_name: getKitchenSupplier() });
+        setPharmForm({ generic_name: '', manufacturer: '', drug_type: 'Tablet', dosage: '', requires_prescription: false, storage_conditions: '' });
+        setBatches([]); setNewBatch({ batch_number: '', expiry_date: '', manufacture_date: '', quantity: 0, purchase_cost: 0, selling_price: 0 });
+        setOpeningBags(0); setOpeningPieces(0); setShowModal(true);
     };
 
-    const openEditModal = (p: Product) => {
+    const openEditModal = async (p: Product) => {
         setEditingProduct(p);
         setFormData({
             product_name: p.product_name, alias: p.alias || '', vat_commodity: p.vat_commodity || 'Standard',
@@ -232,7 +266,20 @@ export default function ProductsPage() {
             margin_per: p.margin_per || 0, show_ps: p.show_ps !== false, button_ui_color: p.button_ui_color || 'from-blue-400 to-blue-600',
             photo: p.photo || '', hscode: p.hscode || '', batch_no: p.batch_no || '', supplier_name: p.supplier_name || '', active: p.active !== false,
             pieces_per_package: p.pieces_per_package || 1,
-        }); setShowModal(true);
+        });
+        setPharmForm({
+            generic_name: (p as any).generic_name || '', manufacturer: (p as any).manufacturer || '',
+            drug_type: (p as any).drug_type || 'Tablet', dosage: (p as any).dosage || '',
+            requires_prescription: (p as any).requires_prescription || false, storage_conditions: (p as any).storage_conditions || '',
+        });
+        // Load existing batches for editing
+        const { data } = await supabase.from('pharmacy_batches').select('*').eq('product_id', p.pid).eq('status', 'Active').order('expiry_date');
+        setBatches((data || []).map((b: any) => ({
+            batch_id: b.batch_id, batch_number: b.batch_number, expiry_date: b.expiry_date,
+            manufacture_date: b.manufacture_date || '', quantity: b.quantity, remaining_qty: b.remaining_qty,
+            purchase_cost: b.purchase_cost, selling_price: b.selling_price, status: b.status,
+        })));
+        setShowModal(true);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -722,6 +769,7 @@ export default function ProductsPage() {
                                     <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Wholesale</th>
                                     <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Stock</th>
                                     <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Margin</th>
+                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Batches / Expiry</th>
                                     <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Status</th>
                                     <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider w-28">Actions</th>
                                 </tr>
@@ -729,7 +777,11 @@ export default function ProductsPage() {
                             <tbody>
                                 {paginated.map((p, idx) => {
                                     const stk = stockData[p.pid] || 0;
+                                    const pBatches = productBatches[p.pid] || [];
+                                    const nearestBatch = pBatches[0];
+                                    const nearestDays = nearestBatch ? getDaysUntilExpiry(nearestBatch.expiry_date) : null;
                                     return (
+                                        <>
                                         <tr key={p.pid} className={`border-b border-gray-50 hover:bg-blue-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
                                             <td className="px-4 py-3">
                                                 <div className="flex items-center gap-3">
@@ -771,6 +823,18 @@ export default function ProductsPage() {
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 text-center">
+                                                {pBatches.length > 0 ? (
+                                                    <button onClick={() => { const s = new Set(expandedRows); if (s.has(p.pid)) s.delete(p.pid); else s.add(p.pid); setExpandedRows(s); }}
+                                                        className="flex items-center gap-1.5 mx-auto px-2.5 py-1 rounded-lg hover:bg-blue-50 transition-all group">
+                                                        <div className="flex flex-col items-center gap-0.5">
+                                                            <span className="text-xs font-semibold text-gray-600 group-hover:text-blue-600">{pBatches.length} batch{pBatches.length > 1 ? 'es' : ''}</span>
+                                                            {nearestDays !== null && getExpiryBadge(nearestDays)}
+                                                        </div>
+                                                        <FiChevronRight size={14} className={`text-gray-400 transition-transform duration-200 ${expandedRows.has(p.pid) ? 'rotate-90' : ''}`} />
+                                                    </button>
+                                                ) : <span className="text-xs text-gray-300">No batches</span>}
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
                                                 <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${p.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>
                                                     <span className={`w-1.5 h-1.5 rounded-full ${p.active ? 'bg-emerald-500' : 'bg-gray-400'}`} />{p.active ? 'Live' : 'Off'}
                                                 </span>
@@ -785,6 +849,46 @@ export default function ProductsPage() {
                                                 </div>
                                             </td>
                                         </tr>
+                                        {/* ── EXPANDED BATCH DETAILS ROW ── */}
+                                        {expandedRows.has(p.pid) && pBatches.length > 0 && (
+                                            <tr key={`batch-${p.pid}`} className="bg-blue-50/40">
+                                                <td colSpan={10} className="px-6 py-3">
+                                                    <div className="bg-white rounded-xl border border-blue-200 shadow-sm overflow-hidden">
+                                                        <div className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-white text-xs font-bold flex items-center gap-2">
+                                                            <FiPackage size={12} /> Batches for {p.product_name}
+                                                        </div>
+                                                        <table className="w-full text-sm">
+                                                            <thead>
+                                                                <tr className="bg-gray-50 border-b border-gray-100">
+                                                                    <th className="px-4 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Batch #</th>
+                                                                    <th className="px-4 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Qty</th>
+                                                                    <th className="px-4 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Buy Price</th>
+                                                                    <th className="px-4 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Sell Price</th>
+                                                                    <th className="px-4 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Expiry Date</th>
+                                                                    <th className="px-4 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Days Left</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {pBatches.map((b, bi) => {
+                                                                    const daysLeft = getDaysUntilExpiry(b.expiry_date);
+                                                                    return (
+                                                                        <tr key={bi} className={`border-b border-gray-50 ${daysLeft < 0 ? 'bg-red-50/50' : daysLeft <= 30 ? 'bg-orange-50/30' : ''}`}>
+                                                                            <td className="px-4 py-2 text-xs font-semibold text-gray-800">{b.batch_number || 'N/A'}</td>
+                                                                            <td className="px-4 py-2 text-right text-xs font-bold text-gray-700">{b.remaining_qty ?? b.quantity}</td>
+                                                                            <td className="px-4 py-2 text-right text-xs text-gray-500">Ksh {(b.purchase_cost || 0).toLocaleString()}</td>
+                                                                            <td className="px-4 py-2 text-right text-xs font-semibold text-gray-700">Ksh {(b.selling_price || 0).toLocaleString()}</td>
+                                                                            <td className="px-4 py-2 text-center text-xs text-gray-600">{b.expiry_date ? new Date(b.expiry_date).toLocaleDateString('en-GB') : 'N/A'}</td>
+                                                                            <td className="px-4 py-2 text-center">{getExpiryBadge(daysLeft)}</td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                        </>
                                     );
                                 })}
                             </tbody>
@@ -821,237 +925,345 @@ export default function ProductsPage() {
                 </div>
             </div>
 
-            {/* ━━━ ADD/EDIT MODAL ━━━ */}
+            {/* ━━━ ADD/EDIT PRODUCT MODAL (Original Pharmacy) ━━━ */}
             {showModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-6 py-5 text-white sticky top-0 z-10 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center"><FiPackage size={20} /></div>
-                                <div>
-                                    <h2 className="text-lg font-bold">{editingProduct ? 'Edit Product' : 'New Product'}</h2>
-                                    {editingProduct && <p className="text-blue-100 text-xs">{editingProduct.product_code}</p>}
-                                </div>
-                            </div>
-                            <button onClick={() => setShowModal(false)} className="p-2 hover:bg-white/20 rounded-xl transition-colors"><FiX size={18} /></button>
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-y-auto">
+                        {/* Modal Header */}
+                        <div className="bg-gradient-to-r from-teal-500 to-cyan-600 px-6 py-4 text-white rounded-t-3xl flex items-center justify-between sticky top-0 z-10">
+                            <h2 className="text-lg font-bold flex items-center gap-2">💊 {editingProduct ? 'Edit' : 'Add New'} Product / Drug</h2>
+                            <button onClick={() => { setShowModal(false); }} className="p-2 hover:bg-white/20 rounded-lg"><FiX size={18} /></button>
                         </div>
-                        <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="md:col-span-2">
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Product Name *</label>
-                                    <input type="text" value={formData.product_name} onChange={e => setFormData({ ...formData, product_name: e.target.value })}
-                                        placeholder="e.g., Sugar 2Kg" required className="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-400/10 outline-none font-medium text-sm" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Alias</label>
-                                    <input type="text" value={formData.alias} onChange={e => setFormData({ ...formData, alias: e.target.value })} placeholder="Short name"
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 outline-none text-sm" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Category</label>
-                                    <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 outline-none text-sm cursor-pointer">
-                                        <option value="">Select Category</option>
-                                        {categories.map(c => <option key={c.category_id} value={c.category_name}>{c.category_name}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Barcode</label>
-                                    <input type="text" value={formData.barcode} onChange={e => setFormData({ ...formData, barcode: e.target.value })} placeholder="Scan or enter"
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 outline-none text-sm" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">HS Code</label>
-                                    <input type="text" value={formData.hscode} onChange={e => setFormData({ ...formData, hscode: e.target.value })} placeholder="Tax code"
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:border-blue-500 outline-none text-sm" />
-                                </div>
-                                {!editingProduct && (
-                                    <>
-                                    <div>
-                                        <label className="block text-xs font-bold text-indigo-600 mb-1.5 uppercase tracking-wider">📦 Opening {formData.purchase_unit}s (Big Qty)</label>
-                                        <input type="number" value={openingBags} onChange={e => setOpeningBags(Number(e.target.value))} min="0" placeholder="e.g. 5"
-                                            className="w-full px-4 py-3 bg-indigo-50 border-2 border-indigo-200 rounded-xl focus:border-indigo-500 outline-none text-sm font-bold text-indigo-700" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-emerald-600 mb-1.5 uppercase tracking-wider">🔢 Opening {formData.sales_unit}s (Pieces)</label>
-                                        <input type="number" value={openingPieces} onChange={e => setOpeningPieces(Number(e.target.value))} min="0" placeholder="e.g. 20"
-                                            className="w-full px-4 py-3 bg-emerald-50 border-2 border-emerald-200 rounded-xl focus:border-emerald-500 outline-none text-sm font-bold text-emerald-700" />
-                                    </div>
-                                    </>
-                                )}
-                                {editingProduct && (
-                                    <div className="md:col-span-2">
-                                        <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Current Stock</label>
-                                        <div className="flex gap-3">
-                                            <div className="flex-1 px-4 py-3 bg-indigo-50 border-2 border-indigo-200 rounded-xl text-sm font-bold text-indigo-700">
-                                                📦 {bagStockData[editingProduct.pid] || 0} {editingProduct.purchase_unit}(s)
-                                            </div>
-                                            <div className="flex-1 px-4 py-3 bg-emerald-50 border-2 border-emerald-200 rounded-xl text-sm font-bold text-emerald-700">
-                                                🔢 {pieceStockData[editingProduct.pid] || 0} {editingProduct.sales_unit}(s)
-                                            </div>
-                                        </div>
-                                        <p className="text-[10px] text-gray-400 mt-1">Use Stock Adjust button in the products list to modify stock quantities</p>
-                                    </div>
-                                )}
-                                {/* Image */}
-                                <div className="md:col-span-2">
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Product Image</label>
-                                    <div className="flex items-start gap-4">
-                                        <label className="flex-1 flex flex-col items-center justify-center h-24 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer bg-gray-50 hover:bg-blue-50 hover:border-blue-300 transition-all">
-                                            <FiUpload className="text-gray-400 mb-1" size={20} />
-                                            <p className="text-xs text-gray-500 font-medium">Click to upload (max 500KB)</p>
-                                            <input type="file" className="hidden" accept="image/*" onChange={async e => {
-                                                const f = e.target.files?.[0]; if (!f) return;
-                                                if (f.size > 500 * 1024) { toast.error('Max 500KB'); return; }
-                                                const r = new FileReader(); r.onloadend = () => { setFormData({ ...formData, photo: r.result as string }); toast.success('Added!'); }; r.readAsDataURL(f);
-                                            }} />
-                                        </label>
-                                        <div className="w-24 h-24 rounded-xl bg-gray-100 border-2 border-gray-200 overflow-hidden flex items-center justify-center flex-shrink-0">
-                                            {formData.photo ? (
-                                                <div className="relative w-full h-full">
-                                                    <img src={formData.photo} alt="Preview" className="w-full h-full object-cover" />
-                                                    <button type="button" onClick={() => setFormData({ ...formData, photo: '' })} className="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center"><FiX size={10} /></button>
-                                                </div>
-                                            ) : <FiImage className="text-gray-300" size={24} />}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
 
-                            {/* Pricing & Units */}
-                            <div className="bg-blue-50/50 rounded-2xl p-5 border border-blue-200">
-                                <h3 className="font-bold text-blue-800 mb-4 flex items-center gap-2 text-sm"><FiDollarSign size={16} /> Pricing, Units & Conversion</h3>
-                                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase tracking-wider">Buy Unit</label>
-                                        <select value={formData.purchase_unit} onChange={e => { const pu = e.target.value; const conv = UNIT_CONVERSIONS[pu]; setFormData({ ...formData, purchase_unit: pu, pieces_per_package: conv?.[formData.sales_unit] || formData.pieces_per_package }); }}
-                                            className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none">{units.map(u => <option key={u.unit_id} value={u.unit_name}>{u.unit_name}</option>)}</select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase tracking-wider">Buy Price / {formData.purchase_unit} (Ksh)</label>
-                                        <input type="number" value={formData.purchase_cost} onChange={e => setFormData({ ...formData, purchase_cost: parseFloat(e.target.value) || 0 })}
-                                            className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none" min="0" step="0.01" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-orange-600 mb-1 uppercase tracking-wider">Pcs/Package</label>
-                                        <input type="number" value={formData.pieces_per_package} onChange={e => setFormData({ ...formData, pieces_per_package: parseInt(e.target.value) || 1 })}
-                                            className="w-full px-3 py-2.5 bg-orange-50 border-2 border-orange-300 rounded-xl text-sm focus:border-orange-500 outline-none font-bold text-orange-700" min="1" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase tracking-wider">Sell Unit</label>
-                                        <select value={formData.sales_unit} onChange={e => setFormData({ ...formData, sales_unit: e.target.value })}
-                                            className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none">{units.map(u => <option key={u.unit_id} value={u.unit_name}>{u.unit_name}</option>)}</select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-gray-600 mb-1 uppercase tracking-wider">Sell Price (Ksh)</label>
-                                        <input type="number" value={formData.sales_cost} onChange={e => setFormData({ ...formData, sales_cost: parseFloat(e.target.value) || 0 })}
-                                            className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none" min="0" step="0.01" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-[10px] font-bold text-purple-600 mb-1 uppercase tracking-wider">Wholesale (Ksh)</label>
-                                        <input type="number" value={formData.wholesale_price} onChange={e => setFormData({ ...formData, wholesale_price: parseFloat(e.target.value) || 0 })}
-                                            className="w-full px-3 py-2.5 bg-purple-50 border-2 border-purple-200 rounded-xl text-sm focus:border-purple-500 outline-none font-semibold text-purple-700" min="0" step="0.01" placeholder="0" />
-                                    </div>
-                                </div>
-                                {formData.pieces_per_package > 1 && formData.purchase_cost > 0 && (
-                                    <div className="mt-3 p-3 bg-orange-50 rounded-xl border border-orange-200 text-sm">
-                                        <span className="font-bold text-orange-700">📦 Conversion:</span> 1 {formData.purchase_unit} = <span className="font-bold text-orange-800">{formData.pieces_per_package}</span> {formData.sales_unit}(s)
-                                    </div>
-                                )}
-                                {/* Cost Per Piece + Profit Breakdown */}
-                                {formData.purchase_cost > 0 && (
-                                    <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
-                                        {/* Cost Per Piece - editable input */}
-                                        <div className="bg-blue-50 rounded-xl p-3 border border-blue-200">
-                                            <label className="block text-[10px] font-bold text-blue-600 mb-1 uppercase tracking-wider">Cost / {formData.sales_unit}</label>
-                                            <input type="number" value={Number((formData.purchase_cost / (formData.pieces_per_package || 1)).toFixed(2))}
-                                                onChange={e => { const cpp = parseFloat(e.target.value) || 0; setFormData({ ...formData, purchase_cost: Math.round(cpp * (formData.pieces_per_package || 1) * 100) / 100 }); }}
-                                                className="w-full px-2 py-1.5 bg-white border border-blue-300 rounded-lg text-sm font-bold text-blue-800 focus:border-blue-500 outline-none" min="0" step="0.01" />
-                                        </div>
-                                        {/* Profit Per Piece (Wholesale) */}
-                                        {formData.wholesale_price > 0 && (
-                                            <div className={`rounded-xl p-3 border ${(formData.wholesale_price - formData.purchase_cost / (formData.pieces_per_package || 1)) > 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
-                                                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Profit / {formData.sales_unit}</p>
-                                                <p className={`text-lg font-black mt-0.5 ${(formData.wholesale_price - formData.purchase_cost / (formData.pieces_per_package || 1)) > 0 ? 'text-emerald-700' : 'text-red-700'}`}>
-                                                    Ksh {(formData.wholesale_price - formData.purchase_cost / (formData.pieces_per_package || 1)).toFixed(2)}
-                                                </p>
-                                                <p className="text-[10px] text-gray-400">Wholesale − Cost/Pc</p>
-                                            </div>
-                                        )}
-                                        {/* Profit Per Bag (Wholesale) */}
-                                        {formData.wholesale_price > 0 && formData.pieces_per_package > 1 && (
-                                            <div className={`rounded-xl p-3 border ${(formData.wholesale_price * formData.pieces_per_package - formData.purchase_cost) > 0 ? 'bg-indigo-50 border-indigo-200' : 'bg-red-50 border-red-200'}`}>
-                                                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Profit / {formData.purchase_unit}</p>
-                                                <p className={`text-lg font-black mt-0.5 ${(formData.wholesale_price * formData.pieces_per_package - formData.purchase_cost) > 0 ? 'text-indigo-700' : 'text-red-700'}`}>
-                                                    Ksh {(formData.wholesale_price * formData.pieces_per_package - formData.purchase_cost).toLocaleString()}
-                                                </p>
-                                                <p className="text-[10px] text-gray-400">(WS × {formData.pieces_per_package}) − Buy</p>
-                                            </div>
-                                        )}
-                                        {/* Margin % */}
-                                        <div className="bg-white rounded-xl p-3 border border-gray-200">
-                                            <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Margin %</p>
-                                            <p className={`text-lg font-black mt-0.5 ${calcMargin(formData.purchase_cost / (formData.pieces_per_package || 1), formData.wholesale_price || formData.sales_cost) >= 20 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                                {calcMargin(formData.purchase_cost / (formData.pieces_per_package || 1), formData.wholesale_price || formData.sales_cost).toFixed(1)}%
-                                            </p>
-                                            <p className="text-[10px] text-gray-400">On {formData.wholesale_price > 0 ? 'wholesale' : 'sell'} price</p>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Extra */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">VAT Type</label>
-                                    <select value={formData.vat_commodity} onChange={e => setFormData({ ...formData, vat_commodity: e.target.value })}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none">{vatOptions.map(v => <option key={v} value={v}>{v}</option>)}</select>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Reorder Point</label>
-                                    <input type="number" value={formData.reorder_point} onChange={e => setFormData({ ...formData, reorder_point: parseInt(e.target.value) || 10 })}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none" min="0" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Supplier</label>
-                                    <select value={formData.supplier_name} onChange={e => setFormData({ ...formData, supplier_name: e.target.value })}
-                                        className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none cursor-pointer">
-                                        <option value="">Select Supplier</option>
-                                        <option value={getKitchenSupplier()}>{getKitchenSupplier()}</option>
-                                        {suppliers.filter(s => !s.is_kitchen).map(s => <option key={s.supplier_id} value={s.supplier_name}>{s.supplier_name}</option>)}
-                                    </select>
-                                </div>
-                                <div className="md:col-span-3">
-                                    <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">POS Button Color</label>
-                                    <div className="grid grid-cols-7 gap-2">
-                                        {colorPresets.map(c => (
-                                            <button key={c.name} type="button" onClick={() => setFormData({ ...formData, button_ui_color: c.gradient })}
-                                                className={`h-8 rounded-xl bg-gradient-to-br ${c.gradient} transition-all hover:scale-110 ${formData.button_ui_color === c.gradient ? 'ring-2 ring-offset-2 ring-blue-500 scale-110' : ''}`} title={c.name} />
-                                        ))}
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-6 pt-4">
-                                    <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-gray-700">
-                                        <input type="checkbox" checked={formData.active} onChange={e => setFormData({ ...formData, active: e.target.checked })} className="w-4 h-4 rounded accent-blue-500" /> Active
-                                    </label>
-                                    <label className="flex items-center gap-2 cursor-pointer text-sm font-semibold text-gray-700">
-                                        <input type="checkbox" checked={formData.show_ps} onChange={e => setFormData({ ...formData, show_ps: e.target.checked })} className="w-4 h-4 rounded accent-blue-500" /> Show in POS
-                                    </label>
-                                </div>
-                            </div>
+                        <div className="p-6 space-y-6">
+                            {/* 1. Basic Info */}
                             <div>
-                                <label className="block text-xs font-bold text-gray-700 mb-1.5 uppercase tracking-wider">Description</label>
-                                <textarea value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="Optional..." rows={2}
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-blue-500 outline-none resize-none" />
+                                <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                    <span className="w-6 h-6 rounded bg-teal-100 flex items-center justify-center text-xs">1</span>
+                                    Basic Information
+                                </h3>
+                                <div className="grid grid-cols-4 gap-3">
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Code</label>
+                                        <input type="text" value={formData.barcode} readOnly
+                                            className="w-full px-3 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-sm" />
+                                    </div>
+                                    <div className="col-span-2">
+                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Product / Drug Name *</label>
+                                        <input type="text" value={formData.product_name} onChange={e => setFormData({ ...formData, product_name: e.target.value })}
+                                            placeholder="e.g. Paracetamol 500mg" className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Barcode</label>
+                                        <input type="text" value={formData.barcode} onChange={e => setFormData({ ...formData, barcode: e.target.value })}
+                                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm" />
+                                    </div>
+                                </div>
                             </div>
+
+                            {/* 2. Drug Details */}
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                    <span className="w-6 h-6 rounded bg-blue-100 flex items-center justify-center text-xs">2</span>
+                                    Drug Details
+                                </h3>
+                                <div className="grid grid-cols-4 gap-3">
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Generic Name</label>
+                                        <input type="text" value={pharmForm.generic_name} onChange={e => setPharmForm({ ...pharmForm, generic_name: e.target.value })}
+                                            placeholder="e.g. Paracetamol" className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Drug Type</label>
+                                        <select value={pharmForm.drug_type} onChange={e => setPharmForm({ ...pharmForm, drug_type: e.target.value })}
+                                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm cursor-pointer">
+                                            {DRUG_TYPES.map(t => <option key={t}>{t}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Dosage</label>
+                                        <input type="text" value={pharmForm.dosage} onChange={e => setPharmForm({ ...pharmForm, dosage: e.target.value })}
+                                            placeholder="e.g. 500mg" className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Manufacturer</label>
+                                        <input type="text" value={pharmForm.manufacturer} onChange={e => setPharmForm({ ...pharmForm, manufacturer: e.target.value })}
+                                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Category</label>
+                                        <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}
+                                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm cursor-pointer">
+                                            <option value="">Select Category</option>
+                                            {categories.map(c => <option key={c.category_id} value={c.category_name}>{c.category_name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Storage</label>
+                                        <input type="text" value={pharmForm.storage_conditions} onChange={e => setPharmForm({ ...pharmForm, storage_conditions: e.target.value })}
+                                            placeholder="e.g. Below 25°C" className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm" />
+                                    </div>
+                                    <div className="flex items-end gap-4">
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" checked={pharmForm.requires_prescription} onChange={e => setPharmForm({ ...pharmForm, requires_prescription: e.target.checked })} className="accent-red-500 w-4 h-4" />
+                                            <span className="text-sm font-semibold text-red-600">℞ Prescription</span>
+                                        </label>
+                                        <label className="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" checked={formData.show_ps} onChange={e => setFormData({ ...formData, show_ps: e.target.checked })} className="accent-teal-500 w-4 h-4" />
+                                            <span className="text-sm text-gray-600">POS</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 3. Pricing, Units & Margin */}
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                    <span className="w-6 h-6 rounded bg-green-100 flex items-center justify-center text-xs">3</span>
+                                    Pricing, Units & Margin
+                                </h3>
+                                <div className="grid grid-cols-6 gap-3">
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Purchase Unit</label>
+                                        <select value={formData.purchase_unit} onChange={e => setFormData({ ...formData, purchase_unit: e.target.value })}
+                                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm">
+                                            {['Piece','Tablet','Capsule','Strip','Box','Pack','Bottle','Tube','Sachet','Vial','Ampoule','Carton','Dozen','Kilogram','Gram','Liter','Milliliter'].map(u => <option key={u}>{u}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Sales Unit</label>
+                                        <select value={formData.sales_unit} onChange={e => setFormData({ ...formData, sales_unit: e.target.value })}
+                                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm">
+                                            {['Piece','Tablet','Capsule','Strip','Box','Pack','Bottle','Tube','Sachet','Vial','Ampoule','Carton','Dozen','Kilogram','Gram','Liter','Milliliter'].map(u => <option key={u}>{u}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Purchase Cost *</label>
+                                        <input type="number" value={formData.purchase_cost} onChange={e => setFormData({ ...formData, purchase_cost: Number(e.target.value) })}
+                                            min={0} step={0.01} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Selling Price *</label>
+                                        <input type="number" value={formData.sales_cost} onChange={e => setFormData({ ...formData, sales_cost: Number(e.target.value) })}
+                                            min={0} step={0.01} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Wholesale</label>
+                                        <input type="number" value={formData.wholesale_price} onChange={e => setFormData({ ...formData, wholesale_price: Number(e.target.value) })}
+                                            min={0} step={0.01} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Pcs/Package</label>
+                                        <input type="number" value={formData.pieces_per_package} onChange={e => setFormData({ ...formData, pieces_per_package: Number(e.target.value) })}
+                                            min={1} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm" />
+                                    </div>
+                                </div>
+                                {/* Margin Display */}
+                                {formData.purchase_cost > 0 && (() => {
+                                    const mProfit = formData.sales_cost - formData.purchase_cost;
+                                    const mMargin = (mProfit / formData.purchase_cost) * 100;
+                                    return (
+                                        <div className={`mt-3 p-3 rounded-xl border-2 flex items-center justify-between ${mMargin >= 20 ? 'bg-green-50 border-green-200' : mMargin >= 10 ? 'bg-yellow-50 border-yellow-200' : mMargin > 0 ? 'bg-orange-50 border-orange-200' : 'bg-red-50 border-red-200'}`}>
+                                            <div className="flex items-center gap-6">
+                                                <div>
+                                                    <p className="text-xs text-gray-500 uppercase font-bold">Profit per unit</p>
+                                                    <p className={`text-lg font-black ${mProfit >= 0 ? 'text-green-700' : 'text-red-700'}`}>Ksh {mProfit.toLocaleString()}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-gray-500 uppercase font-bold">Margin %</p>
+                                                    <p className={`text-lg font-black ${mMargin >= 20 ? 'text-green-700' : mMargin >= 10 ? 'text-yellow-700' : 'text-red-700'}`}>{mMargin.toFixed(2)}%</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-gray-500 uppercase font-bold">Markup</p>
+                                                    <p className="text-lg font-black text-gray-700">{formData.sales_cost > 0 && formData.purchase_cost > 0 ? (formData.sales_cost / formData.purchase_cost).toFixed(2) : '0'}x</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                {mMargin < 0 && <p className="text-sm font-bold text-red-600">⚠️ Selling below cost!</p>}
+                                                {mMargin === 0 && <p className="text-sm font-bold text-orange-600">⚠️ No profit margin</p>}
+                                                {mMargin >= 20 && <p className="text-sm font-bold text-green-600">✅ Good margin</p>}
+                                                {mMargin > 0 && mMargin < 10 && <p className="text-sm font-bold text-orange-600">⚠️ Low margin</p>}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+
+                            {/* 4. Batch Datagrid */}
+                            <div>
+                                <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                    <span className="w-6 h-6 rounded bg-purple-100 flex items-center justify-center text-xs">4</span>
+                                    Batches & Expiry Dates
+                                    <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs ml-2">{batches.length} batch{batches.length !== 1 ? 'es' : ''}</span>
+                                </h3>
+
+                                {/* Add Batch Row */}
+                                <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 mb-3">
+                                    <div className="grid grid-cols-7 gap-2 items-end">
+                                        <div>
+                                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Batch # *</label>
+                                            <input type="text" value={newBatch.batch_number} onChange={e => setNewBatch({ ...newBatch, batch_number: e.target.value })}
+                                                placeholder="B001" className="w-full px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Expiry Date *</label>
+                                            <input type="date" value={newBatch.expiry_date} onChange={e => setNewBatch({ ...newBatch, expiry_date: e.target.value })}
+                                                className="w-full px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Mfg Date</label>
+                                            <input type="date" value={newBatch.manufacture_date} onChange={e => setNewBatch({ ...newBatch, manufacture_date: e.target.value })}
+                                                className="w-full px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Qty *</label>
+                                            <input type="number" value={newBatch.quantity || ''} onChange={e => setNewBatch({ ...newBatch, quantity: Number(e.target.value) })}
+                                                min={1} className="w-full px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Buy Price</label>
+                                            <input type="number" value={newBatch.purchase_cost || ''} onChange={e => setNewBatch({ ...newBatch, purchase_cost: Number(e.target.value) })}
+                                                placeholder={String(formData.purchase_cost)} className="w-full px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Sell Price</label>
+                                            <input type="number" value={newBatch.selling_price || ''} onChange={e => setNewBatch({ ...newBatch, selling_price: Number(e.target.value) })}
+                                                placeholder={String(formData.sales_cost)} className="w-full px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm" />
+                                        </div>
+                                        <button onClick={() => {
+                                            if (!newBatch.batch_number || !newBatch.expiry_date || newBatch.quantity <= 0) { toast.error('Batch #, expiry date and qty required'); return; }
+                                            setBatches(prev => [...prev, { ...newBatch, purchase_cost: newBatch.purchase_cost || formData.purchase_cost, selling_price: newBatch.selling_price || formData.sales_cost }]);
+                                            setNewBatch({ batch_number: '', expiry_date: '', manufacture_date: '', quantity: 0, purchase_cost: 0, selling_price: 0 });
+                                            toast.success('Batch added');
+                                        }} className="py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg font-bold hover:shadow-lg transition-all text-sm">
+                                            + Add Batch
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Batch Table */}
+                                {batches.length > 0 && (
+                                    <div className="border border-gray-200 rounded-xl overflow-hidden">
+                                        <table className="w-full">
+                                            <thead><tr className="bg-gray-50">
+                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Batch #</th>
+                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Expiry Date</th>
+                                                <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Expiring In</th>
+                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Mfg Date</th>
+                                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Qty</th>
+                                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Buy</th>
+                                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Sell</th>
+                                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Batch Margin</th>
+                                                <th className="px-3 py-2 w-10"></th>
+                                            </tr></thead>
+                                            <tbody>
+                                                {batches.map((b, idx) => {
+                                                    const days = getDaysUntilExpiry(b.expiry_date);
+                                                    const bCost = b.purchase_cost || formData.purchase_cost;
+                                                    const bSell = b.selling_price || formData.sales_cost;
+                                                    const bMargin = bCost > 0 ? ((bSell - bCost) / bCost * 100).toFixed(1) : '0';
+                                                    const bProfit = bSell - bCost;
+                                                    return (
+                                                        <tr key={idx} className={`border-b border-gray-50 ${days < 0 ? 'bg-red-50' : days <= 30 ? 'bg-orange-50' : ''}`}>
+                                                            <td className="px-3 py-2 font-mono text-sm font-bold text-gray-800">{b.batch_number}</td>
+                                                            <td className="px-3 py-2 text-sm text-gray-600">{b.expiry_date}</td>
+                                                            <td className="px-3 py-2 text-center">{getExpiryBadge(days)}</td>
+                                                            <td className="px-3 py-2 text-sm text-gray-400">{b.manufacture_date || '—'}</td>
+                                                            <td className="px-3 py-2 text-right text-sm font-bold">{b.remaining_qty !== undefined ? `${b.remaining_qty}/${b.quantity}` : b.quantity}</td>
+                                                            <td className="px-3 py-2 text-right text-sm text-gray-600">{bCost.toLocaleString()}</td>
+                                                            <td className="px-3 py-2 text-right text-sm font-bold text-green-600">{bSell.toLocaleString()}</td>
+                                                            <td className="px-3 py-2 text-right">
+                                                                <span className={`text-xs font-bold ${Number(bMargin) >= 20 ? 'text-green-600' : 'text-orange-600'}`}>{bMargin}%</span>
+                                                                <span className="text-xs text-gray-400 ml-1">(Ksh {bProfit.toLocaleString()})</span>
+                                                            </td>
+                                                            <td className="px-3 py-2">
+                                                                <button onClick={async () => {
+                                                                    if (b.batch_id) {
+                                                                        if (!confirm('Delete this saved batch?')) return;
+                                                                        await supabase.from('pharmacy_batches').update({ status: 'Deleted' }).eq('batch_id', b.batch_id);
+                                                                        toast.success('Batch deleted');
+                                                                    }
+                                                                    setBatches(prev => prev.filter((_, i) => i !== idx));
+                                                                }} className="p-1 hover:bg-red-100 rounded text-red-400" title="Delete batch"><FiTrash2 size={14} /></button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+                                {batches.length === 0 && (
+                                    <div className="text-center py-6 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
+                                        <p className="text-sm">📦 No batches added yet</p>
+                                        <p className="text-xs mt-1">Add batches above with expiry dates for proper tracking</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Save / Cancel */}
                             <div className="flex gap-3 pt-4 border-t border-gray-100">
-                                <button type="button" onClick={() => setShowModal(false)} className="flex-1 px-5 py-3 border-2 border-gray-200 text-gray-600 font-bold rounded-xl hover:bg-gray-50 transition-all text-sm">Cancel</button>
-                                <button type="submit" disabled={isSaving}
-                                    className="flex-1 px-5 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-300/30 hover:shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-60 text-sm">
-                                    {isSaving ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</> : <>{editingProduct ? 'Update Product' : 'Create Product'}</>}
+                                <button onClick={() => { setShowModal(false); }} className="flex-1 py-3 border-2 border-gray-200 rounded-xl text-gray-500 font-bold hover:bg-gray-50">Cancel</button>
+                                <button onClick={async () => {
+                                    if (!formData.product_name.trim()) { toast.error('Product name required'); return; }
+                                    setIsSaving(true);
+                                    try {
+                                        const marginPer = formData.purchase_cost > 0 ? Math.round(((formData.sales_cost - formData.purchase_cost) / formData.purchase_cost) * 10000) / 100 : 0;
+                                        const d = {
+                                            product_name: formData.product_name, barcode: formData.barcode || null,
+                                            category: formData.category || null, purchase_unit: formData.purchase_unit,
+                                            sales_unit: formData.sales_unit, purchase_cost: formData.purchase_cost || 0,
+                                            sales_cost: formData.sales_cost || 0, wholesale_price: formData.wholesale_price || 0,
+                                            reorder_point: formData.reorder_point || 10, margin_per: marginPer,
+                                            show_in_pos: formData.show_ps !== false, active: formData.active !== false,
+                                            pieces_per_package: formData.pieces_per_package || 1,
+                                            generic_name: pharmForm.generic_name || null, manufacturer: pharmForm.manufacturer || null,
+                                            drug_type: pharmForm.drug_type || 'Tablet', dosage: pharmForm.dosage || null,
+                                            requires_prescription: pharmForm.requires_prescription || false,
+                                            storage_conditions: pharmForm.storage_conditions || null,
+                                        };
+                                        let pid: number;
+                                        if (editingProduct) {
+                                            const { error } = await supabase.from('pharmacy_products').update({ ...d, updated_at: new Date().toISOString() }).eq('pid', editingProduct.pid);
+                                            if (error) throw error;
+                                            pid = editingProduct.pid;
+                                            toast.success('Product updated!');
+                                        } else {
+                                            const code = await generateProductCode();
+                                            const { data: np, error } = await supabase.from('pharmacy_products').insert({ ...d, product_code: code, outlet_id: outletId, created_at: new Date().toISOString() }).select().single();
+                                            if (error) throw error;
+                                            pid = np.pid;
+                                            await supabase.from('pharmacy_stock').insert({ pid, qty: 0, outlet_id: outletId, storage_type: 'Store' });
+                                            toast.success(`Product ${code} created!`);
+                                        }
+                                        // Save new batches
+                                        for (const batch of batches) {
+                                            if (!batch.batch_id) {
+                                                const { data: batchData } = await supabase.from('pharmacy_batches').insert({
+                                                    product_id: pid, batch_number: batch.batch_number,
+                                                    expiry_date: batch.expiry_date, manufacture_date: batch.manufacture_date || null,
+                                                    quantity: batch.quantity, remaining_qty: batch.quantity,
+                                                    purchase_cost: batch.purchase_cost || formData.purchase_cost,
+                                                    selling_price: batch.selling_price || formData.sales_cost,
+                                                    outlet_id: outletId, status: 'Active',
+                                                }).select().single();
+                                                if (batchData) {
+                                                    const { data: stockRow } = await supabase.from('pharmacy_stock')
+                                                        .select('st_id, qty').eq('pid', pid).eq('outlet_id', outletId).limit(1).single();
+                                                    if (stockRow) {
+                                                        await supabase.from('pharmacy_stock').update({ qty: (stockRow.qty || 0) + batch.quantity }).eq('st_id', stockRow.st_id);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        setShowModal(false); loadProducts(); loadStockData();
+                                    } catch (err: any) { toast.error(err.message || 'Save failed'); }
+                                    setIsSaving(false);
+                                }} disabled={isSaving} className="flex-1 py-3 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+                                    {isSaving ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</> : <>{editingProduct ? '💾 Update Product' : '💊 Save Product'}</>}
                                 </button>
                             </div>
-                        </form>
+                        </div>
                     </div>
                 </div>
             )}
