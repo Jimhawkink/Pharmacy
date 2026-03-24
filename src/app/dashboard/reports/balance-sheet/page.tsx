@@ -34,34 +34,34 @@ export default function BalanceSheetPage() {
         setLoading(true);
         try {
             // Cash in Hand: all cash sales minus cash expenses (up to asAtDate)
-            const { data: cashSalesData } = await supabase.from('retail_sales').select('total_amount')
-                .eq('outlet_id', outletId).lte('sale_date', asAtDate)
+            const { data: cashSalesData } = await supabase.from('pharmacy_sales').select('total')
+                .eq('outlet_id', outletId).lte('sale_datetime', asAtDate)
                 .ilike('payment_method', '%cash%');
-            const totalCashSales = (cashSalesData || []).reduce((s, r) => s + (r.total_amount || 0), 0);
+            const totalCashSales = (cashSalesData || []).reduce((s, r) => s + (r.total || 0), 0);
             const { data: cashExpData } = await supabase.from('expenses').select('amount')
                 .lte('expense_date', asAtDate).ilike('payment_mode', '%cash%');
             const totalCashExpenses = (cashExpData || []).reduce((s, e) => s + (e.amount || 0), 0);
             setCashInHand(totalCashSales - totalCashExpenses);
 
             // M-Pesa Balance: all M-Pesa sales minus M-Pesa expenses
-            const { data: mpesaSalesData } = await supabase.from('retail_sales').select('total_amount')
-                .eq('outlet_id', outletId).lte('sale_date', asAtDate)
+            const { data: mpesaSalesData } = await supabase.from('pharmacy_sales').select('total')
+                .eq('outlet_id', outletId).lte('sale_datetime', asAtDate)
                 .ilike('payment_method', '%mpesa%');
-            const totalMpesaSales = (mpesaSalesData || []).reduce((s, r) => s + (r.total_amount || 0), 0);
+            const totalMpesaSales = (mpesaSalesData || []).reduce((s, r) => s + (r.total || 0), 0);
             const { data: mpesaExpData } = await supabase.from('expenses').select('amount')
                 .lte('expense_date', asAtDate).ilike('payment_mode', '%pesa%');
             const totalMpesaExpenses = (mpesaExpData || []).reduce((s, e) => s + (e.amount || 0), 0);
             setMpesaBalance(totalMpesaSales - totalMpesaExpenses);
 
             // Accounts Receivable: total credit customer balances
-            const { data: creditCusts } = await supabase.from('retail_credit_customers').select('balance').eq('active', true);
+            const { data: creditCusts } = await supabase.from('pharmacy_credit_customers').select('balance').eq('active', true);
             setAccountsReceivable((creditCusts || []).reduce((s, c) => s + (c.balance || 0), 0));
 
             // Inventory: current stock value at cost
-            const { data: products } = await supabase.from('retail_products').select('pid, purchase_cost').eq('outlet_id', outletId);
+            const { data: products } = await supabase.from('pharmacy_products').select('pid, purchase_cost').eq('outlet_id', outletId);
             const costMap: Record<number, number> = {};
             (products || []).forEach(p => { costMap[p.pid] = p.purchase_cost || 0; });
-            const { data: stockData } = await supabase.from('retail_stock').select('pid, qty').eq('outlet_id', outletId);
+            const { data: stockData } = await supabase.from('pharmacy_stock').select('pid, qty').eq('outlet_id', outletId);
             let stockVal = 0;
             (stockData || []).forEach(s => { stockVal += (s.qty || 0) * (costMap[s.pid] || 0); });
             setInventory(stockVal);

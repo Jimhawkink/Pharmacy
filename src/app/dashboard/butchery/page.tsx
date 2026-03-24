@@ -21,7 +21,7 @@ interface RecentSale {
     weight_kg: number;
     net_amount: number;
     payment_mode: string;
-    sale_date: string;
+    sale_datetime: string;
 }
 
 export default function ButcheryDashboardPage() {
@@ -52,8 +52,8 @@ export default function ButcheryDashboardPage() {
             const { data: salesData, error: salesError } = await supabase
                 .from('meat_sales')
                 .select('*')
-                .gte('sale_date', today)
-                .order('sale_date', { ascending: false });
+                .gte('sale_datetime', today)
+                .order('sale_datetime', { ascending: false });
 
             if (salesError) {
                 console.error('Sales error:', salesError);
@@ -102,7 +102,7 @@ export default function ButcheryDashboardPage() {
                 weight_kg: s.weight_kg || 0,
                 net_amount: s.net_amount || 0,
                 payment_mode: s.payment_mode || 'Cash',
-                sale_date: s.sale_date
+                sale_datetime: s.sale_datetime
             })));
 
         } catch (err) {

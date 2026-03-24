@@ -9,17 +9,16 @@ import toast from 'react-hot-toast';
 interface Sale {
     sale_id: number;
     receipt_no: string;
-    sale_date: string;
     sale_datetime: string;
     customer_name: string;
     customer_phone: string;
     subtotal: number;
     discount: number;
-    total_amount: number;
+    total: number;
     payment_method: string;
     amount_paid: number;
     change_amount: number;
-    mpesa_code: string;
+    mpesa_receipt: string;
     checkout_request_id: string;
     status: string;
 }
@@ -61,16 +60,16 @@ export default function SalesPage() {
         try {
             let data: any[] | null = null;
             const r1 = await supabase
-                .from('retail_sales')
+                .from('pharmacy_sales')
                 .select('*')
                 .eq('outlet_id', outletId)
-                .eq('sale_date', filterDate)
+                .eq('sale_datetime', filterDate)
                 .order('sale_datetime', { ascending: false });
             if (r1.error) {
                 const r2 = await supabase
-                    .from('retail_sales')
+                    .from('pharmacy_sales')
                     .select('*')
-                    .eq('sale_date', filterDate)
+                    .eq('sale_datetime', filterDate)
                     .order('sale_datetime', { ascending: false });
                 data = r2.data;
             } else {
@@ -93,7 +92,7 @@ export default function SalesPage() {
         setLoadingItems(prev => new Set(prev).add(saleId));
         try {
             const { data } = await supabase
-                .from('retail_sales_items')
+                .from('pharmacy_sales_items')
                 .select('*')
                 .eq('sale_id', saleId)
                 .order('item_id');
@@ -141,15 +140,15 @@ export default function SalesPage() {
             (s.receipt_no || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
             (s.customer_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
             (s.customer_phone || '').includes(searchQuery) ||
-            (s.mpesa_code || '').toLowerCase().includes(searchQuery.toLowerCase());
+            (s.mpesa_receipt || '').toLowerCase().includes(searchQuery.toLowerCase());
         const matchesPayment = filterPayment === 'All' || (s.payment_method || '').toUpperCase() === filterPayment.toUpperCase();
         return matchesSearch && matchesPayment;
     });
 
-    const totalRevenue = filteredSales.reduce((sum, s) => sum + (s.total_amount || 0), 0);
-    const cashTotal = filteredSales.filter(s => (s.payment_method || '').toUpperCase() === 'CASH').reduce((sum, s) => sum + (s.total_amount || 0), 0);
-    const mpesaTotal = filteredSales.filter(s => (s.payment_method || '').toUpperCase() === 'MPESA' || (s.payment_method || '').toUpperCase() === 'M-PESA').reduce((sum, s) => sum + (s.total_amount || 0), 0);
-    const creditTotal = filteredSales.filter(s => (s.payment_method || '').toUpperCase() === 'CREDIT').reduce((sum, s) => sum + (s.total_amount || 0), 0);
+    const totalRevenue = filteredSales.reduce((sum, s) => sum + (s.total || 0), 0);
+    const cashTotal = filteredSales.filter(s => (s.payment_method || '').toUpperCase() === 'CASH').reduce((sum, s) => sum + (s.total || 0), 0);
+    const mpesaTotal = filteredSales.filter(s => (s.payment_method || '').toUpperCase() === 'MPESA' || (s.payment_method || '').toUpperCase() === 'M-PESA').reduce((sum, s) => sum + (s.total || 0), 0);
+    const creditTotal = filteredSales.filter(s => (s.payment_method || '').toUpperCase() === 'CREDIT').reduce((sum, s) => sum + (s.total || 0), 0);
 
     const formatTime = (datetime: string) => {
         if (!datetime) return '';
@@ -319,14 +318,14 @@ export default function SalesPage() {
                                                     </span>
                                                 </td>
                                                 <td className="py-3 px-4">
-                                                    {sale.mpesa_code ? (
-                                                        <span className="px-3 py-1 bg-green-50 text-green-700 rounded-lg text-sm font-mono font-semibold">{sale.mpesa_code}</span>
+                                                    {sale.mpesa_receipt ? (
+                                                        <span className="px-3 py-1 bg-green-50 text-green-700 rounded-lg text-sm font-mono font-semibold">{sale.mpesa_receipt}</span>
                                                     ) : (
                                                         <span className="text-gray-400 text-sm">-</span>
                                                     )}
                                                 </td>
                                                 <td className="py-3 px-4 text-right font-bold text-gray-900 text-sm">
-                                                    Ksh {(sale.total_amount || 0).toLocaleString()}
+                                                    Ksh {(sale.total || 0).toLocaleString()}
                                                 </td>
                                                 <td className="py-3 px-4 text-center">
                                                     <span className={`px-3 py-1 rounded-lg text-sm font-medium ${sale.status === 'Completed' ? 'bg-green-100 text-green-700' :
@@ -394,7 +393,7 @@ export default function SalesPage() {
                                                                     <tfoot>
                                                                         <tr className="border-t-2 border-blue-200 bg-blue-50">
                                                                             <td colSpan={5} className="py-2 px-4 text-right text-sm font-bold text-blue-800">Total:</td>
-                                                                            <td className="py-2 px-4 text-right text-sm font-bold text-blue-800">Ksh {(sale.total_amount || 0).toLocaleString()}</td>
+                                                                            <td className="py-2 px-4 text-right text-sm font-bold text-blue-800">Ksh {(sale.total || 0).toLocaleString()}</td>
                                                                         </tr>
                                                                     </tfoot>
                                                                 </table>
@@ -444,10 +443,10 @@ export default function SalesPage() {
                                 <span className="text-gray-600">Payment:</span>
                                 <span className="font-medium">{selectedSale.payment_method}</span>
                             </div>
-                            {selectedSale.mpesa_code && (
+                            {selectedSale.mpesa_receipt && (
                                 <div className="flex justify-between">
                                     <span className="text-gray-600">M-Pesa Code:</span>
-                                    <span className="font-mono text-green-600 font-semibold">{selectedSale.mpesa_code}</span>
+                                    <span className="font-mono text-green-600 font-semibold">{selectedSale.mpesa_receipt}</span>
                                 </div>
                             )}
                         </div>
@@ -488,7 +487,7 @@ export default function SalesPage() {
                             )}
                             <div className="flex justify-between text-lg font-bold">
                                 <span>Total:</span>
-                                <span className="text-blue-600">Ksh {(selectedSale.total_amount || 0).toLocaleString()}</span>
+                                <span className="text-blue-600">Ksh {(selectedSale.total || 0).toLocaleString()}</span>
                             </div>
                         </div>
 

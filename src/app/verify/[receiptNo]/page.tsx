@@ -6,12 +6,11 @@ import { supabase } from '@/lib/supabase';
 
 interface SaleData {
     receipt_no: string;
-    sale_date: string;
     sale_datetime: string;
     customer_name: string;
-    total_amount: number;
+    total: number;
     payment_method: string;
-    mpesa_code: string | null;
+    mpesa_receipt: string | null;
     status: string;
 }
 
@@ -31,8 +30,8 @@ export default function VerifyReceiptPage() {
     const fetchSale = async () => {
         try {
             const { data, error: fetchError } = await supabase
-                .from('retail_sales')
-                .select('receipt_no, sale_date, sale_datetime, customer_name, total_amount, payment_method, mpesa_code, status')
+                .from('pharmacy_sales')
+                .select('receipt_no, sale_datetime, customer_name, total, payment_method, mpesa_receipt, status')
                 .eq('receipt_no', decodeURIComponent(receiptNo))
                 .single();
 
@@ -77,7 +76,7 @@ export default function VerifyReceiptPage() {
                 <div className="text-center mb-6">
                     <div className="text-6xl mb-4">✅</div>
                     <h1 className="text-2xl font-bold text-green-600">Receipt Verified</h1>
-                    <p className="text-gray-500">This is a valid receipt from Alpha Retail</p>
+                    <p className="text-gray-500">This is a valid receipt from Alpha Pharmacy</p>
                 </div>
 
                 {/* Receipt Details */}
@@ -115,17 +114,17 @@ export default function VerifyReceiptPage() {
                         </span>
                     </div>
 
-                    {sale.mpesa_code && (
+                    {sale.mpesa_receipt && (
                         <div className="flex justify-between items-center border-b pb-3">
                             <span className="text-gray-500">M-Pesa Code</span>
-                            <span className="font-mono font-bold text-green-600">{sale.mpesa_code}</span>
+                            <span className="font-mono font-bold text-green-600">{sale.mpesa_receipt}</span>
                         </div>
                     )}
 
                     <div className="flex justify-between items-center pt-2">
                         <span className="text-gray-700 font-medium">Total Amount</span>
                         <span className="text-2xl font-bold text-green-600">
-                            Ksh {sale.total_amount.toLocaleString()}
+                            Ksh {sale.total.toLocaleString()}
                         </span>
                     </div>
                 </div>
@@ -142,7 +141,7 @@ export default function VerifyReceiptPage() {
 
                 {/* Footer */}
                 <div className="mt-8 text-center text-xs text-gray-400">
-                    <p>Alpha Retail POS</p>
+                    <p>Alpha Pharmacy POS</p>
                     <p>Verified at {new Date().toLocaleString()}</p>
                 </div>
             </div>

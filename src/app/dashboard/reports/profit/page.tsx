@@ -40,14 +40,14 @@ export default function ProfitReportPage() {
         try {
             // Get sales items in date range
             const { data: salesItems } = await supabase
-                .from('retail_sales_items')
+                .from('pharmacy_sales_items')
                 .select('product_id, product_name, quantity, unit_price, subtotal, created_at')
                 .gte('created_at', `${dateFrom}T00:00:00`)
                 .lte('created_at', `${dateTo}T23:59:59`);
 
             // Get product costs
             const { data: products } = await supabase
-                .from('retail_products')
+                .from('pharmacy_products')
                 .select('pid, product_name, purchase_cost, sales_cost, category')
                 .eq('outlet_id', outletId);
 

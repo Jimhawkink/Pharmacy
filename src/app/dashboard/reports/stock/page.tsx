@@ -26,12 +26,12 @@ export default function StockReportPage() {
         setLoading(true);
         try {
             const { data: products } = await supabase
-                .from('retail_products')
+                .from('pharmacy_products')
                 .select('pid, product_name, category, purchase_unit, sales_unit, purchase_cost, sales_cost, reorder_point')
                 .eq('active', true).eq('outlet_id', outletId).order('product_name');
 
             const { data: stockData } = await supabase
-                .from('retail_stock').select('pid, qty').eq('outlet_id', outletId);
+                .from('pharmacy_stock').select('pid, qty').eq('outlet_id', outletId);
 
             const stockMap: Record<number, number> = {};
             (stockData || []).forEach(s => { stockMap[s.pid] = (stockMap[s.pid] || 0) + (s.qty || 0); });

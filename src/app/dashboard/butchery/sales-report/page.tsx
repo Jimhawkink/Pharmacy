@@ -11,13 +11,13 @@ interface MeatSale {
     meat_type_name: string;
     weight_kg: number;
     price_per_kg: number;
-    total_amount: number;
+    total: number;
     discount: number;
     net_amount: number;
     cost_per_kg: number;
     payment_mode: string;
     customer_name: string;
-    sale_date: string;
+    sale_datetime: string;
 }
 
 export default function ButcherySalesReportPage() {
@@ -33,9 +33,9 @@ export default function ButcherySalesReportPage() {
             let query = supabase
                 .from('meat_sales')
                 .select('*')
-                .gte('sale_date', `${dateFrom}T00:00:00`)
-                .lte('sale_date', `${dateTo}T23:59:59`)
-                .order('sale_date', { ascending: false });
+                .gte('sale_datetime', `${dateFrom}T00:00:00`)
+                .lte('sale_datetime', `${dateTo}T23:59:59`)
+                .order('sale_datetime', { ascending: false });
 
             if (paymentFilter !== 'All') {
                 query = query.eq('payment_mode', paymentFilter);
@@ -50,13 +50,13 @@ export default function ButcherySalesReportPage() {
                 meat_type_name: s.meat_type_name || 'Meat',
                 weight_kg: s.weight_kg || 0,
                 price_per_kg: s.price_per_kg || 0,
-                total_amount: s.total_amount || 0,
+                total: s.total || 0,
                 discount: s.discount || 0,
                 net_amount: s.net_amount || 0,
                 cost_per_kg: s.cost_per_kg || 0,
                 payment_mode: s.payment_mode || 'Cash',
                 customer_name: s.customer_name || '',
-                sale_date: s.sale_date
+                sale_datetime: s.sale_datetime
             })));
 
         } catch (err) {
@@ -86,11 +86,11 @@ export default function ButcherySalesReportPage() {
         const headers = ['Sale Code', 'Date', 'Meat Type', 'Weight (Kg)', 'Price/Kg', 'Amount', 'Discount', 'Net Amount', 'Cost/Kg', 'Profit', 'Payment', 'Customer'];
         const rows = sales.map(s => [
             s.sale_code,
-            new Date(s.sale_date).toLocaleDateString(),
+            new Date(s.sale_datetime).toLocaleDateString(),
             s.meat_type_name,
             s.weight_kg.toFixed(2),
             s.price_per_kg,
-            s.total_amount,
+            s.total,
             s.discount,
             s.net_amount,
             s.cost_per_kg,
@@ -266,7 +266,7 @@ export default function ButcherySalesReportPage() {
                                                 <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{sale.sale_code}</span>
                                             </td>
                                             <td className="py-3 px-3 text-sm text-gray-600">
-                                                {new Date(sale.sale_date).toLocaleDateString()}
+                                                {new Date(sale.sale_datetime).toLocaleDateString()}
                                             </td>
                                             <td className="py-3 px-3 font-semibold text-gray-800 text-sm">{sale.meat_type_name}</td>
                                             <td className="py-3 px-3 text-center">
@@ -275,7 +275,7 @@ export default function ButcherySalesReportPage() {
                                                 </span>
                                             </td>
                                             <td className="py-3 px-3 text-right text-gray-700 text-sm">KES {sale.price_per_kg}</td>
-                                            <td className="py-3 px-3 text-right text-gray-700">KES {sale.total_amount.toLocaleString()}</td>
+                                            <td className="py-3 px-3 text-right text-gray-700">KES {sale.total.toLocaleString()}</td>
                                             <td className="py-3 px-3 text-right text-orange-600">{sale.discount > 0 ? `-${sale.discount}` : '-'}</td>
                                             <td className="py-3 px-3 text-right font-bold text-green-600">KES {sale.net_amount.toLocaleString()}</td>
                                             <td className="py-3 px-3 text-right">
@@ -305,7 +305,7 @@ export default function ButcherySalesReportPage() {
                                     <td className="py-4 px-3 text-center text-blue-700">{totalWeight.toFixed(2)} Kg</td>
                                     <td className="py-4 px-3"></td>
                                     <td className="py-4 px-3 text-right text-gray-700">
-                                        KES {sales.reduce((sum, s) => sum + s.total_amount, 0).toLocaleString()}
+                                        KES {sales.reduce((sum, s) => sum + s.total, 0).toLocaleString()}
                                     </td>
                                     <td className="py-4 px-3 text-right text-orange-600">-{totalDiscount.toLocaleString()}</td>
                                     <td className="py-4 px-3 text-right text-green-700">KES {totalSales.toLocaleString()}</td>

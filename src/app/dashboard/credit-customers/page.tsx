@@ -42,7 +42,7 @@ export default function CreditCustomersPage() {
     const loadCustomers = async () => {
         setLoading(true);
         const { data, error } = await supabase
-            .from('retail_credit_customers')
+            .from('pharmacy_credit_customers')
             .select('*')
             .order('customer_name');
         if (error) { toast.error('Failed to load customers'); console.error(error); }
@@ -54,7 +54,7 @@ export default function CreditCustomersPage() {
         setViewCustomer(c);
         // Load sales for this customer
         const { data: sales } = await supabase
-            .from('retail_sales')
+            .from('pharmacy_sales')
             .select('*')
             .eq('customer_id', c.customer_id)
             .order('sale_datetime', { ascending: false })
@@ -62,7 +62,7 @@ export default function CreditCustomersPage() {
         setCustomerSales(sales || []);
         // Load payments
         const { data: payments } = await supabase
-            .from('retail_credit_payments')
+            .from('pharmacy_credit_payments')
             .select('*')
             .eq('customer_id', c.customer_id)
             .order('payment_datetime', { ascending: false })
@@ -124,7 +124,7 @@ export default function CreditCustomersPage() {
         try {
             if (editingCustomer) {
                 const { error } = await supabase
-                    .from('retail_credit_customers')
+                    .from('pharmacy_credit_customers')
                     .update({
                         customer_name: formData.customer_name.trim(),
                         phone: formData.phone.trim(),
@@ -138,7 +138,7 @@ export default function CreditCustomersPage() {
                 toast.success('Customer updated!');
             } else {
                 const { error } = await supabase
-                    .from('retail_credit_customers')
+                    .from('pharmacy_credit_customers')
                     .insert({
                         customer_code: generateCode(),
                         customer_name: formData.customer_name.trim(),
@@ -161,7 +161,7 @@ export default function CreditCustomersPage() {
 
     const deleteCustomer = async (c: Customer) => {
         if (!confirm(`Delete customer "${c.customer_name}"? This cannot be undone.`)) return;
-        const { error } = await supabase.from('retail_credit_customers').delete().eq('customer_id', c.customer_id);
+        const { error } = await supabase.from('pharmacy_credit_customers').delete().eq('customer_id', c.customer_id);
         if (error) toast.error(error.message);
         else { toast.success('Customer deleted'); loadCustomers(); }
     };
@@ -398,7 +398,7 @@ export default function CreditCustomersPage() {
                                                     <p className="text-sm font-semibold text-gray-800">{s.receipt_no}</p>
                                                     <p className="text-xs text-gray-500">{new Date(s.sale_datetime).toLocaleDateString()} &bull; {s.payment_method}</p>
                                                 </div>
-                                                <p className="font-bold text-gray-800">Ksh {(s.total_amount || 0).toLocaleString()}</p>
+                                                <p className="font-bold text-gray-800">Ksh {(s.total || 0).toLocaleString()}</p>
                                             </div>
                                         ))}
                                     </div>

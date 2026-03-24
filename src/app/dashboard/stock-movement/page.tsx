@@ -91,11 +91,11 @@ export default function StockMovementPage() {
 
             const purchaseIds = (purchasesData || []).map(p => p.purchase_id);
 
-            let purchaseItems: Array<{ product_id: number; product_name: string; quantity: number; rate: number; total_amount: number; purchase_id: number }> = [];
+            let purchaseItems: Array<{ product_id: number; product_name: string; quantity: number; rate: number; total: number; purchase_id: number }> = [];
             if (purchaseIds.length > 0) {
                 const { data: items } = await supabase
                     .from('purchase_products')
-                    .select('product_id, product_name, quantity, rate, total_amount, purchase_id')
+                    .select('product_id, product_name, quantity, rate, total, purchase_id')
                     .in('purchase_id', purchaseIds);
                 purchaseItems = items || [];
             }
@@ -140,7 +140,7 @@ export default function StockMovementPage() {
                 }
                 const entry = movementMap.get(key)!;
                 entry.purchased_qty += item.quantity || 0;
-                entry.total_value += item.total_amount || 0;
+                entry.total_value += item.total || 0;
             });
 
             // Process recipe issues

@@ -54,7 +54,7 @@ export default function SuppliersPage() {
         setIsLoading(true);
         try {
             const { data, error } = await supabase
-                .from('retail_suppliers')
+                .from('pharmacy_suppliers')
                 .select('*')
                 .order('supplier_id', { ascending: false });
 
@@ -74,7 +74,7 @@ export default function SuppliersPage() {
     const generateSupplierCode = async (): Promise<string> => {
         try {
             const { data } = await supabase
-                .from('retail_suppliers')
+                .from('pharmacy_suppliers')
                 .select('supplier_code')
                 .like('supplier_code', 'SUP-%')
                 .order('supplier_code', { ascending: false })
@@ -129,7 +129,7 @@ export default function SuppliersPage() {
         try {
             if (editingSupplier) {
                 const { error } = await supabase
-                    .from('retail_suppliers')
+                    .from('pharmacy_suppliers')
                     .update({
                         ...formData,
                         current_balance: formData.opening_balance,
@@ -142,7 +142,7 @@ export default function SuppliersPage() {
             } else {
                 const newCode = await generateSupplierCode();
                 const { error } = await supabase
-                    .from('retail_suppliers')
+                    .from('pharmacy_suppliers')
                     .insert({
                         ...formData,
                         supplier_code: newCode,
@@ -170,7 +170,7 @@ export default function SuppliersPage() {
 
         try {
             const { error } = await supabase
-                .from('retail_suppliers')
+                .from('pharmacy_suppliers')
                 .delete()
                 .eq('supplier_id', supplier.supplier_id);
 

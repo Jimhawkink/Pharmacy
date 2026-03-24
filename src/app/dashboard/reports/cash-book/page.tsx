@@ -39,18 +39,18 @@ export default function CashBookPage() {
             const allEntries: CashEntry[] = [];
 
             // Cash Sales (inflows)
-            const { data: salesData } = await supabase.from('retail_sales')
-                .select('sale_date, sale_datetime, receipt_no, customer_name, total_amount, payment_method')
+            const { data: salesData } = await supabase.from('pharmacy_sales')
+                .select('sale_datetime, receipt_no, customer_name, total, payment_method')
                 .eq('outlet_id', outletId)
-                .gte('sale_date', dateFrom).lte('sale_date', dateTo)
+                .gte('sale_datetime', dateFrom).lte('sale_datetime', dateTo)
                 .ilike('payment_method', '%cash%')
                 .order('sale_datetime');
 
             (salesData || []).forEach(s => {
                 allEntries.push({
-                    date: s.sale_date, time: s.sale_datetime?.split('T')[1]?.slice(0, 5) || '',
+                    date: s.sale_datetime, time: s.sale_datetime?.split('T')[1]?.slice(0, 5) || '',
                     description: `Cash Sale — ${s.customer_name || 'Walk-in'}`,
-                    reference: s.receipt_no, type: 'inflow', amount: s.total_amount || 0,
+                    reference: s.receipt_no, type: 'inflow', amount: s.total || 0,
                     balance: 0, category: 'Sales',
                 });
             });
@@ -71,7 +71,7 @@ export default function CashBookPage() {
             });
 
             // Cash Purchases (outflows)
-            const { data: purchData } = await supabase.from('retail_purchases')
+            const { data: purchData } = await supabase.from('pharmacy_purchases')
                 .select('purchase_date, supplier_name, purchase_no, grand_total, payment_mode')
                 .eq('outlet_id', outletId)
                 .gte('purchase_date', dateFrom).lte('purchase_date', dateTo);

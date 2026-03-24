@@ -6,9 +6,9 @@ import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
 
 interface SaleRecord {
-    sale_id: number; receipt_no: string; sale_date: string; sale_datetime: string;
+    sale_id: number; receipt_no: string; sale_datetime: string;
     customer_name: string; customer_phone: string; subtotal: number; discount: number;
-    total_amount: number; payment_method: string; mpesa_code: string; status: string; created_by: string;
+    total: number; payment_method: string; mpesa_receipt: string; status: string; cashier_name: string;
 }
 interface SaleItem { product_name: string; quantity: number; unit_price: number; subtotal: number; }
 
@@ -41,9 +41,9 @@ export default function SalesReportPage() {
         if (!activeOutlet) return;
         setLoading(true);
         const { data, error } = await supabase
-            .from('retail_sales').select('*')
+            .from('pharmacy_sales').select('*')
             .eq('outlet_id', outletId)
-            .gte('sale_date', dateFrom).lte('sale_date', dateTo)
+            .gte('sale_datetime', dateFrom).lte('sale_datetime', dateTo)
             .order('sale_datetime', { ascending: false });
         if (!error) setSales(data || []);
         setLoading(false);
@@ -53,7 +53,7 @@ export default function SalesReportPage() {
 
     const viewSaleDetail = async (sale: SaleRecord) => {
         setSelectedSale(sale);
-        const { data } = await supabase.from('retail_sales_items').select('*').eq('sale_id', sale.sale_id);
+        const { data } = await supabase.from('pharmacy_sales_items').select('*').eq('sale_id', sale.sale_id);
         setSaleItems(data || []);
         setShowDetail(true);
     };
@@ -61,20 +61,20 @@ export default function SalesReportPage() {
     const filtered = sales.filter(s => {
         const matchPayment = filterPayment === 'All' || (s.payment_method || '').toLowerCase().includes(filterPayment.toLowerCase());
         const q = searchQuery.toLowerCase();
-        const matchSearch = !q || (s.receipt_no || '').toLowerCase().includes(q) || (s.customer_name || '').toLowerCase().includes(q) || (s.mpesa_code || '').toLowerCase().includes(q);
+        const matchSearch = !q || (s.receipt_no || '').toLowerCase().includes(q) || (s.customer_name || '').toLowerCase().includes(q) || (s.mpesa_receipt || '').toLowerCase().includes(q);
         return matchPayment && matchSearch;
     });
 
-    const totalSales = filtered.reduce((s, r) => s + (r.total_amount || 0), 0);
-    const totalCash = filtered.filter(r => (r.payment_method || '').toLowerCase().includes('cash')).reduce((s, r) => s + (r.total_amount || 0), 0);
-    const totalMpesa = filtered.filter(r => (r.payment_method || '').toLowerCase().includes('mpesa')).reduce((s, r) => s + (r.total_amount || 0), 0);
-    const totalCredit = filtered.filter(r => (r.payment_method || '').toLowerCase().includes('credit')).reduce((s, r) => s + (r.total_amount || 0), 0);
+    const totalSales = filtered.reduce((s, r) => s + (r.total || 0), 0);
+    const totalCash = filtered.filter(r => (r.payment_method || '').toLowerCase().includes('cash')).reduce((s, r) => s + (r.total || 0), 0);
+    const totalMpesa = filtered.filter(r => (r.payment_method || '').toLowerCase().includes('mpesa')).reduce((s, r) => s + (r.total || 0), 0);
+    const totalCredit = filtered.filter(r => (r.payment_method || '').toLowerCase().includes('credit')).reduce((s, r) => s + (r.total || 0), 0);
     const totalDiscount = filtered.reduce((s, r) => s + (r.discount || 0), 0);
     const avgOrder = filtered.length > 0 ? Math.round(totalSales / filtered.length) : 0;
 
     const exportCSV = () => {
         const rows = [['Date', 'Time', 'Receipt', 'Customer', 'Payment', 'Subtotal', 'Discount', 'Total', 'M-Pesa Code', 'Cashier']];
-        filtered.forEach(s => rows.push([s.sale_date, s.sale_datetime?.split('T')[1]?.slice(0, 5) || '', s.receipt_no, s.customer_name || '', s.payment_method, String(s.subtotal || 0), String(s.discount || 0), String(s.total_amount), s.mpesa_code || '', s.created_by || '']));
+        filtered.forEach(s => rows.push([s.sale_datetime, s.sale_datetime?.split('T')[1]?.slice(0, 5) || '', s.receipt_no, s.customer_name || '', s.payment_method, String(s.subtotal || 0), String(s.discount || 0), String(s.total), s.mpesa_receipt || '', s.cashier_name || '']));
         const csv = rows.map(r => r.join(',')).join('\n');
         const blob = new Blob([csv], { type: 'text/csv' });
         const url = URL.createObjectURL(blob);
@@ -91,7 +91,7 @@ th,td{border:1px solid #ddd;padding:4px 6px;text-align:left;font-size:10px;}th{b
 .r{text-align:right;}.b{font-weight:700;}.sum{background:#f0f0f0;font-weight:700;}</style></head><body>
 <h1>📈 Sales Report</h1><div class="info">${activeOutlet?.outlet_name || 'Alpha Retail'} | ${dateFrom} to ${dateTo} | ${filtered.length} orders</div>
 <table><tr><th>Date</th><th>Receipt</th><th>Customer</th><th>Payment</th><th class="r">Amount</th><th>M-Pesa</th><th>Cashier</th></tr>
-${filtered.map(s => `<tr><td>${s.sale_date}</td><td>${s.receipt_no}</td><td>${s.customer_name || 'Walk-in'}</td><td>${s.payment_method}</td><td class="r b">Ksh ${(s.total_amount || 0).toLocaleString()}</td><td>${s.mpesa_code || '-'}</td><td>${s.created_by || '-'}</td></tr>`).join('')}
+${filtered.map(s => `<tr><td>${s.sale_datetime}</td><td>${s.receipt_no}</td><td>${s.customer_name || 'Walk-in'}</td><td>${s.payment_method}</td><td class="r b">Ksh ${(s.total || 0).toLocaleString()}</td><td>${s.mpesa_receipt || '-'}</td><td>${s.cashier_name || '-'}</td></tr>`).join('')}
 <tr class="sum"><td colspan="4">TOTAL</td><td class="r">Ksh ${totalSales.toLocaleString()}</td><td colspan="2"></td></tr></table>
 <div style="margin-top:12px;font-size:9px;color:#888;">Printed: ${new Date().toLocaleString('en-GB')}</div></body></html>`;
         const w = window.open('', '_blank'); if (w) { w.document.write(html); w.document.close(); w.print(); }
@@ -184,7 +184,7 @@ ${filtered.map(s => `<tr><td>${s.sale_date}</td><td>${s.receipt_no}</td><td>${s.
                             <tr><td colSpan={10} className="py-16 text-center text-gray-400">No sales found for this period</td></tr>
                         ) : filtered.map(s => (
                             <tr key={s.sale_id} className="border-t hover:bg-blue-50/30 transition-colors">
-                                <td className="py-3 px-4 text-sm">{s.sale_date} <span className="text-gray-400">{s.sale_datetime?.split('T')[1]?.slice(0, 5)}</span></td>
+                                <td className="py-3 px-4 text-sm">{s.sale_datetime} <span className="text-gray-400">{s.sale_datetime?.split('T')[1]?.slice(0, 5)}</span></td>
                                 <td className="py-3 px-4 font-semibold text-sm text-blue-600">{s.receipt_no}</td>
                                 <td className="py-3 px-4 text-sm">{s.customer_name || 'Walk-in'}</td>
                                 <td className="py-3 px-4 text-center">
@@ -194,9 +194,9 @@ ${filtered.map(s => `<tr><td>${s.sale_date}</td><td>${s.receipt_no}</td><td>${s.
                                 </td>
                                 <td className="py-3 px-4 text-right text-sm">Ksh {(s.subtotal || 0).toLocaleString()}</td>
                                 <td className="py-3 px-4 text-right text-sm text-red-500">{s.discount > 0 ? `-${s.discount.toLocaleString()}` : '-'}</td>
-                                <td className="py-3 px-4 text-right font-bold text-sm">Ksh {(s.total_amount || 0).toLocaleString()}</td>
-                                <td className="py-3 px-4 text-center text-xs text-gray-500">{s.mpesa_code || '-'}</td>
-                                <td className="py-3 px-4 text-center text-xs">{s.created_by || '-'}</td>
+                                <td className="py-3 px-4 text-right font-bold text-sm">Ksh {(s.total || 0).toLocaleString()}</td>
+                                <td className="py-3 px-4 text-center text-xs text-gray-500">{s.mpesa_receipt || '-'}</td>
+                                <td className="py-3 px-4 text-center text-xs">{s.cashier_name || '-'}</td>
                                 <td className="py-3 px-4 text-center">
                                     <button onClick={() => viewSaleDetail(s)} className="px-2 py-1 bg-blue-100 text-blue-600 rounded-lg text-xs hover:bg-blue-200">👁️ View</button>
                                 </td>
@@ -226,11 +226,11 @@ ${filtered.map(s => `<tr><td>${s.sale_date}</td><td>${s.receipt_no}</td><td>${s.
                             <button onClick={() => setShowDetail(false)} className="p-2 hover:bg-gray-100 rounded-lg">✕</button>
                         </div>
                         <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
-                            <div className="p-3 bg-gray-50 rounded-xl"><span className="text-gray-500">Date</span><br /><strong>{selectedSale.sale_date} {selectedSale.sale_datetime?.split('T')[1]?.slice(0, 5)}</strong></div>
+                            <div className="p-3 bg-gray-50 rounded-xl"><span className="text-gray-500">Date</span><br /><strong>{selectedSale.sale_datetime} {selectedSale.sale_datetime?.split('T')[1]?.slice(0, 5)}</strong></div>
                             <div className="p-3 bg-gray-50 rounded-xl"><span className="text-gray-500">Customer</span><br /><strong>{selectedSale.customer_name || 'Walk-in'}</strong></div>
                             <div className="p-3 bg-gray-50 rounded-xl"><span className="text-gray-500">Payment</span><br /><strong>{selectedSale.payment_method}</strong></div>
-                            <div className="p-3 bg-gray-50 rounded-xl"><span className="text-gray-500">Cashier</span><br /><strong>{selectedSale.created_by || '-'}</strong></div>
-                            {selectedSale.mpesa_code && <div className="p-3 bg-green-50 rounded-xl col-span-2"><span className="text-gray-500">M-Pesa Code</span><br /><strong className="text-green-700">{selectedSale.mpesa_code}</strong></div>}
+                            <div className="p-3 bg-gray-50 rounded-xl"><span className="text-gray-500">Cashier</span><br /><strong>{selectedSale.cashier_name || '-'}</strong></div>
+                            {selectedSale.mpesa_receipt && <div className="p-3 bg-green-50 rounded-xl col-span-2"><span className="text-gray-500">M-Pesa Code</span><br /><strong className="text-green-700">{selectedSale.mpesa_receipt}</strong></div>}
                         </div>
                         <table className="w-full mb-4">
                             <thead className="bg-gray-50"><tr><th className="text-left py-2 px-3 text-xs font-bold">Product</th><th className="text-center py-2 px-3 text-xs font-bold">Qty</th><th className="text-right py-2 px-3 text-xs font-bold">Price</th><th className="text-right py-2 px-3 text-xs font-bold">Subtotal</th></tr></thead>
@@ -241,7 +241,7 @@ ${filtered.map(s => `<tr><td>${s.sale_date}</td><td>${s.receipt_no}</td><td>${s.
                         <div className="space-y-1 text-sm">
                             <div className="flex justify-between"><span>Subtotal</span><span>Ksh {(selectedSale.subtotal || 0).toLocaleString()}</span></div>
                             {selectedSale.discount > 0 && <div className="flex justify-between text-red-500"><span>Discount</span><span>-Ksh {selectedSale.discount.toLocaleString()}</span></div>}
-                            <div className="flex justify-between text-lg font-bold border-t pt-2"><span>Total</span><span className="text-blue-600">Ksh {(selectedSale.total_amount || 0).toLocaleString()}</span></div>
+                            <div className="flex justify-between text-lg font-bold border-t pt-2"><span>Total</span><span className="text-blue-600">Ksh {(selectedSale.total || 0).toLocaleString()}</span></div>
                         </div>
                     </div>
                 </div>

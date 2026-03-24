@@ -18,7 +18,7 @@ interface Sale {
     sale_id: number;
     receipt_no: string;
     sale_datetime: string;
-    total_amount: number;
+    total: number;
     amount_paid: number;
     payment_method: string;
     status: string;
@@ -35,7 +35,7 @@ interface Payment {
     balance_before: number;
     balance_after: number;
     payment_method: string;
-    mpesa_code: string;
+    mpesa_receipt: string;
     reference_no: string;
     payment_note: string;
     received_by: string;
@@ -82,7 +82,7 @@ export default function CreditPaymentsPage() {
 
     const loadCustomers = async () => {
         const { data } = await supabase
-            .from('retail_credit_customers')
+            .from('pharmacy_credit_customers')
             .select('customer_id, customer_code, customer_name, phone, current_balance, credit_limit')
             .eq('active', true)
             .order('customer_name');
@@ -91,7 +91,7 @@ export default function CreditPaymentsPage() {
 
     const loadOutstandingSales = async (customerId: number) => {
         const { data } = await supabase
-            .from('retail_sales')
+            .from('pharmacy_sales')
             .select('*')
             .eq('customer_id', customerId)
             .eq('payment_method', 'CREDIT')
@@ -102,7 +102,7 @@ export default function CreditPaymentsPage() {
     const loadPaymentHistory = async () => {
         setLoadingPayments(true);
         const { data } = await supabase
-            .from('retail_credit_payments')
+            .from('pharmacy_credit_payments')
             .select('*')
             .order('payment_datetime', { ascending: false })
             .limit(500);
@@ -111,7 +111,7 @@ export default function CreditPaymentsPage() {
         if (data && data.length > 0) {
             const customerIds = Array.from(new Set(data.map(p => p.customer_id)));
             const { data: custData } = await supabase
-                .from('retail_credit_customers')
+                .from('pharmacy_credit_customers')
                 .select('customer_id, customer_name, phone')
                 .in('customer_id', customerIds);
 
@@ -151,7 +151,7 @@ export default function CreditPaymentsPage() {
     const selectedTotal = useMemo(() => {
         return outstandingSales
             .filter(s => selectedSales.includes(s.sale_id))
-            .reduce((sum, s) => sum + (s.total_amount - (s.amount_paid || 0)), 0);
+            .reduce((sum, s) => sum + (s.total - (s.amount_paid || 0)), 0);
     }, [selectedSales, outstandingSales]);
 
     const handleReceivePayment = async () => {
@@ -171,11 +171,11 @@ export default function CreditPaymentsPage() {
                 for (const saleId of selectedSales) {
                     const sale = outstandingSales.find(s => s.sale_id === saleId);
                     if (!sale || remaining <= 0) continue;
-                    const owed = sale.total_amount - (sale.amount_paid || 0);
+                    const owed = sale.total - (sale.amount_paid || 0);
                     const payForThis = Math.min(remaining, owed);
 
                     // Record payment for this invoice
-                    await supabase.from('retail_credit_payments').insert({
+                    await supabase.from('pharmacy_credit_payments').insert({
                         customer_id: selectedCustomer.customer_id,
                         sale_id: saleId,
                         receipt_no: sale.receipt_no,
@@ -183,12 +183,12 @@ export default function CreditPaymentsPage() {
                         balance_before: balanceBefore,
                         balance_after: balanceAfter,
                         payment_method: paymentMethod,
-                        mpesa_code: mpesaCode || null,
+                        mpesa_receipt: mpesaCode || null,
                         payment_note: paymentNote || null,
                     });
 
                     // Update sale amount_paid
-                    await supabase.from('retail_sales')
+                    await supabase.from('pharmacy_sales')
                         .update({ amount_paid: (sale.amount_paid || 0) + payForThis })
                         .eq('sale_id', saleId);
 
@@ -199,11 +199,11 @@ export default function CreditPaymentsPage() {
                 let remaining = amount;
                 for (const sale of outstandingSales) {
                     if (remaining <= 0) break;
-                    const owed = sale.total_amount - (sale.amount_paid || 0);
+                    const owed = sale.total - (sale.amount_paid || 0);
                     if (owed <= 0) continue;
                     const payForThis = Math.min(remaining, owed);
 
-                    await supabase.from('retail_credit_payments').insert({
+                    await supabase.from('pharmacy_credit_payments').insert({
                         customer_id: selectedCustomer.customer_id,
                         sale_id: sale.sale_id,
                         receipt_no: sale.receipt_no,
@@ -211,11 +211,11 @@ export default function CreditPaymentsPage() {
                         balance_before: balanceBefore,
                         balance_after: balanceAfter,
                         payment_method: paymentMethod,
-                        mpesa_code: mpesaCode || null,
+                        mpesa_receipt: mpesaCode || null,
                         payment_note: paymentNote || null,
                     });
 
-                    await supabase.from('retail_sales')
+                    await supabase.from('pharmacy_sales')
                         .update({ amount_paid: (sale.amount_paid || 0) + payForThis })
                         .eq('sale_id', sale.sale_id);
 
@@ -224,7 +224,7 @@ export default function CreditPaymentsPage() {
 
                 // If there's remaining amount (overpayment or no invoices), record general payment
                 if (remaining > 0 || outstandingSales.length === 0) {
-                    await supabase.from('retail_credit_payments').insert({
+                    await supabase.from('pharmacy_credit_payments').insert({
                         customer_id: selectedCustomer.customer_id,
                         sale_id: null,
                         receipt_no: null,
@@ -232,14 +232,14 @@ export default function CreditPaymentsPage() {
                         balance_before: balanceBefore,
                         balance_after: balanceAfter,
                         payment_method: paymentMethod,
-                        mpesa_code: mpesaCode || null,
+                        mpesa_receipt: mpesaCode || null,
                         payment_note: paymentNote || `General payment${remaining > 0 ? ' (includes overpayment)' : ''}`,
                     });
                 }
             }
 
             // Update customer balance
-            await supabase.from('retail_credit_customers')
+            await supabase.from('pharmacy_credit_customers')
                 .update({ current_balance: balanceAfter })
                 .eq('customer_id', selectedCustomer.customer_id);
 
@@ -472,7 +472,7 @@ export default function CreditPaymentsPage() {
                             ) : (
                                 <div className="divide-y divide-gray-100">
                                     {outstandingSales.map(s => {
-                                        const owed = s.total_amount - (s.amount_paid || 0);
+                                        const owed = s.total - (s.amount_paid || 0);
                                         const isSelected = selectedSales.includes(s.sale_id);
                                         return (
                                             <div key={s.sale_id}
@@ -487,7 +487,7 @@ export default function CreditPaymentsPage() {
                                                     <p className="text-xs text-gray-500">{new Date(s.sale_datetime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                                                 </div>
                                                 <div className="text-right">
-                                                    <p className="text-sm text-gray-500">Total: Ksh {(s.total_amount || 0).toLocaleString()}</p>
+                                                    <p className="text-sm text-gray-500">Total: Ksh {(s.total || 0).toLocaleString()}</p>
                                                     <p className="font-bold text-red-600">Owed: Ksh {owed.toLocaleString()}</p>
                                                 </div>
                                             </div>
@@ -610,7 +610,7 @@ export default function CreditPaymentsPage() {
                                                     <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold ${p.payment_method === 'MPESA' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
                                                         {p.payment_method}
                                                     </span>
-                                                    {p.mpesa_code && <p className="text-[10px] text-gray-400 mt-0.5">{p.mpesa_code}</p>}
+                                                    {p.mpesa_receipt && <p className="text-[10px] text-gray-400 mt-0.5">{p.mpesa_receipt}</p>}
                                                 </td>
                                                 <td className="px-4 py-3 text-right text-sm text-gray-600">Ksh {(p.balance_after || 0).toLocaleString()}</td>
                                                 <td className="px-4 py-3 text-sm text-gray-500 truncate max-w-[150px]">{p.payment_note || '-'}</td>

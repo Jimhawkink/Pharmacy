@@ -14,7 +14,7 @@ interface Purchase {
 }
 interface PurchaseItem {
     pp_id: number; product_id: number; product_code: string; product_name: string;
-    quantity: number; unit: string; rate: number; total_amount: number;
+    quantity: number; unit: string; rate: number; total: number;
 }
 interface Supplier { supplier_id: number; supplier_name: string; }
 interface Category { category_id: number; category_name: string; }
@@ -47,12 +47,12 @@ export default function PurchasesPage() {
         setIsLoading(true);
         try {
             // Try with outlet_id, fallback without
-            let query = supabase.from('retail_purchases').select('*').eq('outlet_id', outletId).order('purchase_id', { ascending: false });
+            let query = supabase.from('pharmacy_purchases').select('*').eq('outlet_id', outletId).order('purchase_id', { ascending: false });
             if (dateFrom) query = query.gte('purchase_date', dateFrom);
             if (dateTo) query = query.lte('purchase_date', dateTo);
             let { data, error } = await query;
             if (error) {
-                let fb = supabase.from('retail_purchases').select('*').order('purchase_id', { ascending: false });
+                let fb = supabase.from('pharmacy_purchases').select('*').order('purchase_id', { ascending: false });
                 if (dateFrom) fb = fb.gte('purchase_date', dateFrom);
                 if (dateTo) fb = fb.lte('purchase_date', dateTo);
                 const r2 = await fb;
@@ -64,11 +64,11 @@ export default function PurchasesPage() {
     }, [dateFrom, dateTo]);
 
     const loadSuppliers = useCallback(async () => {
-        try { const { data } = await supabase.from('retail_suppliers').select('supplier_id, supplier_name').eq('active', true).order('supplier_name'); setSuppliers(data || []); } catch { /* silent */ }
+        try { const { data } = await supabase.from('pharmacy_suppliers').select('supplier_id, supplier_name').eq('active', true).order('supplier_name'); setSuppliers(data || []); } catch { /* silent */ }
     }, []);
 
     const loadCategories = useCallback(async () => {
-        try { const { data } = await supabase.from('retail_categories').select('category_id, category_name').eq('active', true).order('category_name'); setCategories(data || []); } catch { /* silent */ }
+        try { const { data } = await supabase.from('pharmacy_categories').select('category_id, category_name').eq('active', true).order('category_name'); setCategories(data || []); } catch { /* silent */ }
     }, []);
 
     useEffect(() => { loadPurchases(); loadSuppliers(); loadCategories(); }, [loadPurchases, loadSuppliers, loadCategories]);
@@ -76,7 +76,7 @@ export default function PurchasesPage() {
     // ─── ACTIONS ───
     const viewPurchaseDetails = async (purchase: Purchase) => {
         setSelectedPurchase(purchase); setShowViewModal(true); setIsLoadingItems(true);
-        try { const { data, error } = await supabase.from('retail_purchase_products').select('*').eq('purchase_id', purchase.purchase_id); if (error) throw error; setPurchaseItems(data || []); }
+        try { const { data, error } = await supabase.from('pharmacy_purchase_products').select('*').eq('purchase_id', purchase.purchase_id); if (error) throw error; setPurchaseItems(data || []); }
         catch { toast.error('Failed to load items'); }
         setIsLoadingItems(false);
     };
@@ -85,14 +85,14 @@ export default function PurchasesPage() {
         if (!confirm(`Delete purchase ${purchase.purchase_no}? This will also delete all items and reverse stock.`)) return;
         try {
             // Reverse stock
-            const { data: items } = await supabase.from('retail_purchase_products').select('product_id, quantity').eq('purchase_id', purchase.purchase_id);
+            const { data: items } = await supabase.from('pharmacy_purchase_products').select('product_id, quantity').eq('purchase_id', purchase.purchase_id);
             if (items) {
                 for (const item of items) {
-                    await supabase.from('retail_stock').insert({ pid: item.product_id, invoice_no: `DEL-${purchase.purchase_no}`, qty: -item.quantity, storage_type: 'Store', notes: `Purchase ${purchase.purchase_no} deleted` });
+                    await supabase.from('pharmacy_stock').insert({ pid: item.product_id, invoice_no: `DEL-${purchase.purchase_no}`, qty: -item.quantity, storage_type: 'Store', notes: `Purchase ${purchase.purchase_no} deleted` });
                 }
             }
-            await supabase.from('retail_purchase_products').delete().eq('purchase_id', purchase.purchase_id);
-            const { error } = await supabase.from('retail_purchases').delete().eq('purchase_id', purchase.purchase_id);
+            await supabase.from('pharmacy_purchase_products').delete().eq('purchase_id', purchase.purchase_id);
+            const { error } = await supabase.from('pharmacy_purchases').delete().eq('purchase_id', purchase.purchase_id);
             if (error) throw error;
             toast.success('Purchase deleted & stock reversed'); loadPurchases();
         } catch { toast.error('Failed to delete purchase'); }
@@ -118,7 +118,7 @@ export default function PurchasesPage() {
         <div class="info"><span>Supplier: <b>${purchase.supplier_name || 'N/A'}</b></span><span>Date: <b>${new Date(purchase.purchase_date).toLocaleDateString('en-GB')}</b></span></div>
         <div class="info"><span>Invoice: <b>${purchase.supplier_invoice || 'N/A'}</b></span><span>Status: <b>${purchase.payment_status || 'N/A'}</b></span></div>
         <table><thead><tr><th>#</th><th>Code</th><th>Product</th><th>Unit</th><th class="right">Qty</th><th class="right">Rate</th><th class="right">Total</th></tr></thead>
-        <tbody>${items.map((item, i) => `<tr><td>${i + 1}</td><td>${item.product_code}</td><td>${item.product_name}</td><td>${item.unit}</td><td class="right">${item.quantity}</td><td class="right">Ksh ${item.rate?.toLocaleString()}</td><td class="right">Ksh ${item.total_amount?.toLocaleString()}</td></tr>`).join('')}</tbody></table>
+        <tbody>${items.map((item, i) => `<tr><td>${i + 1}</td><td>${item.product_code}</td><td>${item.product_name}</td><td>${item.unit}</td><td class="right">${item.quantity}</td><td class="right">Ksh ${item.rate?.toLocaleString()}</td><td class="right">Ksh ${item.total?.toLocaleString()}</td></tr>`).join('')}</tbody></table>
         <p class="total">Grand Total: Ksh ${purchase.grand_total.toLocaleString()}</p>
         </body></html>`;
         const iframe = document.createElement('iframe'); iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;';
@@ -453,7 +453,7 @@ export default function PurchasesPage() {
                                                         <td className="px-3 py-2 text-center"><span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">{item.unit}</span></td>
                                                         <td className="px-3 py-2 text-right text-sm font-bold text-gray-700">{item.quantity}</td>
                                                         <td className="px-3 py-2 text-right text-xs text-gray-500">Ksh {item.rate?.toLocaleString()}</td>
-                                                        <td className="px-3 py-2 text-right text-sm font-bold text-emerald-600">Ksh {item.total_amount?.toLocaleString()}</td>
+                                                        <td className="px-3 py-2 text-right text-sm font-bold text-emerald-600">Ksh {item.total?.toLocaleString()}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>

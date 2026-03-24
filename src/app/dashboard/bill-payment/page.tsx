@@ -21,9 +21,8 @@ interface SaleItem {
 interface Bill {
     sale_id: number;
     receipt_no: string;
-    sale_date: string;
-    sale_time: string;
     sale_datetime: string;
+    sale_time: string;
     shift_id?: number;
     shift_name?: string;
     shift_code?: string;
@@ -38,11 +37,11 @@ interface Bill {
     subtotal: number;
     discount: number;
     tax_amount: number;
-    total_amount: number;
+    total: number;
     payment_method: string;
     amount_paid: number;
     change_amount: number;
-    mpesa_code?: string;
+    mpesa_receipt?: string;
     status: string;
     notes?: string;
     created_by?: string;
@@ -107,7 +106,7 @@ function BillPaymentContent() {
     });
 
     // Calculate outstanding amount
-    const outstandingAmount = selectedBill ? Math.max(0, (selectedBill.total_amount || 0) - (selectedBill.amount_paid || 0)) : 0;
+    const outstandingAmount = selectedBill ? Math.max(0, (selectedBill.total || 0) - (selectedBill.amount_paid || 0)) : 0;
     const paidAmount = selectedBill?.amount_paid || 0;
 
     // Load pending bills
@@ -127,8 +126,8 @@ function BillPaymentContent() {
                     query = query.or('status.eq.Completed,status.eq.Paid');
                 }
             }
-            if (dateFrom) query = query.gte('sale_date', dateFrom);
-            if (dateTo) query = query.lte('sale_date', dateTo);
+            if (dateFrom) query = query.gte('sale_datetime', dateFrom);
+            if (dateTo) query = query.lte('sale_datetime', dateTo);
             if (filterUser !== 'All') {
                 query = query.or(`waiter_name.eq.${filterUser},created_by.eq.${filterUser}`);
             }
@@ -157,9 +156,9 @@ function BillPaymentContent() {
 
             setStats({
                 totalPending: pendingBills.length,
-                totalPendingAmount: pendingBills.reduce((sum, b) => sum + (b.total_amount || 0) - (b.amount_paid || 0), 0),
+                totalPendingAmount: pendingBills.reduce((sum, b) => sum + (b.total || 0) - (b.amount_paid || 0), 0),
                 totalPaid: paidBills.length,
-                totalPaidAmount: paidBills.reduce((sum, b) => sum + (b.total_amount || 0), 0)
+                totalPaidAmount: paidBills.reduce((sum, b) => sum + (b.total || 0), 0)
             });
 
             // Pre-select bill if ID provided
@@ -167,7 +166,7 @@ function BillPaymentContent() {
                 const bill = transformedBills.find(b => b.sale_id === parseInt(preSelectedId));
                 if (bill) {
                     setSelectedBill(bill);
-                    setPaymentAmount(Math.max(0, (bill.total_amount || 0) - (bill.amount_paid || 0)).toString());
+                    setPaymentAmount(Math.max(0, (bill.total || 0) - (bill.amount_paid || 0)).toString());
                 }
             }
 
@@ -232,14 +231,14 @@ function BillPaymentContent() {
             bill.receipt_no?.toLowerCase().includes(query) ||
             bill.customer_name?.toLowerCase().includes(query) ||
             bill.waiter_name?.toLowerCase().includes(query) ||
-            bill.mpesa_code?.toLowerCase().includes(query)
+            bill.mpesa_receipt?.toLowerCase().includes(query)
         );
     });
 
     // Select a bill
     const selectBill = (bill: Bill) => {
         setSelectedBill(bill);
-        setPaymentAmount(Math.max(0, (bill.total_amount || 0) - (bill.amount_paid || 0)).toString());
+        setPaymentAmount(Math.max(0, (bill.total || 0) - (bill.amount_paid || 0)).toString());
         setMpesaPhone('254');
         setMpesaStatus('Ready');
         setMpesaStatusColor('bg-green-500');
@@ -321,9 +320,9 @@ function BillPaymentContent() {
                 paymentMethodNames.push(payment.method);
 
                 const isLastPayment = payment === paymentsToProcess[paymentsToProcess.length - 1];
-                const isFullyPaid = newPaidAmount >= selectedBill.total_amount;
-                const balanceBefore = selectedBill.total_amount - (newPaidAmount - payment.amount);
-                const balanceAfter = selectedBill.total_amount - newPaidAmount;
+                const isFullyPaid = newPaidAmount >= selectedBill.total;
+                const balanceBefore = selectedBill.total - (newPaidAmount - payment.amount);
+                const balanceAfter = selectedBill.total - newPaidAmount;
 
                 // Insert into bill_payments table
                 const { error: paymentError } = await supabase
@@ -331,12 +330,12 @@ function BillPaymentContent() {
                     .insert({
                         sale_id: selectedBill.sale_id,
                         receipt_no: selectedBill.receipt_no,
-                        amount_due: selectedBill.total_amount,
+                        amount_due: selectedBill.total,
                         amount_paid: payment.amount,
                         balance_before: balanceBefore,
                         balance_after: balanceAfter,
                         payment_method: payment.method,
-                        mpesa_code: payment.method === 'M-Pesa' ? (payment as { mpesaCode?: string }).mpesaCode : null,
+                        mpesa_receipt: payment.method === 'M-Pesa' ? (payment as { mpesaCode?: string }).mpesaCode : null,
                         mpesa_phone: payment.method === 'M-Pesa' ? (payment as { mpesaCode?: string }).mpesaCode : null,
                         is_partial: !isFullyPaid,
                         received_by_id: currentUser?.userId || null,
@@ -352,7 +351,7 @@ function BillPaymentContent() {
 
                 // Update sale record only for the last payment
                 if (isLastPayment) {
-                    const newChange = Math.max(0, newPaidAmount - selectedBill.total_amount);
+                    const newChange = Math.max(0, newPaidAmount - selectedBill.total);
                     const combinedMethod = paymentMethodNames.length > 1
                         ? `Split (${paymentMethodNames.join(' + ')})`
                         : paymentMethodNames[0];
@@ -363,7 +362,7 @@ function BillPaymentContent() {
                             amount_paid: newPaidAmount,
                             change_amount: newChange,
                             payment_method: combinedMethod,
-                            mpesa_code: selectedC2B?.mpesa_receipt || null, // Save M-Pesa receipt from C2B
+                            mpesa_receipt: selectedC2B?.mpesa_receipt || null, // Save M-Pesa receipt from C2B
                             status: isFullyPaid ? 'Completed' : 'Pending',
                             paid_at: isFullyPaid ? new Date().toISOString() : null,
                             paid_by: isFullyPaid ? (currentUser?.name || 'Unknown') : null,
@@ -379,7 +378,7 @@ function BillPaymentContent() {
                 }
             }
 
-            const isFullyPaid = newPaidAmount >= selectedBill.total_amount;
+            const isFullyPaid = newPaidAmount >= selectedBill.total;
             toast.success(
                 isFullyPaid
                     ? `✅ Payment complete! Bill ${selectedBill.receipt_no} is now PAID`
@@ -661,22 +660,22 @@ function BillPaymentContent() {
                                                 </span>
                                             </td>
                                             <td className="py-3 px-4 text-sm text-gray-600">
-                                                {new Date(bill.sale_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                                                {new Date(bill.sale_datetime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
                                             </td>
                                             <td className="py-3 px-4 text-sm">
-                                                {bill.mpesa_code ? (
+                                                {bill.mpesa_receipt ? (
                                                     <span className="px-2 py-1 bg-green-50 text-green-700 rounded text-xs font-mono">
-                                                        {bill.mpesa_code}
+                                                        {bill.mpesa_receipt}
                                                     </span>
                                                 ) : (
                                                     <span className="text-gray-400 text-xs">-</span>
                                                 )}
                                             </td>
                                             <td className="py-3 px-4 text-right font-semibold text-gray-800">
-                                                {bill.total_amount?.toLocaleString()}
+                                                {bill.total?.toLocaleString()}
                                             </td>
                                             <td className="py-3 px-4 text-right font-bold text-red-600">
-                                                {Math.max(0, (bill.total_amount || 0) - (bill.amount_paid || 0)).toLocaleString()}
+                                                {Math.max(0, (bill.total || 0) - (bill.amount_paid || 0)).toLocaleString()}
                                             </td>
                                             <td className="py-3 px-4 text-center">
                                                 <span className={`px-2 py-1 rounded text-xs font-bold border ${getStatusBadge(bill.status)}`}>
@@ -716,7 +715,7 @@ function BillPaymentContent() {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="text-xs font-medium text-gray-500">Date</label>
-                                            <p className="text-gray-700">{selectedBill.sale_date}</p>
+                                            <p className="text-gray-700">{selectedBill.sale_datetime}</p>
                                         </div>
                                         <div>
                                             <label className="text-xs font-medium text-gray-500">Status</label>
@@ -728,7 +727,7 @@ function BillPaymentContent() {
                                     <div className="border-t border-gray-100 pt-4 space-y-2">
                                         <div className="flex justify-between">
                                             <span className="text-gray-500">💵 Bill Total:</span>
-                                            <span className="font-bold text-gray-800 text-lg">Ksh {selectedBill.total_amount?.toLocaleString()}</span>
+                                            <span className="font-bold text-gray-800 text-lg">Ksh {selectedBill.total?.toLocaleString()}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-gray-500">✅ Paid Total:</span>
@@ -1101,7 +1100,7 @@ function BillPaymentContent() {
                             )}
                             <div className="flex justify-between font-bold text-lg pt-2 border-t border-gray-200">
                                 <span>Total:</span>
-                                <span className="text-blue-600">{selectedBill.total_amount?.toLocaleString()}</span>
+                                <span className="text-blue-600">{selectedBill.total?.toLocaleString()}</span>
                             </div>
                         </div>
                     )}

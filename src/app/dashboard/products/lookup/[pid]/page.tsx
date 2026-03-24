@@ -43,7 +43,7 @@ export default function ItemLookupPage({ params }: { params: Promise<{ pid: stri
         try {
             // 1. Fetch Product Details
             const { data: prod, error: pErr } = await supabase
-                .from('retail_products')
+                .from('pharmacy_products')
                 .select('*')
                 .eq('pid', pid)
                 .single();
@@ -53,7 +53,7 @@ export default function ItemLookupPage({ params }: { params: Promise<{ pid: stri
 
             // 2. Fetch Stock Level
             const { data: stock } = await supabase
-                .from('retail_stock')
+                .from('pharmacy_stock')
                 .select('qty')
                 .eq('pid', pid);
 
@@ -65,18 +65,18 @@ export default function ItemLookupPage({ params }: { params: Promise<{ pid: stri
 
             // Sales
             const { data: sales } = await supabase
-                .from('retail_sales_items')
+                .from('pharmacy_sales_items')
                 .select(`
                     quantity,
                     unit_price,
                     created_at,
-                    sale:sale_id (receipt_no, sale_date, customer_name)
+                    sale:sale_id (receipt_no, sale_datetime, customer_name)
                 `)
                 .eq('product_id', pid);
 
             sales?.forEach(s => combined.push({
                 type: 'Sale',
-                date: (s.sale as any)?.sale_date || s.created_at,
+                date: (s.sale as any)?.sale_datetime || s.created_at,
                 qty: -s.quantity,
                 price: s.unit_price,
                 reference: (s.sale as any)?.receipt_no,
@@ -85,7 +85,7 @@ export default function ItemLookupPage({ params }: { params: Promise<{ pid: stri
 
             // Purchases
             const { data: purchases } = await supabase
-                .from('retail_purchase_products')
+                .from('pharmacy_purchase_products')
                 .select(`
                     quantity,
                     rate,
@@ -105,7 +105,7 @@ export default function ItemLookupPage({ params }: { params: Promise<{ pid: stri
 
             // Movements
             const { data: movements } = await supabase
-                .from('retail_stock_movements')
+                .from('pharmacy_stock')
                 .select('*')
                 .eq('product_id', pid);
 
@@ -120,7 +120,7 @@ export default function ItemLookupPage({ params }: { params: Promise<{ pid: stri
 
             // Initial Stock
             const { data: initialStock } = await supabase
-                .from('retail_stock')
+                .from('pharmacy_stock')
                 .select('*')
                 .eq('pid', pid)
                 .eq('invoice_no', 'OPENING');

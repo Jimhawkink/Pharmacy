@@ -56,7 +56,7 @@ export default function UsersPage() {
         setIsLoading(true);
         try {
             const { data, error } = await supabase
-                .from('retail_users')
+                .from('pharmacy_users')
                 .select('*')
                 .order('created_at', { ascending: false });
 
@@ -71,7 +71,7 @@ export default function UsersPage() {
 
     const generateUserCode = useCallback(async () => {
         const { count } = await supabase
-            .from('retail_users')
+            .from('pharmacy_users')
             .select('*', { count: 'exact', head: true });
 
         const nextNum = (count || 0) + 1;
@@ -149,7 +149,7 @@ export default function UsersPage() {
                 }
 
                 const { error } = await supabase
-                    .from('retail_users')
+                    .from('pharmacy_users')
                     .update(updateData)
                     .eq('user_id', editingUser.user_id);
 
@@ -159,7 +159,7 @@ export default function UsersPage() {
             } else {
                 // Create new user
                 const { data, error } = await supabase
-                    .from('retail_users')
+                    .from('pharmacy_users')
                     .insert([{
                         user_name: formData.user_name,
                         password_hash: formData.password || formData.pin,
@@ -192,7 +192,7 @@ export default function UsersPage() {
     const toggleUserStatus = async (user: User) => {
         try {
             const { error } = await supabase
-                .from('retail_users')
+                .from('pharmacy_users')
                 .update({ active: !user.active })
                 .eq('user_id', user.user_id);
 
@@ -211,7 +211,7 @@ export default function UsersPage() {
 
         try {
             const { error } = await supabase
-                .from('retail_users')
+                .from('pharmacy_users')
                 .delete()
                 .eq('user_id', user.user_id);
 

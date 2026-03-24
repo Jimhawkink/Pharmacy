@@ -30,7 +30,7 @@ export default function OutletsPage() {
     const loadAll = useCallback(async () => {
         setIsLoading(true);
         try {
-            const { data } = await supabase.from('retail_outlets').select('*').order('is_main', { ascending: false }).order('outlet_name');
+            const { data } = await supabase.from('pharmacy_outlets').select('*').order('is_main', { ascending: false }).order('outlet_name');
             setAllOutlets(data || []);
         } catch { toast.error('Failed to load outlets'); }
         setIsLoading(false);
@@ -41,7 +41,7 @@ export default function OutletsPage() {
     // Load staff counts for all outlets
     const loadStaffCounts = async () => {
         try {
-            const { data } = await supabase.from('retail_user_outlets').select('outlet_id');
+            const { data } = await supabase.from('pharmacy_user_outlets').select('outlet_id');
             const counts: Record<number, number> = {};
             (data || []).forEach((row: any) => {
                 counts[row.outlet_id] = (counts[row.outlet_id] || 0) + 1;
@@ -69,7 +69,7 @@ export default function OutletsPage() {
         setIsSaving(true);
         try {
             if (editingOutlet) {
-                const { error } = await supabase.from('retail_outlets').update({
+                const { error } = await supabase.from('pharmacy_outlets').update({
                     outlet_name: form.outlet_name, outlet_code: form.outlet_code.toUpperCase(),
                     address: form.address, city: form.city, phone: form.phone, is_main: form.is_main,
                     updated_at: new Date().toISOString(),
@@ -77,7 +77,7 @@ export default function OutletsPage() {
                 if (error) throw error;
                 toast.success('Outlet updated!');
             } else {
-                const { error } = await supabase.from('retail_outlets').insert({
+                const { error } = await supabase.from('pharmacy_outlets').insert({
                     outlet_name: form.outlet_name, outlet_code: form.outlet_code.toUpperCase(),
                     address: form.address, city: form.city, phone: form.phone, is_main: form.is_main,
                     active: true,
@@ -94,7 +94,7 @@ export default function OutletsPage() {
 
     const toggleActive = async (o: Outlet) => {
         if (o.is_main) { toast.error("Can't deactivate main outlet"); return; }
-        await supabase.from('retail_outlets').update({ active: !o.active }).eq('outlet_id', o.outlet_id);
+        await supabase.from('pharmacy_outlets').update({ active: !o.active }).eq('outlet_id', o.outlet_id);
         toast.success(o.active ? 'Outlet deactivated' : 'Outlet activated');
         loadAll(); reloadOutlets();
     };
@@ -102,7 +102,7 @@ export default function OutletsPage() {
     const deleteOutlet = async (o: Outlet) => {
         if (o.is_main) { toast.error("Can't delete main outlet"); return; }
         if (!confirm(`Delete "${o.outlet_name}"? This cannot be undone.`)) return;
-        await supabase.from('retail_outlets').delete().eq('outlet_id', o.outlet_id);
+        await supabase.from('pharmacy_outlets').delete().eq('outlet_id', o.outlet_id);
         toast.success('Outlet deleted');
         loadAll(); reloadOutlets();
     };
@@ -115,10 +115,10 @@ export default function OutletsPage() {
         setLoadingStaff(true);
         try {
             // Load all users
-            const { data: users } = await supabase.from('retail_users').select('user_id, user_name, name, user_type, email').eq('active', true).order('name');
+            const { data: users } = await supabase.from('pharmacy_users').select('user_id, user_name, name, user_type, email').eq('active', true).order('name');
             setAllUsers(users || []);
             // Load assigned user IDs for this outlet
-            const { data: links } = await supabase.from('retail_user_outlets').select('user_id').eq('outlet_id', o.outlet_id);
+            const { data: links } = await supabase.from('pharmacy_user_outlets').select('user_id').eq('outlet_id', o.outlet_id);
             setAssignedUserIds((links || []).map((l: any) => l.user_id));
         } catch { toast.error('Failed to load staff'); }
         setLoadingStaff(false);
@@ -127,7 +127,7 @@ export default function OutletsPage() {
     const assignUser = async (userId: number) => {
         if (!staffOutlet) return;
         try {
-            await supabase.from('retail_user_outlets').insert({ user_id: userId, outlet_id: staffOutlet.outlet_id });
+            await supabase.from('pharmacy_user_outlets').insert({ user_id: userId, outlet_id: staffOutlet.outlet_id });
             setAssignedUserIds(prev => [...prev, userId]);
             setStaffCounts(prev => ({ ...prev, [staffOutlet.outlet_id]: (prev[staffOutlet.outlet_id] || 0) + 1 }));
             toast.success('User assigned!');
@@ -139,7 +139,7 @@ export default function OutletsPage() {
 
     const removeUser = async (userId: number) => {
         if (!staffOutlet) return;
-        await supabase.from('retail_user_outlets').delete().eq('user_id', userId).eq('outlet_id', staffOutlet.outlet_id);
+        await supabase.from('pharmacy_user_outlets').delete().eq('user_id', userId).eq('outlet_id', staffOutlet.outlet_id);
         setAssignedUserIds(prev => prev.filter(id => id !== userId));
         setStaffCounts(prev => ({ ...prev, [staffOutlet.outlet_id]: Math.max(0, (prev[staffOutlet.outlet_id] || 0) - 1) }));
         toast.success('User removed');

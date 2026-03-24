@@ -52,7 +52,7 @@ export default function ShiftsPage() {
             // Get sales for THIS SHIFT ONLY - filter by shift_id
             const { data: salesData } = await supabase
                 .from('sales')
-                .select('total_amount, payment_method')
+                .select('total, payment_method')
                 .eq('shift_id', openShift.shift_id);
 
             // Get expenses created DURING this shift (after shift started)
@@ -74,7 +74,7 @@ export default function ShiftsPage() {
                 .eq('status', 'Approved')
                 .gte('created_at', shiftStartDateTime);
 
-            const totalSales = (salesData || []).reduce((sum, s) => sum + (s.total_amount || 0), 0);
+            const totalSales = (salesData || []).reduce((sum, s) => sum + (s.total || 0), 0);
             const totalExpenses = (expData || []).reduce((sum, e) => sum + (e.amount || 0), 0);
             const totalVouchers = (vchData || []).reduce((sum, v) => sum + (v.amount || 0), 0);
             const totalAdvances = (advData || []).reduce((sum, a) => sum + (a.amount || 0), 0);
@@ -180,7 +180,7 @@ export default function ShiftsPage() {
         // ========== FETCH ALL SALES DATA ==========
         interface SaleRecord {
             sale_id: number;
-            total_amount: number;
+            total: number;
             payment_method: string;
             status: string;
             waiter_name: string | null;
@@ -200,7 +200,7 @@ export default function ShiftsPage() {
             // Try to get sales by shift_id first, then fallback to date+time
             let { data } = await supabase
                 .from('sales')
-                .select('sale_id, total_amount, payment_method, status, waiter_name, created_by')
+                .select('sale_id, total, payment_method, status, waiter_name, created_by')
                 .eq('shift_id', shift.shift_id);
 
             // If no sales with shift_id, fallback to sales made during this shift time period
@@ -208,8 +208,8 @@ export default function ShiftsPage() {
                 console.log('No sales with shift_id, trying date/time filter...');
                 const result = await supabase
                     .from('sales')
-                    .select('sale_id, total_amount, payment_method, status, waiter_name, created_by')
-                    .eq('sale_date', shift.shift_date)
+                    .select('sale_id, total, payment_method, status, waiter_name, created_by')
+                    .eq('sale_datetime', shift.shift_date)
                     .gte('created_at', shiftStartDateTime);
                 data = result.data;
             }
@@ -222,7 +222,7 @@ export default function ShiftsPage() {
 
                 data.forEach(sale => {
                     const method = (sale.payment_method || '').toUpperCase();
-                    const amount = sale.total_amount || 0;
+                    const amount = sale.total || 0;
 
                     // Payment breakdown
                     if (method.includes('CASH')) cashSales += amount;

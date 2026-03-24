@@ -40,24 +40,24 @@ export default function MpesaReportPage() {
             const allEntries: MpesaEntry[] = [];
 
             // M-Pesa Sales
-            const { data: salesData } = await supabase.from('retail_sales')
-                .select('sale_date, sale_datetime, receipt_no, customer_name, customer_phone, total_amount, mpesa_code, payment_method')
+            const { data: salesData } = await supabase.from('pharmacy_sales')
+                .select('sale_datetime, receipt_no, customer_name, customer_phone, total, mpesa_receipt, payment_method')
                 .eq('outlet_id', outletId)
-                .gte('sale_date', dateFrom).lte('sale_date', dateTo)
+                .gte('sale_datetime', dateFrom).lte('sale_datetime', dateTo)
                 .ilike('payment_method', '%mpesa%')
                 .order('sale_datetime', { ascending: false });
 
             (salesData || []).forEach(s => {
                 allEntries.push({
-                    date: s.sale_date,
+                    date: s.sale_datetime,
                     time: s.sale_datetime?.split('T')[1]?.slice(0, 5) || '',
                     type: 'Sale',
                     description: `M-Pesa Sale — ${s.customer_name || 'Walk-in'}`,
                     receipt: s.receipt_no || '',
                     customer: s.customer_name || 'Walk-in',
                     phone: s.customer_phone || '',
-                    amount: s.total_amount || 0,
-                    mpesaCode: s.mpesa_code || '-',
+                    amount: s.total || 0,
+                    mpesaCode: s.mpesa_receipt || '-',
                 });
             });
 

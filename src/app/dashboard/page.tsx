@@ -87,17 +87,17 @@ export default function DashboardPage() {
 
         try {
             // ── Today's Sales by payment method ──
-            const { data: todayData } = await supabase.from('pharmacy_sales').select('total_amount, payment_method').eq('sale_date', today).eq('outlet_id', outletId);
+            const { data: todayData } = await supabase.from('pharmacy_sales').select('total, payment_method').eq('sale_datetime', today).eq('outlet_id', outletId);
             const tData = todayData || [];
-            setTodaySales(tData.reduce((s, r) => s + (r.total_amount || 0), 0));
+            setTodaySales(tData.reduce((s, r) => s + (r.total || 0), 0));
             setTodayOrders(tData.length);
-            setTodayCash(tData.filter(r => (r.payment_method || '').toLowerCase().includes('cash')).reduce((s, r) => s + (r.total_amount || 0), 0));
-            setTodayMpesa(tData.filter(r => (r.payment_method || '').toLowerCase().includes('mpesa')).reduce((s, r) => s + (r.total_amount || 0), 0));
-            setTodayCredit(tData.filter(r => (r.payment_method || '').toLowerCase().includes('credit')).reduce((s, r) => s + (r.total_amount || 0), 0));
+            setTodayCash(tData.filter(r => (r.payment_method || '').toLowerCase().includes('cash')).reduce((s, r) => s + (r.total || 0), 0));
+            setTodayMpesa(tData.filter(r => (r.payment_method || '').toLowerCase().includes('mpesa')).reduce((s, r) => s + (r.total || 0), 0));
+            setTodayCredit(tData.filter(r => (r.payment_method || '').toLowerCase().includes('credit')).reduce((s, r) => s + (r.total || 0), 0));
 
             // ── Yesterday's Sales ──
-            const { data: yData } = await supabase.from('pharmacy_sales').select('total_amount').eq('sale_date', yesterday).eq('outlet_id', outletId);
-            setYesterdaySales((yData || []).reduce((s, r) => s + (r.total_amount || 0), 0));
+            const { data: yData } = await supabase.from('pharmacy_sales').select('total').eq('sale_datetime', yesterday).eq('outlet_id', outletId);
+            setYesterdaySales((yData || []).reduce((s, r) => s + (r.total || 0), 0));
             setYesterdayOrders((yData || []).length);
 
             // ── Pending Bills ──
@@ -119,11 +119,11 @@ export default function DashboardPage() {
             // ── Daily Sales Trend (by date range, broken by payment method) ──
             const { data: rangeSales } = await supabase
                 .from('pharmacy_sales')
-                .select('sale_date, total_amount, payment_method')
-                .gte('sale_date', dateFrom)
-                .lte('sale_date', dateTo)
+                .select('sale_datetime, total, payment_method')
+                .gte('sale_datetime', dateFrom)
+                .lte('sale_datetime', dateTo)
                 .eq('outlet_id', outletId)
-                .order('sale_date');
+                .order('sale_datetime');
 
             const salesMap = new Map<string, DailySales>();
             // Fill in all dates in range
@@ -134,10 +134,10 @@ export default function DashboardPage() {
                 salesMap.set(key, { date: key, cash: 0, mpesa: 0, credit: 0, total: 0, orders: 0 });
             }
             (rangeSales || []).forEach(s => {
-                const key = s.sale_date;
+                const key = s.sale_datetime;
                 if (!salesMap.has(key)) salesMap.set(key, { date: key, cash: 0, mpesa: 0, credit: 0, total: 0, orders: 0 });
                 const entry = salesMap.get(key)!;
-                const amt = s.total_amount || 0;
+                const amt = s.total || 0;
                 const method = (s.payment_method || '').toLowerCase();
                 entry.total += amt; entry.orders += 1;
                 if (method.includes('mpesa')) entry.mpesa += amt;
@@ -188,15 +188,15 @@ export default function DashboardPage() {
             // ── Pharmacist Sales ──
             const { data: cashierData } = await supabase
                 .from('pharmacy_sales')
-                .select('created_by, total_amount')
-                .gte('sale_date', dateFrom).lte('sale_date', dateTo)
+                .select('created_by, total')
+                .gte('sale_datetime', dateFrom).lte('sale_datetime', dateTo)
                 .eq('outlet_id', outletId);
             const wMap = new Map<string, { sales: number; orders: number }>();
             (cashierData || []).forEach(s => {
                 const name = s.created_by || 'Unknown';
                 if (!wMap.has(name)) wMap.set(name, { sales: 0, orders: 0 });
                 const e = wMap.get(name)!;
-                e.sales += s.total_amount || 0; e.orders += 1;
+                e.sales += s.total || 0; e.orders += 1;
             });
             setUserSales(Array.from(wMap.entries()).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.sales - a.sales).slice(0, 10));
 

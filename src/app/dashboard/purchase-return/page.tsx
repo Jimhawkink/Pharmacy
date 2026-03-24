@@ -13,7 +13,7 @@ interface PurchaseReturn {
     product_name: string;
     quantity: number;
     unit_price: number;
-    total_amount: number;
+    total: number;
     reason: string;
     status: string;
 }
@@ -58,7 +58,7 @@ export default function PurchaseReturnPage() {
             product_name: formData.product_name,
             quantity: formData.quantity,
             unit_price: formData.unit_price,
-            total_amount: formData.quantity * formData.unit_price,
+            total: formData.quantity * formData.unit_price,
             reason: formData.reason,
             status: 'Completed'
         });
@@ -66,7 +66,7 @@ export default function PurchaseReturnPage() {
         setIsSaving(false);
     };
 
-    const totalReturns = returns.reduce((sum, r) => sum + (r.total_amount || 0), 0);
+    const totalReturns = returns.reduce((sum, r) => sum + (r.total || 0), 0);
 
     return (
         <div className="space-y-6">
@@ -108,7 +108,7 @@ export default function PurchaseReturnPage() {
                                         <td className="py-3 px-4 font-medium">{r.supplier_name}</td>
                                         <td className="py-3 px-4">{r.product_name}</td>
                                         <td className="py-3 px-4 text-center">{r.quantity}</td>
-                                        <td className="py-3 px-4 text-right font-bold text-purple-600">Ksh {r.total_amount?.toLocaleString()}</td>
+                                        <td className="py-3 px-4 text-right font-bold text-purple-600">Ksh {r.total?.toLocaleString()}</td>
                                         <td className="py-3 px-4 text-sm text-gray-600">{r.reason}</td>
                                         <td className="py-3 px-4 text-center"><span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">{r.status}</span></td>
                                     </tr>

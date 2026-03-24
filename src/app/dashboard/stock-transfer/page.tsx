@@ -36,7 +36,7 @@ export default function StockTransferPage() {
                 .or(`from_outlet_id.eq.${outletId},to_outlet_id.eq.${outletId}`)
                 .order('created_at', { ascending: false });
             setTransfers(tData || []);
-            const { data: pData } = await supabase.from('retail_products').select('pid, product_code, product_name, purchase_unit').eq('active', true).order('product_name');
+            const { data: pData } = await supabase.from('pharmacy_products').select('pid, product_code, product_name, purchase_unit').eq('active', true).order('product_name');
             setProducts(pData || []);
         } catch { toast.error('Error loading data'); }
         setIsLoading(false);
@@ -74,8 +74,8 @@ export default function StockTransferPage() {
 
             // Deduct stock from source outlet
             for (const item of items) {
-                const { data: sData } = await supabase.from('retail_stock').select('st_id, qty').eq('pid', item.productId).eq('outlet_id', fromId).single();
-                if (sData) { await supabase.from('retail_stock').update({ qty: Math.max(0, (sData.qty || 0) - item.quantity) }).eq('st_id', sData.st_id); }
+                const { data: sData } = await supabase.from('pharmacy_stock').select('st_id, qty').eq('pid', item.productId).eq('outlet_id', fromId).single();
+                if (sData) { await supabase.from('pharmacy_stock').update({ qty: Math.max(0, (sData.qty || 0) - item.quantity) }).eq('st_id', sData.st_id); }
             }
             toast.success(`Transfer ${tNo} created!`);
             setShowCreate(false); setItems([]); setTransferNotes(''); setToOutletId(0);
@@ -91,9 +91,9 @@ export default function StockTransferPage() {
             const { data: tItems } = await supabase.from('retail_stock_transfer_items').select('*').eq('transfer_id', t.transfer_id);
             if (!tItems) return;
             for (const item of tItems) {
-                const { data: sData } = await supabase.from('retail_stock').select('st_id, qty').eq('pid', item.product_id).eq('outlet_id', t.to_outlet_id).single();
-                if (sData) { await supabase.from('retail_stock').update({ qty: (sData.qty || 0) + item.quantity }).eq('st_id', sData.st_id); }
-                else { await supabase.from('retail_stock').insert({ pid: item.product_id, qty: item.quantity, outlet_id: t.to_outlet_id, storage_type: 'Store' }); }
+                const { data: sData } = await supabase.from('pharmacy_stock').select('st_id, qty').eq('pid', item.product_id).eq('outlet_id', t.to_outlet_id).single();
+                if (sData) { await supabase.from('pharmacy_stock').update({ qty: (sData.qty || 0) + item.quantity }).eq('st_id', sData.st_id); }
+                else { await supabase.from('pharmacy_stock').insert({ pid: item.product_id, qty: item.quantity, outlet_id: t.to_outlet_id, storage_type: 'Store' }); }
             }
             await supabase.from('retail_stock_transfers').update({ status: 'Received', received_by: user?.name || '', received_at: new Date().toISOString() }).eq('transfer_id', t.transfer_id);
             toast.success('Transfer received! Stock updated.');

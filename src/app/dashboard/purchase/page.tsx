@@ -257,7 +257,7 @@ export default function PurchaseEntryPage() {
             const purchaseItemsData = items.map(i => ({
                 purchase_id: pid, product_id: i.productId, product_code: i.productCode,
                 product_name: i.productName, quantity: i.qty, unit: i.purchaseUnit,
-                rate: i.price, total_amount: i.total,
+                rate: i.price, total: i.total,
                 batch_number: i.batchNumber || `B-${Date.now()}`,
                 expiry_date: i.expiryDate || null,
                 manufacture_date: i.manufactureDate || null,

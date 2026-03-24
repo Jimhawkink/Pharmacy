@@ -88,7 +88,7 @@ export default function ActivityLogPage() {
         setIsLoading(true);
         try {
             let query = supabase
-                .from('retail_activity_log')
+                .from('pharmacy_activity_log')
                 .select('*')
                 .order('created_at', { ascending: false })
                 .limit(500);

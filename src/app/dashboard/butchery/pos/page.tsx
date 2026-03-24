@@ -116,8 +116,8 @@ export default function ButcheryPOSPage() {
             const { data: salesData } = await supabase
                 .from('meat_sales')
                 .select('*')
-                .gte('sale_date', todayStr)
-                .order('sale_date', { ascending: false });
+                .gte('sale_datetime', todayStr)
+                .order('sale_datetime', { ascending: false });
 
             const sales = salesData || [];
             setTodaySales(sales.slice(0, 5).map(s => ({
@@ -339,7 +339,7 @@ export default function ButcheryPOSPage() {
                     stock_id: selectedBatch.stock_id,
                     weight_kg: Math.round(weightKg * 1000) / 1000,
                     price_per_kg: pricePerKg,
-                    total_amount: Math.round(amountValue),
+                    total: Math.round(amountValue),
                     discount: Math.round(discountValue),
                     net_amount: Math.round(netAmount),
                     payment_mode: finalPaymentMode,
@@ -350,7 +350,7 @@ export default function ButcheryPOSPage() {
                     customer_contact: customerContact || null,
                     notes: notes || null,
                     served_by: 'Web POS',
-                    sale_date: new Date().toISOString()
+                    sale_datetime: new Date().toISOString()
                 });
 
             if (saleError) throw saleError;

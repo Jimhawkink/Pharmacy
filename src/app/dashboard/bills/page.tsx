@@ -20,9 +20,8 @@ interface SaleItem {
 interface Bill {
     sale_id: number;
     receipt_no: string;
-    sale_date: string;
-    sale_time: string;
     sale_datetime: string;
+    sale_time: string;
     shift_id?: number;
     shift_name?: string;
     shift_code?: string;
@@ -37,13 +36,13 @@ interface Bill {
     subtotal: number;
     discount: number;
     tax_amount: number;
-    total_amount: number;
+    total: number;
     total_cost: number;
     profit: number;
     payment_method: string;
     amount_paid: number;
     change_amount: number;
-    mpesa_code?: string;
+    mpesa_receipt?: string;
     status: string;
     notes?: string;
     created_by?: string;
@@ -116,7 +115,7 @@ const BillRow = ({
                 </td>
                 <td className="py-3 px-4">
                     <div>
-                        <p className="font-medium text-gray-700">{new Date(bill.sale_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                        <p className="font-medium text-gray-700">{new Date(bill.sale_datetime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                         <p className="text-xs text-gray-400">{bill.sale_time?.slice(0, 5) || '--:--'}</p>
                     </div>
                 </td>
@@ -136,16 +135,16 @@ const BillRow = ({
                     )}
                 </td>
                 <td className="py-3 px-4 text-right">
-                    <span className="font-bold text-gray-800">{bill.total_amount?.toLocaleString() || 0}</span>
+                    <span className="font-bold text-gray-800">{bill.total?.toLocaleString() || 0}</span>
                 </td>
                 <td className="py-3 px-4 text-right">
-                    <span className={`font-bold ${bill.amount_paid >= bill.total_amount ? 'text-green-600' : 'text-amber-600'}`}>
+                    <span className={`font-bold ${bill.amount_paid >= bill.total ? 'text-green-600' : 'text-amber-600'}`}>
                         {bill.amount_paid?.toLocaleString() || 0}
                     </span>
                 </td>
                 <td className="py-3 px-4 text-right">
-                    <span className={`font-bold ${(bill.total_amount - bill.amount_paid) > 0 ? 'text-red-600' : 'text-gray-400'}`}>
-                        {Math.max(0, (bill.total_amount || 0) - (bill.amount_paid || 0)).toLocaleString()}
+                    <span className={`font-bold ${(bill.total - bill.amount_paid) > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                        {Math.max(0, (bill.total || 0) - (bill.amount_paid || 0)).toLocaleString()}
                     </span>
                 </td>
                 <td className="py-3 px-4 text-right">
@@ -160,9 +159,9 @@ const BillRow = ({
                 <td className="py-3 px-4">
                     <div>
                         {getPaymentMethodBadge()}
-                        {bill.mpesa_code && (
+                        {bill.mpesa_receipt && (
                             <p className="text-xs text-gray-600 mt-1 font-mono">
-                                📱 {bill.mpesa_code}
+                                📱 {bill.mpesa_receipt}
                             </p>
                         )}
                     </div>
@@ -301,10 +300,10 @@ export default function BillsPage() {
 
             // Apply date filters
             if (dateFrom) {
-                query = query.gte('sale_date', dateFrom);
+                query = query.gte('sale_datetime', dateFrom);
             }
             if (dateTo) {
-                query = query.lte('sale_date', dateTo);
+                query = query.lte('sale_datetime', dateTo);
             }
             if (filterStatus !== 'All') {
                 query = query.eq('status', filterStatus);
@@ -342,7 +341,7 @@ export default function BillsPage() {
             setUsers(uniqueUsers);
 
             // Calculate stats
-            const totalAmount = transformedBills.reduce((sum, b) => sum + (b.total_amount || 0), 0);
+            const totalAmount = transformedBills.reduce((sum, b) => sum + (b.total || 0), 0);
             const paidBills = transformedBills.filter(b => b.status === 'Completed' || b.status === 'Paid');
             const pendingBills = transformedBills.filter(b => b.status === 'Pending');
             // Calculate profit ONLY for paid/completed bills
@@ -351,8 +350,8 @@ export default function BillsPage() {
             setStats({
                 totalBills: transformedBills.length,
                 totalAmount,
-                paidAmount: paidBills.reduce((sum, b) => sum + (b.total_amount || 0), 0),
-                pendingAmount: pendingBills.reduce((sum, b) => sum + (b.total_amount || 0), 0),
+                paidAmount: paidBills.reduce((sum, b) => sum + (b.total || 0), 0),
+                pendingAmount: pendingBills.reduce((sum, b) => sum + (b.total || 0), 0),
                 paidCount: paidBills.length,
                 pendingCount: pendingBills.length,
                 totalProfit
@@ -376,7 +375,7 @@ export default function BillsPage() {
             bill.receipt_no?.toLowerCase().includes(query) ||
             bill.customer_name?.toLowerCase().includes(query) ||
             bill.waiter_name?.toLowerCase().includes(query) ||
-            bill.mpesa_code?.toLowerCase().includes(query) ||
+            bill.mpesa_receipt?.toLowerCase().includes(query) ||
             bill.kot_number?.toLowerCase().includes(query)
         );
     });
@@ -715,7 +714,7 @@ export default function BillsPage() {
                         <div className="space-y-2 text-sm mb-4">
                             <div className="flex justify-between">
                                 <span className="text-gray-500">Date:</span>
-                                <span className="font-semibold">{selectedBill.sale_date} {selectedBill.sale_time?.slice(0, 5)}</span>
+                                <span className="font-semibold">{selectedBill.sale_datetime} {selectedBill.sale_time?.slice(0, 5)}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-500">Customer:</span>
@@ -762,16 +761,16 @@ export default function BillsPage() {
                             )}
                             <div className="flex justify-between text-lg font-bold">
                                 <span>Total:</span>
-                                <span className="text-blue-600">Ksh {selectedBill.total_amount?.toLocaleString()}</span>
+                                <span className="text-blue-600">Ksh {selectedBill.total?.toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-500">Paid:</span>
                                 <span className="text-green-600 font-medium">Ksh {selectedBill.amount_paid?.toLocaleString()}</span>
                             </div>
-                            {(selectedBill.total_amount - selectedBill.amount_paid) > 0 && (
+                            {(selectedBill.total - selectedBill.amount_paid) > 0 && (
                                 <div className="flex justify-between">
                                     <span className="text-gray-500">Balance:</span>
-                                    <span className="text-red-600 font-bold">Ksh {(selectedBill.total_amount - selectedBill.amount_paid)?.toLocaleString()}</span>
+                                    <span className="text-red-600 font-bold">Ksh {(selectedBill.total - selectedBill.amount_paid)?.toLocaleString()}</span>
                                 </div>
                             )}
                         </div>

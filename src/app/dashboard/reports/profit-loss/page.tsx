@@ -50,19 +50,19 @@ export default function ProfitLossPage() {
         try {
             // Gross Sales
             const { data: salesData } = await supabase
-                .from('retail_sales').select('total_amount').eq('outlet_id', outletId)
-                .gte('sale_date', dateFrom).lte('sale_date', dateTo);
-            setGrossSales((salesData || []).reduce((s, r) => s + (r.total_amount || 0), 0));
+                .from('pharmacy_sales').select('total').eq('outlet_id', outletId)
+                .gte('sale_datetime', dateFrom).lte('sale_datetime', dateTo);
+            setGrossSales((salesData || []).reduce((s, r) => s + (r.total || 0), 0));
 
             // Sales Returns (currently zero if not tracked)
             setSalesReturns(0);
 
             // COGS: purchase_cost × quantity for items sold in period
             const { data: salesItems } = await supabase
-                .from('retail_sales_items').select('product_id, quantity')
+                .from('pharmacy_sales_items').select('product_id, quantity')
                 .gte('created_at', `${dateFrom}T00:00:00`).lte('created_at', `${dateTo}T23:59:59`);
             const { data: products } = await supabase
-                .from('retail_products').select('pid, purchase_cost').eq('outlet_id', outletId);
+                .from('pharmacy_products').select('pid, purchase_cost').eq('outlet_id', outletId);
             const costMap: Record<number, number> = {};
             (products || []).forEach(p => { costMap[p.pid] = p.purchase_cost || 0; });
             let cogs = 0;
@@ -73,12 +73,12 @@ export default function ProfitLossPage() {
 
             // Purchases in period
             const { data: purchaseData } = await supabase
-                .from('retail_purchases').select('grand_total').eq('outlet_id', outletId)
+                .from('pharmacy_purchases').select('grand_total').eq('outlet_id', outletId)
                 .gte('purchase_date', dateFrom).lte('purchase_date', dateTo);
             setPurchases((purchaseData || []).reduce((s, r) => s + (r.grand_total || 0), 0));
 
             // Stock values (current = closing stock)
-            const { data: stockData } = await supabase.from('retail_stock').select('pid, qty').eq('outlet_id', outletId);
+            const { data: stockData } = await supabase.from('pharmacy_stock').select('pid, qty').eq('outlet_id', outletId);
             let closVal = 0;
             (stockData || []).forEach(s => {
                 closVal += (s.qty || 0) * (costMap[s.pid] || 0);

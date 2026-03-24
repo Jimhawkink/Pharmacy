@@ -104,9 +104,9 @@ export default function DishMovementPage() {
             // Get sales in date range
             const { data: salesData } = await supabase
                 .from('sales')
-                .select('sale_id, sale_date, status')
-                .gte('sale_date', dateFrom)
-                .lte('sale_date', dateTo);
+                .select('sale_id, sale_datetime, status')
+                .gte('sale_datetime', dateFrom)
+                .lte('sale_datetime', dateTo);
 
             const saleIds = (salesData || []).map(s => s.sale_id);
 
@@ -127,7 +127,7 @@ export default function DishMovementPage() {
                 .lte('spoilage_date', dateTo);
 
             // Create sale_id to date map
-            const saleIdToDate = new Map((salesData || []).map(s => [s.sale_id, s.sale_date]));
+            const saleIdToDate = new Map((salesData || []).map(s => [s.sale_id, s.sale_datetime]));
 
             // Aggregate by product and date
             const movementMap = new Map<string, DishMovement>();
