@@ -491,28 +491,133 @@ export default function PharmacyPOS() {
         try {
             const user = JSON.parse(localStorage.getItem('user') || '{}');
             const cashierName = user.name || 'Pharmacist';
-            const saleResult = await completeSaleTransaction({
-                receiptNo, subtotal, discount: totalDiscount, tax: 0, total: grandTotal,
-                paymentMethod: method, amountPaid: paid, change: Math.max(0, paid - grandTotal),
-                cashierName, customerName: selectedCustomer?.customer_name || custName,
-                mpesaReceipt: receipt, shiftInstanceId: currentShiftId || undefined,
-                checkoutRequestId: cId, customerPhone: cPhone, outletId,
-                items: cart.map(c => ({
-                    productId: c.id, productName: c.name, qty: c.qty, price: c.effectivePrice,
-                    purchasePrice: c.costPrice, discount: c.discount,
-                    batchId: c.batchId || undefined, batchNumber: c.batchNumber || undefined,
-                    expiryDate: c.expiryDate || undefined, notes: c.prescriptionNote || undefined,
-                })),
-            });
+
+            // === STEP 1: Generate fresh receipt number (like Alpha Retail) ===
+            let freshReceiptNo = receiptNo;
+            try {
+                const prefix = `PHARM-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-`;
+                const { data: latestSales } = await supabase
+                    .from('pharmacy_sales')
+                    .select('receipt_no')
+                    .like('receipt_no', `${prefix}%`)
+                    .order('sale_id', { ascending: false })
+                    .limit(1);
+                if (latestSales && latestSales.length > 0) {
+                    const regex = new RegExp(`${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\d+)`);
+                    const match = latestSales[0].receipt_no?.match(regex);
+                    if (match) {
+                        freshReceiptNo = `${prefix}${String(parseInt(match[1]) + 1).padStart(2, '0')}`;
+                    }
+                }
+            } catch { /* keep existing receiptNo */ }
+
+            console.log('📝 PHARMACY SALE Step 1: Inserting into pharmacy_sales...', freshReceiptNo);
+
+            // === STEP 2: Insert sale record (EXACTLY like Alpha Retail) ===
+            const { data: sale, error: saleError } = await supabase
+                .from('pharmacy_sales')
+                .insert([{
+                    receipt_no: freshReceiptNo,
+                    sale_datetime: new Date().toISOString(),
+                    subtotal: subtotal,
+                    discount: totalDiscount,
+                    tax: 0,
+                    total: grandTotal,
+                    payment_method: method.toUpperCase(),
+                    amount_paid: method.toUpperCase() === 'CREDIT' ? 0 : paid,
+                    change_amount: Math.max(0, paid - grandTotal),
+                    customer_name: selectedCustomer?.customer_name || custName || null,
+                    cashier_name: cashierName,
+                    mpesa_receipt: receipt || null,
+                    shift_instance_id: currentShiftId || null,
+                    checkout_request_id: cId || null,
+                    customer_phone: cPhone || null,
+                    status: 'Completed',
+                    outlet_id: outletId,
+                    notes: null,
+                }])
+                .select()
+                .single();
+
+            if (saleError) {
+                console.error('❌ PHARMACY SALE FAILED at pharmacy_sales insert:', JSON.stringify(saleError));
+                toast.error(`Sale header failed: ${saleError.message} (code: ${saleError.code})`);
+                throw saleError;
+            }
+            console.log('✅ PHARMACY SALE Step 1 done, sale_id:', sale.sale_id);
+
+            // === STEP 3: Insert sale items (EXACTLY like Alpha Retail) ===
+            const saleItems = cart.map(item => ({
+                sale_id: sale.sale_id,
+                product_id: item.id,
+                product_name: item.name,
+                batch_id: item.batchId || null,
+                batch_number: item.batchNumber || null,
+                expiry_date: item.expiryDate || null,
+                quantity: item.qty,
+                unit_price: item.effectivePrice,
+                discount: item.discount,
+                total: (item.effectivePrice * item.qty) - item.discount,
+                purchase_price: item.costPrice,
+                notes: item.prescriptionNote || null,
+            }));
+
+            console.log('📝 PHARMACY SALE Step 2: Inserting', saleItems.length, 'items into pharmacy_sales_items...');
+            const { error: itemsError } = await supabase.from('pharmacy_sales_items').insert(saleItems);
+            if (itemsError) {
+                console.error('❌ PHARMACY SALE ITEMS FAILED:', JSON.stringify(itemsError));
+                toast.error(`Sale items failed: ${itemsError.message} (code: ${itemsError.code})`);
+            } else {
+                console.log('✅ PHARMACY SALE Step 2 done, items saved');
+            }
+
+            // === STEP 4: Deduct stock from batches ===
+            console.log('📝 PHARMACY SALE Step 3: Deducting stock...');
+            for (const item of cart) {
+                try {
+                    if (item.batchId) {
+                        const { data: batchRow } = await supabase
+                            .from('pharmacy_batches')
+                            .select('remaining_qty')
+                            .eq('batch_id', item.batchId)
+                            .single();
+                        if (batchRow) {
+                            await supabase
+                                .from('pharmacy_batches')
+                                .update({ remaining_qty: Math.max(0, (batchRow.remaining_qty || 0) - item.qty) })
+                                .eq('batch_id', item.batchId);
+                        }
+                    }
+                    const { data: stockRow } = await supabase
+                        .from('pharmacy_stock')
+                        .select('st_id, qty')
+                        .eq('pid', item.id)
+                        .eq('outlet_id', outletId)
+                        .limit(1)
+                        .single();
+                    if (stockRow) {
+                        await supabase
+                            .from('pharmacy_stock')
+                            .update({ qty: Math.max(0, (stockRow.qty || 0) - item.qty) })
+                            .eq('st_id', stockRow.st_id);
+                    }
+                } catch (stockErr) {
+                    console.warn('⚠️ Stock deduction warning for', item.name, stockErr);
+                }
+            }
+            console.log('✅ PHARMACY SALE Step 3 done, stock deducted');
+
+            // === Credit customer balance update ===
             if (method === 'CREDIT' && selectedCustomer) {
                 const nb = (selectedCustomer.current_balance || 0) + grandTotal;
                 await supabase.from('pharmacy_credit_customers').update({ current_balance: nb }).eq('customer_id', selectedCustomer.customer_id);
             }
-            // Auto-print receipt — exact Alpha Retail receipt printer
+
+            // === Auto-print receipt ===
             try {
                 const company = await loadCompanyInfo();
                 const receiptData = createReceiptData(
-                    receiptNo,
+                    freshReceiptNo,
                     cart.map(c => ({
                         name: c.name,
                         qty: c.qty,
@@ -534,13 +639,14 @@ export default function PharmacyPOS() {
                 );
                 printCustomerReceipt(receiptData, company);
             } catch (printErr) { console.error('Receipt print error:', printErr); }
-            toast.success(`Sale ${receiptNo} completed!`);
+
+            toast.success(`✅ Sale ${freshReceiptNo} completed & saved!`);
             setCart([]); setShowPayment(false); setSelectedCustomer(null); setCustomerSearch('');
             resetStk(); setPayMethod('cash'); setAmountPaid(''); setMpesaPhone(''); setMpesaReceipt(''); setPayCustomerName(''); setCreditSearchPay('');
             const rn = await getNextReceiptNumber(outletId); setReceiptNo(rn); loadData(); loadCreditCustomers();
         } catch (err: any) {
-            console.error('Sale error:', err);
-            toast.error(`Sale failed: ${err?.message || err?.details || 'Unknown error'}`);
+            console.error('❌ FULL SALE ERROR:', err);
+            toast.error(`Sale failed: ${err?.message || err?.details || JSON.stringify(err) || 'Unknown error'}`);
         }
     };
 
