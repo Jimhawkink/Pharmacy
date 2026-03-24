@@ -1058,34 +1058,84 @@ export default function ProductsPage() {
                                             min={1} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm" />
                                     </div>
                                 </div>
-                                {/* Margin Display */}
+                                {/* Comprehensive Profit & Margin Breakdown */}
                                 {formData.purchase_cost > 0 && (() => {
                                     const ppp = formData.pieces_per_package || 1;
-                                    const costPerUnit = formData.purchase_unit !== formData.sales_unit && ppp > 1 ? formData.purchase_cost / ppp : formData.purchase_cost;
-                                    const mProfit = formData.sales_cost - costPerUnit;
-                                    const mMargin = (mProfit / costPerUnit) * 100;
+                                    const pkgLabel = formData.purchase_unit || 'Box';
+                                    const pieceLabel = formData.sales_unit || 'Piece';
+                                    const isDiffUnit = formData.purchase_unit !== formData.sales_unit && ppp > 1;
+
+                                    // Per Package (Box/Bag/Carton)
+                                    const costPerPkg = formData.purchase_cost;
+                                    const sellPerPkg = isDiffUnit ? formData.sales_cost * ppp : formData.sales_cost;
+                                    const profitPerPkg = sellPerPkg - costPerPkg;
+                                    const marginPkg = costPerPkg > 0 ? (profitPerPkg / costPerPkg) * 100 : 0;
+
+                                    // Per Piece
+                                    const costPerPiece = isDiffUnit ? formData.purchase_cost / ppp : formData.purchase_cost;
+                                    const sellPerPiece = formData.sales_cost;
+                                    const profitPerPiece = sellPerPiece - costPerPiece;
+                                    const marginPiece = costPerPiece > 0 ? (profitPerPiece / costPerPiece) * 100 : 0;
+
+                                    const overallMargin = isDiffUnit ? marginPiece : marginPkg;
+
                                     return (
-                                        <div className={`mt-3 p-3 rounded-xl border-2 flex items-center justify-between ${mMargin >= 20 ? 'bg-green-50 border-green-200' : mMargin >= 10 ? 'bg-yellow-50 border-yellow-200' : mMargin > 0 ? 'bg-orange-50 border-orange-200' : 'bg-red-50 border-red-200'}`}>
-                                            <div className="flex items-center gap-6">
-                                                <div>
-                                                    <p className="text-xs text-gray-500 uppercase font-bold">Profit per unit</p>
-                                                    <p className={`text-lg font-black ${mProfit >= 0 ? 'text-green-700' : 'text-red-700'}`}>Ksh {mProfit.toLocaleString()}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs text-gray-500 uppercase font-bold">Margin %</p>
-                                                    <p className={`text-lg font-black ${mMargin >= 20 ? 'text-green-700' : mMargin >= 10 ? 'text-yellow-700' : 'text-red-700'}`}>{mMargin.toFixed(2)}%</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs text-gray-500 uppercase font-bold">Markup</p>
-                                                    <p className="text-lg font-black text-gray-700">{formData.sales_cost > 0 && costPerUnit > 0 ? (formData.sales_cost / costPerUnit).toFixed(2) : '0'}x</p>
-                                                </div>
+                                        <div className={`mt-3 rounded-xl border-2 overflow-hidden ${overallMargin >= 20 ? 'border-green-200' : overallMargin >= 10 ? 'border-yellow-200' : overallMargin > 0 ? 'border-orange-200' : 'border-red-200'}`}>
+                                            {/* Header */}
+                                            <div className={`px-4 py-2 flex items-center justify-between ${overallMargin >= 20 ? 'bg-green-600' : overallMargin >= 10 ? 'bg-yellow-500' : overallMargin > 0 ? 'bg-orange-500' : 'bg-red-500'}`}>
+                                                <span className="text-white text-xs font-bold uppercase tracking-wider">📊 Profit & Margin Breakdown</span>
+                                                <span className="text-white text-xs font-bold">
+                                                    {overallMargin < 0 ? '⚠️ Selling below cost!' : overallMargin >= 20 ? '✅ Good margin' : overallMargin > 0 ? '⚠️ Low margin' : '⚠️ No profit'}
+                                                </span>
                                             </div>
-                                            <div className="text-right">
-                                                {mMargin < 0 && <p className="text-sm font-bold text-red-600">⚠️ Selling below cost!</p>}
-                                                {mMargin === 0 && <p className="text-sm font-bold text-orange-600">⚠️ No profit margin</p>}
-                                                {mMargin >= 20 && <p className="text-sm font-bold text-green-600">✅ Good margin</p>}
-                                                {mMargin > 0 && mMargin < 10 && <p className="text-sm font-bold text-orange-600">⚠️ Low margin</p>}
-                                            </div>
+                                            {/* Table */}
+                                            <table className="w-full text-sm">
+                                                <thead>
+                                                    <tr className="bg-gray-50 border-b border-gray-100">
+                                                        <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase">Level</th>
+                                                        <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase">Cost</th>
+                                                        <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase">Selling</th>
+                                                        <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase">Profit</th>
+                                                        <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase">Margin %</th>
+                                                        <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase">Markup</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {/* Per Package Row */}
+                                                    <tr className={`border-b border-gray-50 ${isDiffUnit ? '' : 'bg-blue-50/50'}`}>
+                                                        <td className="px-4 py-2.5">
+                                                            <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg">📦 Per {pkgLabel}</span>
+                                                        </td>
+                                                        <td className="px-3 py-2.5 text-right font-mono font-bold text-gray-700">KES {costPerPkg.toLocaleString()}</td>
+                                                        <td className="px-3 py-2.5 text-right font-mono font-bold text-blue-700">KES {sellPerPkg.toLocaleString()}</td>
+                                                        <td className={`px-3 py-2.5 text-right font-mono font-black ${profitPerPkg >= 0 ? 'text-green-700' : 'text-red-700'}`}>KES {profitPerPkg.toLocaleString()}</td>
+                                                        <td className={`px-3 py-2.5 text-right font-bold ${marginPkg >= 20 ? 'text-green-700' : marginPkg > 0 ? 'text-orange-600' : 'text-red-700'}`}>{marginPkg.toFixed(1)}%</td>
+                                                        <td className="px-3 py-2.5 text-right font-bold text-gray-600">{costPerPkg > 0 ? (sellPerPkg / costPerPkg).toFixed(2) : '0'}x</td>
+                                                    </tr>
+                                                    {/* Per Piece Row - only show if different units */}
+                                                    {isDiffUnit && (
+                                                        <tr className="bg-emerald-50/50">
+                                                            <td className="px-4 py-2.5">
+                                                                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">💊 Per {pieceLabel}</span>
+                                                            </td>
+                                                            <td className="px-3 py-2.5 text-right font-mono font-bold text-gray-700">KES {costPerPiece.toFixed(2)}</td>
+                                                            <td className="px-3 py-2.5 text-right font-mono font-bold text-blue-700">KES {sellPerPiece.toLocaleString()}</td>
+                                                            <td className={`px-3 py-2.5 text-right font-mono font-black ${profitPerPiece >= 0 ? 'text-green-700' : 'text-red-700'}`}>KES {profitPerPiece.toFixed(2)}</td>
+                                                            <td className={`px-3 py-2.5 text-right font-bold ${marginPiece >= 20 ? 'text-green-700' : marginPiece > 0 ? 'text-orange-600' : 'text-red-700'}`}>{marginPiece.toFixed(1)}%</td>
+                                                            <td className="px-3 py-2.5 text-right font-bold text-gray-600">{costPerPiece > 0 ? (sellPerPiece / costPerPiece).toFixed(2) : '0'}x</td>
+                                                        </tr>
+                                                    )}
+                                                </tbody>
+                                            </table>
+                                            {/* Summary Footer */}
+                                            {isDiffUnit && (
+                                                <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
+                                                    <span>💡 1 {pkgLabel} = {ppp} {pieceLabel}s | Cost/piece = {costPerPkg.toLocaleString()} ÷ {ppp} = KES {costPerPiece.toFixed(2)}</span>
+                                                    <span className={`font-bold ${overallMargin >= 20 ? 'text-green-600' : 'text-orange-600'}`}>
+                                                        Overall: {overallMargin.toFixed(1)}% margin
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })()}
