@@ -246,7 +246,7 @@ export default function ProductsPage() {
         }
     };
 
-    const calcMargin = (pc: number, sc: number) => pc <= 0 ? 0 : Math.round(((sc - pc) / pc) * 10000) / 100;
+    const calcMargin = (costPerUnit: number, sellPrice: number) => sellPrice <= 0 ? 0 : Math.round(((sellPrice - costPerUnit) / sellPrice) * 10000) / 100;
 
     const openAddModal = async () => {
         setEditingProduct(null); const bc = await generateBarcode();
@@ -485,7 +485,7 @@ export default function ProductsPage() {
                 if (prodData.purchase_cost > 0) {
                     const cpp = prodData.purchase_cost / (prodData.pieces_per_package || 1);
                     const sp = prodData.wholesale_price || prodData.sales_cost;
-                    prodData.margin_per = Math.round(((sp - cpp) / cpp) * 10000) / 100;
+                    prodData.margin_per = sp > 0 ? Math.round(((sp - cpp) / sp) * 10000) / 100 : 0;
                 }
 
                 try {
@@ -1069,13 +1069,15 @@ export default function ProductsPage() {
                                     const costPerPkg = formData.purchase_cost;
                                     const sellPerPkg = isDiffUnit ? formData.sales_cost * ppp : formData.sales_cost;
                                     const profitPerPkg = sellPerPkg - costPerPkg;
-                                    const marginPkg = costPerPkg > 0 ? (profitPerPkg / costPerPkg) * 100 : 0;
+                                    const marginPkg = sellPerPkg > 0 ? (profitPerPkg / sellPerPkg) * 100 : 0;
+                                    const markupPkg = costPerPkg > 0 ? (profitPerPkg / costPerPkg) * 100 : 0;
 
                                     // Per Piece
                                     const costPerPiece = isDiffUnit ? formData.purchase_cost / ppp : formData.purchase_cost;
                                     const sellPerPiece = formData.sales_cost;
                                     const profitPerPiece = sellPerPiece - costPerPiece;
-                                    const marginPiece = costPerPiece > 0 ? (profitPerPiece / costPerPiece) * 100 : 0;
+                                    const marginPiece = sellPerPiece > 0 ? (profitPerPiece / sellPerPiece) * 100 : 0;
+                                    const markupPiece = costPerPiece > 0 ? (profitPerPiece / costPerPiece) * 100 : 0;
 
                                     const overallMargin = isDiffUnit ? marginPiece : marginPkg;
 
@@ -1097,7 +1099,7 @@ export default function ProductsPage() {
                                                         <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase">Selling</th>
                                                         <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase">Profit</th>
                                                         <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase">Margin %</th>
-                                                        <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase">Markup</th>
+                                                        <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase">Markup %</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1110,7 +1112,7 @@ export default function ProductsPage() {
                                                         <td className="px-3 py-2.5 text-right font-mono font-bold text-blue-700">KES {sellPerPkg.toLocaleString()}</td>
                                                         <td className={`px-3 py-2.5 text-right font-mono font-black ${profitPerPkg >= 0 ? 'text-green-700' : 'text-red-700'}`}>KES {profitPerPkg.toLocaleString()}</td>
                                                         <td className={`px-3 py-2.5 text-right font-bold ${marginPkg >= 20 ? 'text-green-700' : marginPkg > 0 ? 'text-orange-600' : 'text-red-700'}`}>{marginPkg.toFixed(1)}%</td>
-                                                        <td className="px-3 py-2.5 text-right font-bold text-gray-600">{costPerPkg > 0 ? (sellPerPkg / costPerPkg).toFixed(2) : '0'}x</td>
+                                                        <td className="px-3 py-2.5 text-right font-bold text-gray-600">{markupPkg.toFixed(1)}%</td>
                                                     </tr>
                                                     {/* Per Piece Row - only show if different units */}
                                                     {isDiffUnit && (
@@ -1122,7 +1124,7 @@ export default function ProductsPage() {
                                                             <td className="px-3 py-2.5 text-right font-mono font-bold text-blue-700">KES {sellPerPiece.toLocaleString()}</td>
                                                             <td className={`px-3 py-2.5 text-right font-mono font-black ${profitPerPiece >= 0 ? 'text-green-700' : 'text-red-700'}`}>KES {profitPerPiece.toFixed(2)}</td>
                                                             <td className={`px-3 py-2.5 text-right font-bold ${marginPiece >= 20 ? 'text-green-700' : marginPiece > 0 ? 'text-orange-600' : 'text-red-700'}`}>{marginPiece.toFixed(1)}%</td>
-                                                            <td className="px-3 py-2.5 text-right font-bold text-gray-600">{costPerPiece > 0 ? (sellPerPiece / costPerPiece).toFixed(2) : '0'}x</td>
+                                                            <td className="px-3 py-2.5 text-right font-bold text-gray-600">{markupPiece.toFixed(1)}%</td>
                                                         </tr>
                                                     )}
                                                 </tbody>
@@ -1215,7 +1217,7 @@ export default function ProductsPage() {
                                                     const bPpp = formData.pieces_per_package || 1;
                                                     const bCost = formData.purchase_unit !== formData.sales_unit && bPpp > 1 ? bCostRaw / bPpp : bCostRaw;
                                                     const bSell = b.selling_price || formData.sales_cost;
-                                                    const bMargin = bCost > 0 ? ((bSell - bCost) / bCost * 100).toFixed(1) : '0';
+                                                    const bMargin = bSell > 0 ? ((bSell - bCost) / bSell * 100).toFixed(1) : '0';
                                                     const bProfit = bSell - bCost;
                                                     return (
                                                         <tr key={idx} className={`border-b border-gray-50 ${days < 0 ? 'bg-red-50' : days <= 30 ? 'bg-orange-50' : ''}`}>
@@ -1263,7 +1265,7 @@ export default function ProductsPage() {
                                     setIsSaving(true);
                                     try {
                                         const costPerPiece = formData.purchase_cost / (formData.pieces_per_package || 1);
-                                        const marginPer = costPerPiece > 0 ? Math.round(((formData.sales_cost - costPerPiece) / costPerPiece) * 10000) / 100 : 0;
+                                        const marginPer = formData.sales_cost > 0 ? Math.round(((formData.sales_cost - costPerPiece) / formData.sales_cost) * 10000) / 100 : 0;
                                         const d = {
                                             product_name: formData.product_name, barcode: formData.barcode || null,
                                             category: formData.category || null, purchase_unit: formData.purchase_unit,
