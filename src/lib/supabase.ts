@@ -178,6 +178,7 @@ export async function completeSaleTransaction(sale: {
     const outletId = sale.outletId || 1;
 
     // 1. Create sale record
+    console.log('📝 Step 1: Creating sale record...', sale.receiptNo);
     const { data: saleRecord, error: saleError } = await supabase
         .from('pharmacy_sales')
         .insert({
@@ -190,20 +191,25 @@ export async function completeSaleTransaction(sale: {
             payment_method: sale.paymentMethod,
             amount_paid: sale.amountPaid,
             change_amount: sale.change,
-            customer_name: sale.customerName,
+            customer_name: sale.customerName || null,
             cashier_name: sale.cashierName,
-            mpesa_receipt: sale.mpesaReceipt,
-            shift_instance_id: sale.shiftInstanceId,
-            checkout_request_id: sale.checkoutRequestId,
-            customer_phone: sale.customerPhone,
+            mpesa_receipt: sale.mpesaReceipt || null,
+            shift_instance_id: sale.shiftInstanceId || null,
+            checkout_request_id: sale.checkoutRequestId || null,
+            customer_phone: sale.customerPhone || null,
             outlet_id: outletId,
         })
         .select()
         .single();
-    if (saleError) throw saleError;
+    if (saleError) {
+        console.error('❌ Step 1 FAILED - pharmacy_sales insert:', saleError);
+        throw new Error(`Sale header failed: ${saleError.message} (${saleError.code})`);
+    }
+    console.log('✅ Step 1 done, sale_id:', saleRecord.sale_id);
 
-    // 2. Add sale items
-    const saleItems = sale.items.map(item => ({
+    // 2. Add sale items (try with notes first, fallback without)
+    console.log('📝 Step 2: Adding sale items...');
+    const saleItemsWithNotes = sale.items.map(item => ({
         sale_id: saleRecord.sale_id,
         product_id: item.productId,
         product_name: item.productName,
@@ -215,32 +221,66 @@ export async function completeSaleTransaction(sale: {
         discount: item.discount,
         total: (item.price * item.qty) - item.discount,
         purchase_price: item.purchasePrice,
+        notes: item.notes || null,
     }));
-    const { error: itemsError } = await supabase
-        .from('pharmacy_sales_items')
-        .insert(saleItems);
-    if (itemsError) throw itemsError;
 
-    // 3. Deduct stock from batches
-    for (const item of sale.items) {
-        if (item.batchId) {
-            await deductFromBatch(item.batchId, item.qty);
-        }
-        // Also update general stock
-        const { data: stockRow } = await supabase
-            .from('pharmacy_stock')
-            .select('st_id, qty')
-            .eq('pid', item.productId)
-            .eq('outlet_id', outletId)
-            .limit(1)
-            .single();
-        if (stockRow) {
-            await supabase
-                .from('pharmacy_stock')
-                .update({ qty: Math.max(0, (stockRow.qty || 0) - item.qty) })
-                .eq('st_id', stockRow.st_id);
+    let { error: itemsError } = await supabase
+        .from('pharmacy_sales_items')
+        .insert(saleItemsWithNotes);
+
+    // If notes column doesn't exist, retry without it
+    if (itemsError) {
+        console.warn('⚠️ Items insert with notes failed, retrying without notes...', itemsError.message);
+        const saleItemsNoNotes = sale.items.map(item => ({
+            sale_id: saleRecord.sale_id,
+            product_id: item.productId,
+            product_name: item.productName,
+            batch_id: item.batchId || null,
+            batch_number: item.batchNumber || null,
+            expiry_date: item.expiryDate || null,
+            quantity: item.qty,
+            unit_price: item.price,
+            discount: item.discount,
+            total: (item.price * item.qty) - item.discount,
+            purchase_price: item.purchasePrice,
+        }));
+        const retry = await supabase
+            .from('pharmacy_sales_items')
+            .insert(saleItemsNoNotes);
+        if (retry.error) {
+            console.error('❌ Step 2 FAILED - pharmacy_sales_items insert:', retry.error);
+            throw new Error(`Sale items failed: ${retry.error.message} (${retry.error.code})`);
         }
     }
+    console.log('✅ Step 2 done, items saved');
+
+    // 3. Deduct stock from batches
+    console.log('📝 Step 3: Deducting stock...');
+    for (const item of sale.items) {
+        try {
+            if (item.batchId) {
+                await deductFromBatch(item.batchId, item.qty);
+            }
+            // Also update general stock
+            const { data: stockRow } = await supabase
+                .from('pharmacy_stock')
+                .select('st_id, qty')
+                .eq('pid', item.productId)
+                .eq('outlet_id', outletId)
+                .limit(1)
+                .single();
+            if (stockRow) {
+                await supabase
+                    .from('pharmacy_stock')
+                    .update({ qty: Math.max(0, (stockRow.qty || 0) - item.qty) })
+                    .eq('st_id', stockRow.st_id);
+            }
+        } catch (stockErr) {
+            console.warn('⚠️ Stock deduction warning for', item.productName, stockErr);
+            // Don't fail the sale for stock issues
+        }
+    }
+    console.log('✅ Step 3 done, stock updated');
 
     // 4. Handle credit sale
     if (sale.paymentMethod === 'CREDIT' && sale.customerName) {
@@ -267,6 +307,7 @@ export async function completeSaleTransaction(sale: {
         }
     }
 
+    console.log('✅ Sale complete:', sale.receiptNo);
     return saleRecord;
 }
 

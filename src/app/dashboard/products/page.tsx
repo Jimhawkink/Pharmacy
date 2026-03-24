@@ -269,67 +269,86 @@ export default function ProductsPage() {
                 <span className="text-sm text-gray-400">{filtered.length} results</span>
             </div>
 
-            {/* Products Table */}
+            {/* Products Table — Alpha Retail Style */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <table className="w-full">
-                    <thead><tr className="bg-gray-50 border-b border-gray-100">
-                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Product</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Category</th>
-                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Drug Info</th>
-                        <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Buy</th>
-                        <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Sell</th>
-                        <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Margin</th>
-                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">Batches / Expiry</th>
-                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase w-24">Actions</th>
-                    </tr></thead>
-                    <tbody>
-                        {filtered.map(p => {
-                            const pBatches = productBatches[p.pid] || [];
-                            const nearestBatch = pBatches[0];
-                            const nearestDays = nearestBatch ? getDaysUntilExpiry(nearestBatch.expiry_date) : null;
-                            const calcMargin = p.purchase_cost > 0 ? ((p.sales_cost - p.purchase_cost) / p.purchase_cost * 100).toFixed(1) : '0';
-                            return (
-                                <tr key={p.pid} className="border-b border-gray-50 hover:bg-teal-50/30 transition-colors">
-                                    <td className="px-4 py-3">
-                                        <p className="font-semibold text-gray-800 text-sm">{p.product_name}</p>
-                                        <p className="text-xs text-gray-400">{p.product_code} {p.barcode ? `• ${p.barcode}` : ''}</p>
-                                    </td>
-                                    <td className="px-4 py-3"><span className="px-2 py-1 bg-gray-100 rounded-lg text-xs">{p.category || '—'}</span></td>
-                                    <td className="px-4 py-3">
-                                        <p className="text-xs text-gray-600">{p.drug_type || '—'} {p.dosage ? `• ${p.dosage}` : ''}</p>
-                                        {p.generic_name && <p className="text-xs text-teal-600">{p.generic_name}</p>}
-                                        {p.requires_prescription && <span className="text-xs text-red-500 font-bold">℞ Rx</span>}
-                                    </td>
-                                    <td className="px-4 py-3 text-right text-sm text-gray-600">{p.purchase_cost.toLocaleString()}</td>
-                                    <td className="px-4 py-3 text-right text-sm font-bold text-green-600">{p.sales_cost.toLocaleString()}</td>
-                                    <td className="px-4 py-3 text-right">
-                                        <span className={`text-sm font-bold ${Number(calcMargin) >= 20 ? 'text-green-600' : Number(calcMargin) >= 10 ? 'text-yellow-600' : 'text-red-500'}`}>{calcMargin}%</span>
-                                        <p className="text-xs text-gray-400">Ksh {(p.sales_cost - p.purchase_cost).toLocaleString()}</p>
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                        {pBatches.length > 0 ? (
-                                            <div className="flex flex-col items-center gap-1">
-                                                <span className="text-xs text-gray-500">{pBatches.length} batch{pBatches.length > 1 ? 'es' : ''}</span>
-                                                {nearestDays !== null && getExpiryBadge(nearestDays)}
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead>
+                            <tr className="bg-gradient-to-r from-blue-500 to-blue-600">
+                                <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Product</th>
+                                <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden md:table-cell">Category</th>
+                                <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Buy Price</th>
+                                <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Sell Price</th>
+                                <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Stock</th>
+                                <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Margin</th>
+                                <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Batches / Expiry</th>
+                                <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider w-28">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filtered.map((p, idx) => {
+                                const pBatches = productBatches[p.pid] || [];
+                                const nearestBatch = pBatches[0];
+                                const nearestDays = nearestBatch ? getDaysUntilExpiry(nearestBatch.expiry_date) : null;
+                                const calcMargin = p.purchase_cost > 0 ? ((p.sales_cost - p.purchase_cost) / p.purchase_cost * 100).toFixed(1) : '0';
+                                return (
+                                    <tr key={p.pid} className={`border-b border-gray-50 hover:bg-blue-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0 bg-gray-50">
+                                                    <img src="/no-image.png" alt="" className="w-full h-full object-contain" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-semibold text-gray-900">{p.product_name}</p>
+                                                    <p className="text-[11px] text-blue-600 font-medium">{p.product_code} {p.barcode ? `• ${p.barcode}` : ''}</p>
+                                                    {p.requires_prescription && <span className="text-[10px] text-red-500 font-bold">℞ Rx</span>}
+                                                </div>
                                             </div>
-                                        ) : <span className="text-xs text-gray-300">No batches</span>}
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                        <div className="flex items-center justify-center gap-1">
-                                            <button onClick={() => openEdit(p)} className="p-2 hover:bg-teal-100 rounded-lg text-teal-600" title="Edit">✏️</button>
-                                            <button onClick={() => deleteProduct(p.pid)} className="p-2 hover:bg-red-100 rounded-lg text-red-500" title="Delete">🗑️</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                        {filtered.length === 0 && (
-                            <tr><td colSpan={8} className="text-center py-12 text-gray-400">
-                                <span className="text-4xl block mb-2">💊</span>No products found
-                            </td></tr>
-                        )}
-                    </tbody>
-                </table>
+                                        </td>
+                                        <td className="px-4 py-3 hidden md:table-cell">
+                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-lg text-[11px] font-semibold">
+                                                {p.category || 'N/A'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-right text-xs text-gray-500 font-medium">Ksh {(p.purchase_cost || 0).toLocaleString()}</td>
+                                        <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">Ksh {(p.sales_cost || 0).toLocaleString()}</td>
+                                        <td className="px-4 py-3 text-center">
+                                            {(() => { const totalQty = pBatches.reduce((s: number, b: any) => s + (b.remaining_qty || 0), 0); return (
+                                            <span className={`inline-block min-w-[36px] px-2 py-0.5 rounded-md text-[10px] font-bold ${totalQty > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                                                📦 {totalQty} units
+                                            </span>
+                                            ); })()}
+                                        </td>
+                                        <td className="px-4 py-3 text-center hidden lg:table-cell">
+                                            <div className="flex items-center justify-center gap-1">
+                                                <span className={`text-xs font-bold ${Number(calcMargin) >= 30 ? 'text-emerald-600' : Number(calcMargin) >= 15 ? 'text-amber-600' : 'text-red-600'}`}>↗ {calcMargin}%</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            {pBatches.length > 0 ? (
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <span className="text-xs text-gray-500">{pBatches.length} batch{pBatches.length > 1 ? 'es' : ''}</span>
+                                                    {nearestDays !== null && getExpiryBadge(nearestDays)}
+                                                </div>
+                                            ) : <span className="text-xs text-gray-300">No batches</span>}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center justify-center gap-1">
+                                                <button onClick={() => openEdit(p)} className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all" title="Edit">✏️</button>
+                                                <button onClick={() => deleteProduct(p.pid)} className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-all" title="Delete">🗑️</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            {filtered.length === 0 && (
+                                <tr><td colSpan={8} className="text-center py-12 text-gray-400">
+                                    <span className="text-4xl block mb-2">💊</span>No products found
+                                </td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* ADD/EDIT PRODUCT MODAL */}
