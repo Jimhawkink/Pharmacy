@@ -1060,8 +1060,10 @@ export default function ProductsPage() {
                                 </div>
                                 {/* Margin Display */}
                                 {formData.purchase_cost > 0 && (() => {
-                                    const mProfit = formData.sales_cost - formData.purchase_cost;
-                                    const mMargin = (mProfit / formData.purchase_cost) * 100;
+                                    const ppp = formData.pieces_per_package || 1;
+                                    const costPerUnit = formData.purchase_unit !== formData.sales_unit && ppp > 1 ? formData.purchase_cost / ppp : formData.purchase_cost;
+                                    const mProfit = formData.sales_cost - costPerUnit;
+                                    const mMargin = (mProfit / costPerUnit) * 100;
                                     return (
                                         <div className={`mt-3 p-3 rounded-xl border-2 flex items-center justify-between ${mMargin >= 20 ? 'bg-green-50 border-green-200' : mMargin >= 10 ? 'bg-yellow-50 border-yellow-200' : mMargin > 0 ? 'bg-orange-50 border-orange-200' : 'bg-red-50 border-red-200'}`}>
                                             <div className="flex items-center gap-6">
@@ -1075,7 +1077,7 @@ export default function ProductsPage() {
                                                 </div>
                                                 <div>
                                                     <p className="text-xs text-gray-500 uppercase font-bold">Markup</p>
-                                                    <p className="text-lg font-black text-gray-700">{formData.sales_cost > 0 && formData.purchase_cost > 0 ? (formData.sales_cost / formData.purchase_cost).toFixed(2) : '0'}x</p>
+                                                    <p className="text-lg font-black text-gray-700">{formData.sales_cost > 0 && costPerUnit > 0 ? (formData.sales_cost / costPerUnit).toFixed(2) : '0'}x</p>
                                                 </div>
                                             </div>
                                             <div className="text-right">
@@ -1159,7 +1161,9 @@ export default function ProductsPage() {
                                             <tbody>
                                                 {batches.map((b, idx) => {
                                                     const days = getDaysUntilExpiry(b.expiry_date);
-                                                    const bCost = b.purchase_cost || formData.purchase_cost;
+                                                    const bCostRaw = b.purchase_cost || formData.purchase_cost;
+                                                    const bPpp = formData.pieces_per_package || 1;
+                                                    const bCost = formData.purchase_unit !== formData.sales_unit && bPpp > 1 ? bCostRaw / bPpp : bCostRaw;
                                                     const bSell = b.selling_price || formData.sales_cost;
                                                     const bMargin = bCost > 0 ? ((bSell - bCost) / bCost * 100).toFixed(1) : '0';
                                                     const bProfit = bSell - bCost;
@@ -1208,7 +1212,8 @@ export default function ProductsPage() {
                                     if (!formData.product_name.trim()) { toast.error('Product name required'); return; }
                                     setIsSaving(true);
                                     try {
-                                        const marginPer = formData.purchase_cost > 0 ? Math.round(((formData.sales_cost - formData.purchase_cost) / formData.purchase_cost) * 10000) / 100 : 0;
+                                        const costPerPiece = formData.purchase_cost / (formData.pieces_per_package || 1);
+                                        const marginPer = costPerPiece > 0 ? Math.round(((formData.sales_cost - costPerPiece) / costPerPiece) * 10000) / 100 : 0;
                                         const d = {
                                             product_name: formData.product_name, barcode: formData.barcode || null,
                                             category: formData.category || null, purchase_unit: formData.purchase_unit,
