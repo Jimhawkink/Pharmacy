@@ -90,6 +90,7 @@ export default function ExpiryRegisterPage() {
 
     // Modals & Drawers
     const [detailItem, setDetailItem] = useState<ExpiryItem | null>(null);
+    const [isAutoFit, setIsAutoFit] = useState<boolean>(true);
     const [showDisposeModal, setShowDisposeModal] = useState(false);
     const [disposeTarget, setDisposeTarget] = useState<ExpiryItem | null>(null);
     const [isBulkDispose, setIsBulkDispose] = useState(false);
@@ -543,74 +544,170 @@ export default function ExpiryRegisterPage() {
    <NumberFormat/>
    <Protection/>
   </Style>
-  <!-- Main Banner Header -->
+  <!-- Main Banner Header - BRIGHT VIBRANT EMERALD & ELECTRIC CYAN -->
   <Style ss:ID="TitleBanner">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
    <Font ss:FontName="Calibri" ss:Size="16" ss:Bold="1" ss:Color="#ffffff"/>
-   <Interior ss:Color="#065f46" ss:Pattern="Solid"/>
+   <Interior ss:Color="#00C853" ss:Pattern="Solid"/>
   </Style>
   <Style ss:ID="MetaBanner">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="10" ss:Italic="1" ss:Color="#e2e8f0"/>
-   <Interior ss:Color="#047857" ss:Pattern="Solid"/>
+   <Font ss:FontName="Calibri" ss:Size="10.5" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#0091EA" ss:Pattern="Solid"/>
   </Style>
-  <!-- KPI Dashboard Card Styles -->
-  <Style ss:ID="KpiLabel">
+
+  <!-- BRIGHT VIVID KPI DASHBOARD CARD HEADERS & VALUES -->
+  <Style ss:ID="KpiHdrBlue">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="9" ss:Bold="1" ss:Color="#475569"/>
-   <Interior ss:Color="#f1f5f9" ss:Pattern="Solid"/>
+   <Font ss:FontName="Calibri" ss:Size="9.5" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#2979FF" ss:Pattern="Solid"/>
    <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#cbd5e1"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#cbd5e1"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#cbd5e1"/>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#cbd5e1"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1565C0"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1565C0"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1565C0"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1565C0"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="KpiValBlue">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="13" ss:Bold="1" ss:Color="#0D47A1"/>
+   <Interior ss:Color="#E3F2FD" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#90CAF9"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#90CAF9"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#90CAF9"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#90CAF9"/>
+   </Borders>
+  </Style>
+
+  <Style ss:ID="KpiHdrRed">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="9.5" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#FF1744" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D50000"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D50000"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D50000"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D50000"/>
    </Borders>
   </Style>
   <Style ss:ID="KpiValRed">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="12" ss:Bold="1" ss:Color="#dc2626"/>
-   <Interior ss:Color="#fef2f2" ss:Pattern="Solid"/>
+   <Font ss:FontName="Calibri" ss:Size="13" ss:Bold="1" ss:Color="#B71C1C"/>
+   <Interior ss:Color="#FFEBEE" ss:Pattern="Solid"/>
    <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#fca5a5"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#fca5a5"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#fca5a5"/>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#fca5a5"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#EF9A9A"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#EF9A9A"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#EF9A9A"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#EF9A9A"/>
+   </Borders>
+  </Style>
+
+  <Style ss:ID="KpiHdrOrange">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="9.5" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#FF6D00" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E65100"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E65100"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E65100"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E65100"/>
    </Borders>
   </Style>
   <Style ss:ID="KpiValOrange">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="12" ss:Bold="1" ss:Color="#ea580c"/>
-   <Interior ss:Color="#fff7ed" ss:Pattern="Solid"/>
+   <Font ss:FontName="Calibri" ss:Size="13" ss:Bold="1" ss:Color="#BF360C"/>
+   <Interior ss:Color="#FFF3E0" ss:Pattern="Solid"/>
    <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#fdba74"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#fdba74"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#fdba74"/>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#fdba74"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FFCC80"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FFCC80"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FFCC80"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FFCC80"/>
    </Borders>
   </Style>
-  <Style ss:ID="KpiValEmerald">
+
+  <Style ss:ID="KpiHdrPurple">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="12" ss:Bold="1" ss:Color="#047857"/>
-   <Interior ss:Color="#ecfdf5" ss:Pattern="Solid"/>
+   <Font ss:FontName="Calibri" ss:Size="9.5" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#8E24AA" ss:Pattern="Solid"/>
    <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#86efac"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#86efac"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#86efac"/>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#86efac"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#4A148C"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#4A148C"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#4A148C"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#4A148C"/>
    </Borders>
   </Style>
-  <!-- Table Column Headers -->
+  <Style ss:ID="KpiValPurple">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="13" ss:Bold="1" ss:Color="#4A148C"/>
+   <Interior ss:Color="#F3E5F5" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CE93D8"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CE93D8"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CE93D8"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CE93D8"/>
+   </Borders>
+  </Style>
+
+  <Style ss:ID="KpiHdrRose">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="9.5" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#E91E63" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#880E4F"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#880E4F"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#880E4F"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#880E4F"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="KpiValRose">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="13" ss:Bold="1" ss:Color="#880E4F"/>
+   <Interior ss:Color="#FCE4EC" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F48FB1"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F48FB1"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F48FB1"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F48FB1"/>
+   </Borders>
+  </Style>
+
+  <Style ss:ID="KpiHdrGreen">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="9.5" ss:Bold="1" ss:Color="#003314"/>
+   <Interior ss:Color="#00E676" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#00C853"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#00C853"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#00C853"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#00C853"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="KpiValGreen">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="13" ss:Bold="1" ss:Color="#1B5E20"/>
+   <Interior ss:Color="#E8F5E9" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A5D6A7"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A5D6A7"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A5D6A7"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#A5D6A7"/>
+   </Borders>
+  </Style>
+
+  <!-- BRIGHT TABLE COLUMN HEADERS -->
   <Style ss:ID="ColHeader">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/>
-   <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#ffffff"/>
-   <Interior ss:Color="#0f766e" ss:Pattern="Solid"/>
+   <Font ss:FontName="Calibri" ss:Size="10.5" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#00897B" ss:Pattern="Solid"/>
    <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#042f2e"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#115e59"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#115e59"/>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#115e59"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#004D40"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#00796B"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#00796B"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#00796B"/>
    </Borders>
   </Style>
+
   <!-- Data Cell Types -->
   <Style ss:ID="CellText">
    <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
@@ -631,11 +728,12 @@ export default function ExpiryRegisterPage() {
   </Style>
   <Style ss:ID="CellBatchMono">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Font ss:FontName="Consolas" ss:Size="10" ss:Bold="1" ss:Color="#6b21a8"/>
+   <Font ss:FontName="Consolas" ss:Size="10" ss:Bold="1" ss:Color="#7E22CE"/>
+   <Interior ss:Color="#FAF5FF" ss:Pattern="Solid"/>
    <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e2e8f0"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e2e8f0"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e2e8f0"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E9D5FF"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E9D5FF"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E9D5FF"/>
    </Borders>
   </Style>
   <Style ss:ID="CellCenter">
@@ -664,6 +762,28 @@ export default function ExpiryRegisterPage() {
     <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e2e8f0"/>
    </Borders>
   </Style>
+  <Style ss:ID="CellCostRisk">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#D50000"/>
+   <Interior ss:Color="#FFEBEE" ss:Pattern="Solid"/>
+   <NumberFormat ss:Format="&quot;Ksh &quot;#,##0.00"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FFCDD2"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FFCDD2"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FFCDD2"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="CellRetailRisk">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#1B5E20"/>
+   <Interior ss:Color="#E8F5E9" ss:Pattern="Solid"/>
+   <NumberFormat ss:Format="&quot;Ksh &quot;#,##0.00"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#C8E6C9"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#C8E6C9"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#C8E6C9"/>
+   </Borders>
+  </Style>
   <Style ss:ID="CellPercent">
    <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
    <NumberFormat ss:Format="0.0%"/>
@@ -673,75 +793,81 @@ export default function ExpiryRegisterPage() {
     <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e2e8f0"/>
    </Borders>
   </Style>
-  <!-- Risk Categorization Badges -->
+
+  <!-- BRIGHT RISK CATEGORIZATION BADGES -->
   <Style ss:ID="BadgeExpired">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#991b1b"/>
-   <Interior ss:Color="#fee2e2" ss:Pattern="Solid"/>
+   <Font ss:FontName="Calibri" ss:Size="10.5" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#FF1744" ss:Pattern="Solid"/>
    <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#fca5a5"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#fca5a5"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#fca5a5"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D50000"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D50000"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D50000"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#D50000"/>
    </Borders>
   </Style>
   <Style ss:ID="BadgeCritical">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#9a3412"/>
-   <Interior ss:Color="#ffedd5" ss:Pattern="Solid"/>
+   <Font ss:FontName="Calibri" ss:Size="10.5" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#FF6D00" ss:Pattern="Solid"/>
    <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#fdba74"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#fdba74"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#fdba74"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E65100"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E65100"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E65100"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E65100"/>
    </Borders>
   </Style>
   <Style ss:ID="BadgeWarning">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#854d0e"/>
-   <Interior ss:Color="#fef9c3" ss:Pattern="Solid"/>
+   <Font ss:FontName="Calibri" ss:Size="10.5" ss:Bold="1" ss:Color="#3E2723"/>
+   <Interior ss:Color="#FFD600" ss:Pattern="Solid"/>
    <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#fde047"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#fde047"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#fde047"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F57F17"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F57F17"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F57F17"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#F57F17"/>
    </Borders>
   </Style>
   <Style ss:ID="BadgeSafe">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#166534"/>
-   <Interior ss:Color="#dcfce7" ss:Pattern="Solid"/>
+   <Font ss:FontName="Calibri" ss:Size="10.5" ss:Bold="1" ss:Color="#003B15"/>
+   <Interior ss:Color="#00E676" ss:Pattern="Solid"/>
    <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#86efac"/>
-    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#86efac"/>
-    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#86efac"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#00C853"/>
+    <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#00C853"/>
+    <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#00C853"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#00C853"/>
    </Borders>
   </Style>
-  <!-- Grand Summary Row -->
+
+  <!-- BRIGHT GOLD GRAND SUMMARY TOTALS ROW -->
   <Style ss:ID="SummaryTotalLabel">
    <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#0f172a"/>
-   <Interior ss:Color="#e2e8f0" ss:Pattern="Solid"/>
+   <Font ss:FontName="Calibri" ss:Size="11.5" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#FF9100" ss:Pattern="Solid"/>
    <Borders>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#475569"/>
-    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#0f172a"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#E65100"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#BF360C"/>
    </Borders>
   </Style>
   <Style ss:ID="SummaryTotalNumber">
    <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#0f172a"/>
-   <Interior ss:Color="#e2e8f0" ss:Pattern="Solid"/>
+   <Font ss:FontName="Calibri" ss:Size="11.5" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#FF9100" ss:Pattern="Solid"/>
    <NumberFormat ss:Format="#,##0"/>
    <Borders>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#475569"/>
-    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#0f172a"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#E65100"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#BF360C"/>
    </Borders>
   </Style>
   <Style ss:ID="SummaryTotalCurrency">
    <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#0f172a"/>
-   <Interior ss:Color="#e2e8f0" ss:Pattern="Solid"/>
+   <Font ss:FontName="Calibri" ss:Size="11.5" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#FF9100" ss:Pattern="Solid"/>
    <NumberFormat ss:Format="&quot;Ksh &quot;#,##0.00"/>
    <Borders>
-    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#475569"/>
-    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#0f172a"/>
+    <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#E65100"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Double" ss:Weight="3" ss:Color="#BF360C"/>
    </Borders>
   </Style>
  </Styles>
@@ -791,25 +917,25 @@ export default function ExpiryRegisterPage() {
    <!-- Row 3: Blank Spacer -->
    <Row ss:Height="8" />
 
-   <!-- Row 4: Executive KPI Summary Header -->
-   <Row ss:Height="18">
-    <Cell ss:StyleID="KpiLabel"><Data ss:Type="String">TOTAL BATCHES</Data></Cell>
-    <Cell ss:StyleID="KpiLabel"><Data ss:Type="String">EXPIRED BATCHES</Data></Cell>
-    <Cell ss:StyleID="KpiLabel"><Data ss:Type="String">CRITICAL (≤7D)</Data></Cell>
-    <Cell ss:StyleID="KpiLabel"><Data ss:Type="String">TOTAL UNITS AT RISK</Data></Cell>
-    <Cell ss:MergeAcross="1" ss:StyleID="KpiLabel"><Data ss:Type="String">TOTAL PURCHASE COST AT RISK</Data></Cell>
-    <Cell ss:MergeAcross="1" ss:StyleID="KpiLabel"><Data ss:Type="String">TOTAL RETAIL VALUE AT RISK</Data></Cell>
-    <Cell ss:MergeAcross="1" ss:StyleID="KpiLabel"><Data ss:Type="String">POTENTIAL GROSS LOSS</Data></Cell>
+   <!-- Row 4: Executive KPI Summary Header with Bright Colors -->
+   <Row ss:Height="20">
+    <Cell ss:StyleID="KpiHdrBlue"><Data ss:Type="String">TOTAL BATCHES</Data></Cell>
+    <Cell ss:StyleID="KpiHdrRed"><Data ss:Type="String">EXPIRED BATCHES</Data></Cell>
+    <Cell ss:StyleID="KpiHdrOrange"><Data ss:Type="String">CRITICAL (≤7D)</Data></Cell>
+    <Cell ss:StyleID="KpiHdrPurple"><Data ss:Type="String">TOTAL UNITS AT RISK</Data></Cell>
+    <Cell ss:MergeAcross="1" ss:StyleID="KpiHdrRose"><Data ss:Type="String">TOTAL PURCHASE COST AT RISK</Data></Cell>
+    <Cell ss:MergeAcross="1" ss:StyleID="KpiHdrGreen"><Data ss:Type="String">TOTAL RETAIL VALUE AT RISK</Data></Cell>
+    <Cell ss:MergeAcross="1" ss:StyleID="KpiHdrRed"><Data ss:Type="String">POTENTIAL GROSS LOSS</Data></Cell>
    </Row>
 
    <!-- Row 5: Executive KPI Summary Values -->
-   <Row ss:Height="22">
-    <Cell ss:StyleID="KpiValEmerald"><Data ss:Type="Number">${exportSet.length}</Data></Cell>
+   <Row ss:Height="24">
+    <Cell ss:StyleID="KpiValBlue"><Data ss:Type="Number">${exportSet.length}</Data></Cell>
     <Cell ss:StyleID="KpiValRed"><Data ss:Type="Number">${expiredCount}</Data></Cell>
     <Cell ss:StyleID="KpiValOrange"><Data ss:Type="Number">${criticalCount}</Data></Cell>
-    <Cell ss:StyleID="KpiValEmerald"><Data ss:Type="Number">${totalRemainingUnits}</Data></Cell>
-    <Cell ss:MergeAcross="1" ss:StyleID="KpiValRed"><Data ss:Type="Number">${totalPurchaseValue}</Data></Cell>
-    <Cell ss:MergeAcross="1" ss:StyleID="KpiValEmerald"><Data ss:Type="Number">${totalRetailValue}</Data></Cell>
+    <Cell ss:StyleID="KpiValPurple"><Data ss:Type="Number">${totalRemainingUnits}</Data></Cell>
+    <Cell ss:MergeAcross="1" ss:StyleID="KpiValRose"><Data ss:Type="Number">${totalPurchaseValue}</Data></Cell>
+    <Cell ss:MergeAcross="1" ss:StyleID="KpiValGreen"><Data ss:Type="Number">${totalRetailValue}</Data></Cell>
     <Cell ss:MergeAcross="1" ss:StyleID="KpiValRed"><Data ss:Type="Number">${totalPurchaseValue}</Data></Cell>
    </Row>
 
@@ -899,8 +1025,8 @@ export default function ExpiryRegisterPage() {
     <Cell ss:StyleID="CellPercent"><Data ss:Type="Number">${stockPct.toFixed(3)}</Data></Cell>
     <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${item.purchase_cost}</Data></Cell>
     <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${item.selling_price}</Data></Cell>
-    <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${costRisk}</Data></Cell>
-    <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${retailRisk}</Data></Cell>
+    <Cell ss:StyleID="CellCostRisk"><Data ss:Type="Number">${costRisk}</Data></Cell>
+    <Cell ss:StyleID="CellRetailRisk"><Data ss:Type="Number">${retailRisk}</Data></Cell>
     <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${marginVal}</Data></Cell>
     <Cell ss:StyleID="CellPercent"><Data ss:Type="Number">${marginPct.toFixed(3)}</Data></Cell>
     <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(actionText)}</Data></Cell>
@@ -1546,23 +1672,30 @@ export default function ExpiryRegisterPage() {
                             {filtered.length} Records
                         </span>
                     </div>
-                    <div className="text-xs text-white/90 flex items-center gap-4">
+                    <div className="text-xs text-white/90 flex items-center gap-3">
                         <span>
                             Total Cost at Risk: <strong className="text-white font-black">Ksh {sumPurchase(filtered).toLocaleString()}</strong>
                         </span>
                         <span>•</span>
                         <span>
-                            Total Retail Value: <strong className="text-white font-black">Ksh {sumRetail(filtered).toLocaleString()}</strong>
+                            Total Retail: <strong className="text-white font-black">Ksh {sumRetail(filtered).toLocaleString()}</strong>
                         </span>
+                        <button
+                            onClick={() => setIsAutoFit(!isAutoFit)}
+                            className="px-2.5 py-1 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-xs"
+                            title="Toggle Auto-Fit view (fits 100% of screen without horizontal scroll) or Expanded view"
+                        >
+                            <span>{isAutoFit ? '🖥️ Auto-Fit (Active)' : '↔️ Expanded'}</span>
+                        </button>
                     </div>
                 </div>
 
-                {/* Responsive Table */}
-                <div className="overflow-x-auto">
+                {/* Auto-Fit Responsive Table */}
+                <div className={isAutoFit ? 'w-full overflow-hidden' : 'overflow-x-auto'}>
                     <table className="w-full text-left print-table">
                         <thead>
                             <tr className="bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                                <th className="no-print px-3 py-3 text-center w-8">
+                                <th className="no-print px-2 py-2.5 text-center w-7">
                                     <input
                                         type="checkbox"
                                         checked={isAllSelected}
@@ -1571,17 +1704,15 @@ export default function ExpiryRegisterPage() {
                                         title="Select all on this page"
                                     />
                                 </th>
-                                <th className="px-3 py-3">Product &amp; Formulation</th>
-                                <th className="px-3 py-3">Batch &amp; Supplier</th>
-                                <th className="px-3 py-3">Category</th>
-                                <th className="px-3 py-3 text-center">Dates</th>
-                                <th className="px-3 py-3 text-center">Lifespan / Days Left</th>
-                                <th className="px-3 py-3 text-center">Stock &amp; Retained</th>
-                                <th className="px-3 py-3 text-right">Unit Pricing</th>
-                                <th className="px-3 py-3 text-right">Cost Loss Risk</th>
-                                <th className="px-3 py-3 text-right">Retail Value</th>
-                                <th className="px-3 py-3 text-center">Action Plan</th>
-                                <th className="no-print px-3 py-3 text-center w-28">Actions</th>
+                                <th className="px-2 py-2.5">Product &amp; Generic</th>
+                                <th className="px-2 py-2.5">Batch &amp; Supplier</th>
+                                <th className="px-2 py-2.5">Category</th>
+                                <th className="px-2 py-2.5 text-center">Expiry &amp; Lifespan</th>
+                                <th className="px-2 py-2.5 text-center">Stock Units</th>
+                                <th className="px-2 py-2.5 text-right">Pricing (Unit)</th>
+                                <th className="px-2 py-2.5 text-right">Valuation at Risk</th>
+                                <th className="px-2 py-2.5 text-center">Action Plan</th>
+                                <th className="no-print px-2 py-2.5 text-center w-24">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-xs">
@@ -1611,7 +1742,7 @@ export default function ExpiryRegisterPage() {
                                 return (
                                     <tr key={item.batch_id} className={`transition-colors print-break-inside-avoid ${rowBg}`}>
                                         {/* Checkbox */}
-                                        <td className="no-print px-3 py-2.5 text-center">
+                                        <td className="no-print px-2 py-2 text-center">
                                             <input
                                                 type="checkbox"
                                                 checked={isSelected}
@@ -1621,70 +1752,63 @@ export default function ExpiryRegisterPage() {
                                         </td>
 
                                         {/* Product & Generic */}
-                                        <td className="px-3 py-2.5">
+                                        <td className="px-2 py-2 min-w-0">
                                             <div className="flex items-center gap-1.5 flex-wrap">
                                                 <span
                                                     onClick={() => setDetailItem(item)}
-                                                    className="font-bold text-gray-900 hover:text-emerald-700 cursor-pointer"
+                                                    className="font-bold text-gray-900 hover:text-emerald-700 cursor-pointer truncate max-w-[180px]"
                                                     title="Click to view complete batch profile"
                                                 >
                                                     {item.product_name}
                                                 </span>
                                                 {item.dosage && (
-                                                    <span className="px-1 py-0.2 bg-gray-100 text-gray-600 rounded text-[9px] font-semibold">
+                                                    <span className="px-1 py-0.2 bg-gray-100 text-gray-600 rounded text-[8.5px] font-semibold">
                                                         {item.dosage}
                                                     </span>
                                                 )}
                                             </div>
                                             {item.generic_name && (
-                                                <p className="text-[10px] text-teal-700 italic truncate max-w-xs mt-0.5">
+                                                <p className="text-[9.5px] text-teal-700 italic truncate max-w-[170px] mt-0.5">
                                                     {item.generic_name}
                                                 </p>
                                             )}
                                         </td>
 
                                         {/* Batch # & Supplier */}
-                                        <td className="px-3 py-2.5">
-                                            <div className="flex items-center gap-1">
-                                                <span className="font-mono font-bold text-purple-800 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded text-[11px]">
-                                                    {item.batch_number}
-                                                </span>
-                                            </div>
-                                            <p className="text-[10px] text-gray-500 truncate max-w-[140px] mt-0.5">
+                                        <td className="px-2 py-2 min-w-0">
+                                            <span className="font-mono font-bold text-purple-800 bg-purple-50 border border-purple-100 px-1 py-0.5 rounded text-[10.5px]">
+                                                {item.batch_number}
+                                            </span>
+                                            <p className="text-[9.5px] text-gray-500 truncate max-w-[110px] mt-0.5">
                                                 {item.supplier_name || 'Direct'}
                                             </p>
                                         </td>
 
-                                        {/* Category */}
-                                        <td className="px-3 py-2.5">
-                                            <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-md text-[10px] font-medium">
+                                        {/* Category & Drug Form */}
+                                        <td className="px-2 py-2 min-w-0">
+                                            <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded text-[9.5px] font-medium truncate inline-block max-w-[100px]">
                                                 {item.category || 'General'}
                                             </span>
                                             {item.drug_type && (
-                                                <p className="text-[9.5px] text-gray-400 mt-0.5">{item.drug_type}</p>
+                                                <p className="text-[9px] text-gray-400 truncate max-w-[100px] mt-0.5">{item.drug_type}</p>
                                             )}
                                         </td>
 
-                                        {/* Dates */}
-                                        <td className="px-3 py-2.5 text-center whitespace-nowrap">
-                                            <p className="font-bold text-gray-800 text-xs">{formatDate(item.expiry_date)}</p>
-                                            {item.manufacture_date && (
-                                                <p className="text-[9px] text-gray-400">Mfg: {formatDate(item.manufacture_date)}</p>
-                                            )}
-                                        </td>
-
-                                        {/* Lifespan Badge */}
-                                        <td className="px-3 py-2.5 text-center whitespace-nowrap">
-                                            {getExpiryBadge(days)}
+                                        {/* Expiry & Lifespan Stacked */}
+                                        <td className="px-2 py-2 text-center whitespace-nowrap">
+                                            <p className="font-bold text-gray-800 text-[11px] leading-tight">{formatDate(item.expiry_date)}</p>
+                                            <div className="mt-1">
+                                                {getExpiryBadge(days)}
+                                            </div>
                                         </td>
 
                                         {/* Stock & Progress */}
-                                        <td className="px-3 py-2.5 text-center">
+                                        <td className="px-2 py-2 text-center whitespace-nowrap">
                                             <p className="font-extrabold text-gray-900 text-xs">
-                                                {item.remaining_qty} <span className="text-[10px] font-normal text-gray-500">{item.sales_unit}</span>
+                                                {item.remaining_qty} <span className="text-[9.5px] font-normal text-gray-500">{item.sales_unit}</span>
                                             </p>
                                             {item.quantity > 0 && (
-                                                <div className="w-16 mx-auto bg-gray-200 rounded-full h-1.5 mt-1 overflow-hidden" title={`${stockPct}% remaining of initial ${item.quantity}`}>
+                                                <div className="w-14 mx-auto bg-gray-200 rounded-full h-1 mt-1 overflow-hidden" title={`${stockPct}% in stock`}>
                                                     <div
                                                         className={`h-full ${days < 0 ? 'bg-red-500' : days <= 30 ? 'bg-amber-500' : 'bg-emerald-500'}`}
                                                         style={{ width: `${Math.min(100, stockPct)}%` }}
@@ -1694,30 +1818,30 @@ export default function ExpiryRegisterPage() {
                                         </td>
 
                                         {/* Pricing */}
-                                        <td className="px-3 py-2.5 text-right whitespace-nowrap">
-                                            <p className="font-semibold text-gray-800">Ksh {item.selling_price.toLocaleString()}</p>
-                                            <p className="text-[10px] text-gray-400">Cost: Ksh {item.purchase_cost.toLocaleString()} ({marginPct}%)</p>
+                                        <td className="px-2 py-2 text-right whitespace-nowrap">
+                                            <p className="font-bold text-gray-800 text-xs">Ksh {item.selling_price.toLocaleString()}</p>
+                                            <p className="text-[9.5px] text-gray-400">Cost: {item.purchase_cost.toLocaleString()} ({marginPct}%)</p>
                                         </td>
 
-                                        {/* Total Cost Risk */}
-                                        <td className="px-3 py-2.5 text-right whitespace-nowrap font-bold text-red-600">
-                                            Ksh {costRisk.toLocaleString()}
-                                        </td>
-
-                                        {/* Total Retail Value */}
-                                        <td className="px-3 py-2.5 text-right whitespace-nowrap font-bold text-gray-900">
-                                            Ksh {retailRisk.toLocaleString()}
+                                        {/* Valuation at Risk (Cost Loss & Retail) */}
+                                        <td className="px-2 py-2 text-right whitespace-nowrap">
+                                            <p className="font-black text-red-600 text-xs leading-tight">
+                                                Loss: Ksh {costRisk.toLocaleString()}
+                                            </p>
+                                            <p className="text-[9.5px] text-gray-500 mt-0.5">
+                                                Ret: Ksh {retailRisk.toLocaleString()}
+                                            </p>
                                         </td>
 
                                         {/* Recommendation */}
-                                        <td className="px-3 py-2.5 text-center whitespace-nowrap">
-                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1 ${rec.bg}`}>
+                                        <td className="px-2 py-2 text-center whitespace-nowrap">
+                                            <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold border inline-flex items-center gap-1 ${rec.bg}`}>
                                                 <span>{rec.icon}</span> {rec.label}
                                             </span>
                                         </td>
 
                                         {/* Actions */}
-                                        <td className="no-print px-3 py-2.5 text-center">
+                                        <td className="no-print px-2 py-2 text-center whitespace-nowrap">
                                             <div className="flex items-center justify-center gap-1">
                                                 {/* Dispose Button */}
                                                 <button
@@ -1726,7 +1850,7 @@ export default function ExpiryRegisterPage() {
                                                         setIsBulkDispose(false);
                                                         setShowDisposeModal(true);
                                                     }}
-                                                    className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors"
+                                                    className="p-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-md transition-colors"
                                                     title="Dispose expired batch"
                                                 >
                                                     🗑️
@@ -1738,7 +1862,7 @@ export default function ExpiryRegisterPage() {
                                                         setDiscountTarget(item);
                                                         setShowDiscountModal(true);
                                                     }}
-                                                    className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg transition-colors"
+                                                    className="p-1 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-md transition-colors"
                                                     title="Apply clearance discount"
                                                 >
                                                     ⚡
@@ -1747,7 +1871,7 @@ export default function ExpiryRegisterPage() {
                                                 {/* Quarantine Toggle */}
                                                 <button
                                                     onClick={() => toggleQuarantine(item)}
-                                                    className={`p-1.5 rounded-lg transition-colors ${
+                                                    className={`p-1 rounded-md transition-colors ${
                                                         item.status === 'Quarantine'
                                                             ? 'bg-purple-600 text-white'
                                                             : 'bg-purple-50 hover:bg-purple-100 text-purple-700'
@@ -1760,7 +1884,7 @@ export default function ExpiryRegisterPage() {
                                                 {/* Detail Drawer */}
                                                 <button
                                                     onClick={() => setDetailItem(item)}
-                                                    className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition-colors"
+                                                    className="p-1 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-md transition-colors"
                                                     title="View batch audit card"
                                                 >
                                                     ℹ️
@@ -1773,7 +1897,7 @@ export default function ExpiryRegisterPage() {
 
                             {filtered.length === 0 && (
                                 <tr>
-                                    <td colSpan={12} className="text-center py-16 text-gray-400">
+                                    <td colSpan={isAutoFit ? 10 : 12} className="text-center py-16 text-gray-400">
                                         <span className="text-5xl block mb-2">✅</span>
                                         <p className="text-base font-bold text-gray-700">No expiring items match current filters</p>
                                         <p className="text-xs text-gray-400 mt-1">Try resetting filters or expanding the expiry window horizon</p>
