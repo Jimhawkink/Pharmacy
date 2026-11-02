@@ -74,7 +74,7 @@ export interface BatchOption {
 }
 
 // ==========================================
-// SEED FALLBACK DATA (For offline & instant load)
+// SEED FALLBACK DATA
 // ==========================================
 const SEED_MOVEMENTS: StockMovementRecord[] = [
     {
@@ -288,6 +288,7 @@ export default function StockMovementPage() {
     const [batches, setBatches] = useState<BatchOption[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isAutoFit, setIsAutoFit] = useState(false);
 
     // Filters
     const [searchQuery, setSearchQuery] = useState('');
@@ -459,7 +460,7 @@ export default function StockMovementPage() {
                             selling_price: sPrice,
                             total_cost_value: Math.abs(qty) * uCost,
                             total_sales_value: Math.abs(qty) * sPrice,
-                            running_balance: 0, // Calculated below
+                            running_balance: 0,
                             operator_name: 'Dr. Jimhawkins Korir',
                             notes: s.notes || (qty >= 0 ? 'Stock intake recorded' : 'Stock dispensation deducted')
                         };
@@ -485,14 +486,13 @@ export default function StockMovementPage() {
                 }
             }
 
-            // If empty, supply high quality seed movements
+            // If empty, supply seed movements
             if (loadedMovements.length === 0) {
                 loadedMovements = SEED_MOVEMENTS;
             }
 
             // Compute running balance per product
             const productRunningTotals = new Map<number, number>();
-            // Sort chronologically ascending to compute balances correctly, then sort descending
             const chronoSorted = [...loadedMovements].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
             chronoSorted.forEach(item => {
                 const current = productRunningTotals.get(item.product_id) || 0;
@@ -516,7 +516,6 @@ export default function StockMovementPage() {
             setProducts(loadedProducts);
             setBatches(loadedBatches);
 
-            // Persist to local cache
             if (typeof window !== 'undefined') {
                 localStorage.setItem(cacheKey, JSON.stringify(loadedMovements.slice(0, 200)));
             }
@@ -545,7 +544,6 @@ export default function StockMovementPage() {
     // ==========================================
     const filteredMovements = useMemo(() => {
         return movements.filter(item => {
-            // 1. Text Search
             if (searchQuery.trim()) {
                 const q = searchQuery.toLowerCase();
                 const matchName = item.product_name.toLowerCase().includes(q);
@@ -559,22 +557,18 @@ export default function StockMovementPage() {
                 }
             }
 
-            // 2. Movement Type
             if (selectedMovementType !== 'ALL' && item.movement_type !== selectedMovementType) {
                 return false;
             }
 
-            // 3. Product Filter
             if (selectedProductId !== 'ALL' && String(item.product_id) !== selectedProductId) {
                 return false;
             }
 
-            // 4. Storage Location Filter
             if (selectedStorageLocation !== 'ALL' && item.storage_type !== selectedStorageLocation) {
                 return false;
             }
 
-            // 5. Date Filter
             if (datePreset !== 'all') {
                 const itemDate = new Date(item.created_at);
                 const now = new Date();
@@ -757,7 +751,6 @@ export default function StockMovementPage() {
         };
 
         try {
-            // Attempt insert directly into Supabase public.pharmacy_stock
             const { data: inserted, error } = await supabase
                 .from('pharmacy_stock')
                 .insert({
@@ -780,7 +773,6 @@ export default function StockMovementPage() {
             console.warn('DB insert fallback to local storage:', dbErr);
         }
 
-        // Update local state & cache
         setMovements(prev => {
             const updated = [newRecord, ...prev];
             if (typeof window !== 'undefined') {
@@ -789,7 +781,6 @@ export default function StockMovementPage() {
             return updated;
         });
 
-        // Recalculate product current stock
         setProducts(prev => prev.map(p => {
             if (p.pid === Number(adjProductId)) {
                 return { ...p, current_stock: p.current_stock + delta };
@@ -800,7 +791,6 @@ export default function StockMovementPage() {
         toast.success(`Stock adjustment posted! ${delta > 0 ? '+' : ''}${delta} ${selectedProd?.sales_unit || 'units'} applied.`);
         setIsSubmittingAdj(false);
         setShowAdjustmentModal(false);
-        // Reset form
         setAdjProductId('');
         setAdjBatchId('');
         setAdjQuantity('');
@@ -833,7 +823,6 @@ export default function StockMovementPage() {
         setIsSubmittingTrf(true);
         const trfDoc = `TRF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-        // Outflow entry from source bin
         const outEntry: StockMovementRecord = {
             st_id: Date.now(),
             movement_id: `SM-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -859,7 +848,6 @@ export default function StockMovementPage() {
             notes: `Transfer Out to ${trfToLocation}. ${trfNotes}`
         };
 
-        // Inflow entry to destination bin
         const inEntry: StockMovementRecord = {
             st_id: Date.now() + 1,
             movement_id: `SM-${Math.floor(1000 + Math.random() * 9000) + 1}`,
@@ -949,7 +937,6 @@ export default function StockMovementPage() {
             return updated;
         });
 
-        // Reverse stock on product
         setProducts(prev => prev.map(p => {
             if (p.pid === record.product_id) {
                 return { ...p, current_stock: p.current_stock - record.qty_change };
@@ -1008,7 +995,7 @@ export default function StockMovementPage() {
    <Interior ss:Color="#0284C7" ss:Pattern="Solid"/>
   </Style>
   <Style ss:ID="sTitle">
-   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="16" ss:Color="#000000" ss:Bold="1"/>
+   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="14" ss:Color="#000000" ss:Bold="1"/>
   </Style>
   <Style ss:ID="sData">
    <Alignment ss:Vertical="Center"/>
@@ -1056,27 +1043,27 @@ export default function StockMovementPage() {
  </Styles>
  <Worksheet ss:Name="Stock Movements Ledger">
   <Table>
-   <Column ss:Width="80"/>
-   <Column ss:Width="120"/>
-   <Column ss:Width="90"/>
-   <Column ss:Width="200"/>
+   <Column ss:Width="70"/>
    <Column ss:Width="110"/>
+   <Column ss:Width="80"/>
+   <Column ss:Width="190"/>
    <Column ss:Width="100"/>
    <Column ss:Width="90"/>
-   <Column ss:Width="130"/>
-   <Column ss:Width="110"/>
-   <Column ss:Width="110"/>
-   <Column ss:Width="70"/>
-   <Column ss:Width="70"/>
    <Column ss:Width="80"/>
-   <Column ss:Width="90"/>
-   <Column ss:Width="110"/>
    <Column ss:Width="120"/>
-   <Column ss:Width="220"/>
-   <Row ss:Height="25">
+   <Column ss:Width="100"/>
+   <Column ss:Width="100"/>
+   <Column ss:Width="65"/>
+   <Column ss:Width="65"/>
+   <Column ss:Width="75"/>
+   <Column ss:Width="85"/>
+   <Column ss:Width="100"/>
+   <Column ss:Width="110"/>
+   <Column ss:Width="200"/>
+   <Row ss:Height="22">
     <Cell ss:MergeAcross="16" ss:StyleID="sTitle"><Data ss:Type="String">ALPHA PHARMACY - STOCK MOVEMENT &amp; AUDIT LEDGER</Data></Cell>
    </Row>
-   <Row ss:Height="22">
+   <Row ss:Height="20">
     <Cell ss:StyleID="sHeader"><Data ss:Type="String">Movement ID</Data></Cell>
     <Cell ss:StyleID="sHeader"><Data ss:Type="String">Date &amp; Time</Data></Cell>
     <Cell ss:StyleID="sHeader"><Data ss:Type="String">Product Code</Data></Cell>
@@ -1123,57 +1110,57 @@ export default function StockMovementPage() {
     };
 
     // ==========================================
-    // BADGE HELPER
+    // COMPACT BADGE HELPERS (EXACT MATCH TO BATCHES PAGE)
     // ==========================================
     const getMovementTypeBadge = (type: MovementType) => {
         switch (type) {
             case 'PURCHASE_GRN':
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300">
-                        <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-                        📥 Purchase / GRN In
+                    <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[9.5px] font-bold border border-emerald-200 inline-flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                        📥 Purchase / GRN
                     </span>
                 );
             case 'DISPENSED_SALE':
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-950 border border-rose-300">
-                        <span className="w-2 h-2 rounded-full bg-rose-600"></span>
-                        📤 Dispensed / POS
+                    <span className="px-1.5 py-0.5 bg-rose-100 text-rose-800 rounded-full text-[9.5px] font-bold border border-rose-200 inline-flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                        📤 Dispensed / Sale
                     </span>
                 );
             case 'STOCK_ADJUSTMENT':
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-purple-100 text-purple-950 border border-purple-300">
-                        <span className="w-2 h-2 rounded-full bg-purple-600"></span>
+                    <span className="px-1.5 py-0.5 bg-purple-100 text-purple-800 rounded-full text-[9.5px] font-bold border border-purple-200 inline-flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-purple-600"></span>
                         ⚖️ Variance Audit
                     </span>
                 );
             case 'BIN_TRANSFER':
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-blue-100 text-blue-950 border border-blue-300">
-                        <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-                        🔄 Internal Transfer
+                    <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded-full text-[9.5px] font-bold border border-blue-200 inline-flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                        🔄 Bin Transfer
                     </span>
                 );
             case 'SUPPLIER_RETURN':
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-950 border border-amber-300">
-                        <span className="w-2 h-2 rounded-full bg-amber-600"></span>
+                    <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[9.5px] font-bold border border-amber-200 inline-flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
                         ↩️ Vendor Return
                     </span>
                 );
             case 'DAMAGE_EXPIRED':
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-red-100 text-red-950 border border-red-400">
-                        <span className="w-2 h-2 rounded-full bg-red-700"></span>
-                        ⚠️ Damage / Write-off
+                    <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full text-[9.5px] font-bold border border-red-200 inline-flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
+                        ⚠️ Write-off
                     </span>
                 );
             case 'OPENING_STOCK':
             default:
                 return (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-cyan-100 text-cyan-950 border border-cyan-300">
-                        <span className="w-2 h-2 rounded-full bg-cyan-600"></span>
+                    <span className="px-1.5 py-0.5 bg-cyan-100 text-cyan-800 rounded-full text-[9.5px] font-bold border border-cyan-200 inline-flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-600"></span>
                         📦 Opening Stock
                     </span>
                 );
@@ -1184,63 +1171,63 @@ export default function StockMovementPage() {
         switch (loc) {
             case 'Cold Chain (2-8°C)':
                 return (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black bg-sky-100 text-sky-950 border border-sky-300">
+                    <span className="px-1.5 py-0.5 bg-sky-50 text-sky-800 rounded text-[9.5px] font-bold border border-sky-200 inline-flex items-center gap-0.5">
                         ❄️ {loc}
                     </span>
                 );
             case 'Dispensing Shelf':
                 return (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black bg-emerald-100 text-emerald-950 border border-emerald-300">
-                        💊 {loc}
+                    <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-800 rounded text-[9.5px] font-bold border border-emerald-200 inline-flex items-center gap-0.5">
+                        💊 Shelf
                     </span>
                 );
             case 'Quarantine Room':
             case 'Damaged Bay':
                 return (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black bg-rose-100 text-rose-950 border border-rose-300">
+                    <span className="px-1.5 py-0.5 bg-rose-50 text-rose-800 rounded text-[9.5px] font-bold border border-rose-200 inline-flex items-center gap-0.5">
                         ⛔ {loc}
                     </span>
                 );
             case 'Main Store':
             default:
                 return (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-black bg-gray-100 text-gray-900 border border-gray-300">
-                        🏢 {loc}
+                    <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded text-[9.5px] font-medium border border-gray-200 inline-flex items-center gap-0.5">
+                        🏢 Store
                     </span>
                 );
         }
     };
 
     return (
-        <div className="w-full space-y-6 pb-20 font-sans text-gray-900">
+        <div className="w-full max-w-full space-y-3.5 px-1 md:px-2 text-gray-900" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
             {/* ========================================== */}
-            {/* TOP BAR / HEADER */}
+            {/* TOP BAR / HEADER (SLEEK COMPACT SIZING) */}
             {/* ========================================== */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-                <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-600 via-blue-600 to-indigo-700 flex items-center justify-center text-white text-2xl shadow-md border border-blue-400">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-gray-200 shadow-xs">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-600 to-blue-700 flex items-center justify-center text-white text-xl shadow-md flex-shrink-0">
                         📦
                     </div>
                     <div>
-                        <div className="flex items-center gap-3">
-                            <h1 className="text-2xl font-black tracking-tight text-gray-950">
-                                Stock Movement &amp; Inventory Audit Ledger
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+                                Stock Movement &amp; Bin Card Ledger
                             </h1>
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-100 text-blue-950 border border-blue-300">
-                                Real-time Bin Card
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-[10px] font-bold border border-blue-200">
+                                Live Audit
                             </span>
                         </div>
-                        <p className="text-sm font-semibold text-gray-700 mt-0.5">
-                            Track purchases (GRN), POS dispensations, physical audit adjustments, cold chain transfers, and batch lot traceability.
+                        <p className="text-xs text-gray-500 mt-0.5">
+                            Track Goods Receipts (GRN), POS dispensations, physical audit adjustments, cold chain transfers, and batch lot traceability.
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center flex-wrap gap-2.5">
+                <div className="flex items-center flex-wrap gap-2">
                     <button
                         onClick={handleRefresh}
                         disabled={isRefreshing}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-900 rounded-xl font-bold text-sm transition-all border border-gray-300 disabled:opacity-50"
+                        className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg font-bold shadow-xs transition-all flex items-center gap-1 text-xs disabled:opacity-50"
                         title="Reload live stock ledger from database"
                     >
                         <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
@@ -1249,15 +1236,15 @@ export default function StockMovementPage() {
 
                     <button
                         onClick={exportToExcelXML}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-sm shadow-sm transition-all hover:shadow"
+                        className="px-3 py-1.5 bg-white hover:bg-gray-50 text-emerald-700 border border-emerald-200 rounded-lg font-bold shadow-xs transition-all flex items-center gap-1 text-xs"
                         title="Export current ledger to colored XML Excel"
                     >
-                        <span>📊</span> Export Excel
+                        <span>📊</span> Excel XML
                     </button>
 
                     <button
                         onClick={() => setShowTransferModal(true)}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-sm shadow-sm transition-all hover:shadow"
+                        className="px-3 py-1.5 bg-white hover:bg-gray-50 text-blue-700 border border-blue-200 rounded-lg font-bold shadow-xs transition-all flex items-center gap-1 text-xs"
                     >
                         <span>🔄</span> Bin Transfer
                     </button>
@@ -1267,119 +1254,119 @@ export default function StockMovementPage() {
                             setAdjType('ADD');
                             setShowAdjustmentModal(true);
                         }}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white rounded-xl font-black text-sm shadow-md transition-all hover:shadow-lg"
+                        className="px-3.5 py-1.5 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white rounded-lg font-bold shadow-xs transition-all flex items-center gap-1 text-xs active:scale-95"
                     >
-                        <span>⚖️</span> Post Stock Adjustment
+                        <span>⚖️</span> Post Adjustment
                     </button>
                 </div>
             </div>
 
             {/* ========================================== */}
-            {/* 6 ANALYTICAL KPI METRIC CARDS */}
+            {/* 6 ANALYTICAL KPI METRIC CARDS (COMPACT EXACT FIT) */}
             {/* ========================================== */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
                 {/* 1. Inflow */}
-                <div className="bg-gradient-to-br from-emerald-50 via-teal-50 to-white p-5 rounded-2xl border border-emerald-200 shadow-sm relative overflow-hidden">
+                <div className="bg-gradient-to-br from-emerald-50/80 via-teal-50/50 to-white p-3 rounded-xl border border-emerald-200/80 shadow-xs">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-black uppercase tracking-wider text-emerald-950">Stock Inflow</span>
-                        <span className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-800 text-sm font-black">📥</span>
+                        <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Inflow</span>
+                        <span className="text-sm">📥</span>
                     </div>
-                    <div className="mt-3">
-                        <div className="text-2xl font-black text-emerald-950">+{kpiMetrics.totalInflowUnits.toLocaleString()}</div>
-                        <div className="text-xs font-bold text-emerald-800 mt-1">
+                    <div className="mt-1.5">
+                        <div className="text-lg font-black text-emerald-950 tracking-tight">+{kpiMetrics.totalInflowUnits.toLocaleString()}</div>
+                        <div className="text-[10px] font-bold text-emerald-700 mt-0.5">
                             Val: KSh {kpiMetrics.totalInflowValue.toLocaleString()}
                         </div>
                     </div>
-                    <div className="mt-2 text-[11px] font-semibold text-emerald-700">GRN Purchases &amp; Receipts</div>
+                    <div className="mt-1 text-[9px] text-gray-500">GRN Purchases</div>
                 </div>
 
                 {/* 2. Outflow */}
-                <div className="bg-gradient-to-br from-rose-50 via-orange-50 to-white p-5 rounded-2xl border border-rose-200 shadow-sm relative overflow-hidden">
+                <div className="bg-gradient-to-br from-rose-50/80 via-orange-50/50 to-white p-3 rounded-xl border border-rose-200/80 shadow-xs">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-black uppercase tracking-wider text-rose-950">Stock Outflow</span>
-                        <span className="w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center text-rose-800 text-sm font-black">📤</span>
+                        <span className="text-[10px] font-bold text-rose-800 uppercase tracking-wider">Outflow</span>
+                        <span className="text-sm">📤</span>
                     </div>
-                    <div className="mt-3">
-                        <div className="text-2xl font-black text-rose-950">-{kpiMetrics.totalOutflowUnits.toLocaleString()}</div>
-                        <div className="text-xs font-bold text-rose-800 mt-1">
+                    <div className="mt-1.5">
+                        <div className="text-lg font-black text-rose-950 tracking-tight">-{kpiMetrics.totalOutflowUnits.toLocaleString()}</div>
+                        <div className="text-[10px] font-bold text-rose-700 mt-0.5">
                             Retail: KSh {kpiMetrics.totalOutflowValue.toLocaleString()}
                         </div>
                     </div>
-                    <div className="mt-2 text-[11px] font-semibold text-rose-700">POS Sales &amp; Dispensed</div>
+                    <div className="mt-1 text-[9px] text-gray-500">POS Sales</div>
                 </div>
 
                 {/* 3. Net Active Stock Balance */}
-                <div className="bg-gradient-to-br from-blue-50 via-cyan-50 to-white p-5 rounded-2xl border border-blue-200 shadow-sm relative overflow-hidden">
+                <div className="bg-gradient-to-br from-blue-50/80 via-cyan-50/50 to-white p-3 rounded-xl border border-blue-200/80 shadow-xs">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-black uppercase tracking-wider text-blue-950">Net Units Logged</span>
-                        <span className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center text-blue-800 text-sm font-black">📦</span>
+                        <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">Net Units</span>
+                        <span className="text-sm">📦</span>
                     </div>
-                    <div className="mt-3">
-                        <div className="text-2xl font-black text-blue-950">
+                    <div className="mt-1.5">
+                        <div className="text-lg font-black text-blue-950 tracking-tight">
                             {kpiMetrics.netUnits > 0 ? `+${kpiMetrics.netUnits.toLocaleString()}` : kpiMetrics.netUnits.toLocaleString()}
                         </div>
-                        <div className="text-xs font-bold text-blue-800 mt-1">
-                            Across all batches
+                        <div className="text-[10px] font-bold text-blue-700 mt-0.5">
+                            All active lots
                         </div>
                     </div>
-                    <div className="mt-2 text-[11px] font-semibold text-blue-700">Active On-hand delta</div>
+                    <div className="mt-1 text-[9px] text-gray-500">Active On-hand delta</div>
                 </div>
 
                 {/* 4. Variance Audits */}
-                <div className="bg-gradient-to-br from-purple-50 via-indigo-50 to-white p-5 rounded-2xl border border-purple-200 shadow-sm relative overflow-hidden">
+                <div className="bg-gradient-to-br from-purple-50/80 via-indigo-50/50 to-white p-3 rounded-xl border border-purple-200/80 shadow-xs">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-black uppercase tracking-wider text-purple-950">Audit Variances</span>
-                        <span className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-800 text-sm font-black">⚖️</span>
+                        <span className="text-[10px] font-bold text-purple-800 uppercase tracking-wider">Variances</span>
+                        <span className="text-sm">⚖️</span>
                     </div>
-                    <div className="mt-3">
-                        <div className="text-2xl font-black text-purple-950">{kpiMetrics.totalAdjustmentCount} Events</div>
-                        <div className="text-xs font-bold text-purple-800 mt-1">
-                            Physical reconciliations
+                    <div className="mt-1.5">
+                        <div className="text-lg font-black text-purple-950 tracking-tight">{kpiMetrics.totalAdjustmentCount} Events</div>
+                        <div className="text-[10px] font-bold text-purple-700 mt-0.5">
+                            Count reconciliations
                         </div>
                     </div>
-                    <div className="mt-2 text-[11px] font-semibold text-purple-700">Count discrepancies adjusted</div>
+                    <div className="mt-1 text-[9px] text-gray-500">Physical audit logs</div>
                 </div>
 
                 {/* 5. Damage & Expiry Loss */}
-                <div className="bg-gradient-to-br from-amber-50 via-yellow-50 to-white p-5 rounded-2xl border border-amber-200 shadow-sm relative overflow-hidden">
+                <div className="bg-gradient-to-br from-amber-50/80 via-yellow-50/50 to-white p-3 rounded-xl border border-amber-200/80 shadow-xs">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-black uppercase tracking-wider text-amber-950">Damage / Expiry</span>
-                        <span className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-800 text-sm font-black">⚠️</span>
+                        <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">Write-offs</span>
+                        <span className="text-sm">⚠️</span>
                     </div>
-                    <div className="mt-3">
-                        <div className="text-2xl font-black text-amber-950">KSh {kpiMetrics.totalDamageLoss.toLocaleString()}</div>
-                        <div className="text-xs font-bold text-amber-800 mt-1">
-                            Cost write-offs logged
+                    <div className="mt-1.5">
+                        <div className="text-lg font-black text-amber-950 tracking-tight">KSh {kpiMetrics.totalDamageLoss.toLocaleString()}</div>
+                        <div className="text-[10px] font-bold text-amber-700 mt-0.5">
+                            Cost loss logged
                         </div>
                     </div>
-                    <div className="mt-2 text-[11px] font-semibold text-amber-700">Loss prevention ledger</div>
+                    <div className="mt-1 text-[9px] text-gray-500">Damage &amp; Expiry</div>
                 </div>
 
                 {/* 6. Total Transactions */}
-                <div className="bg-gradient-to-br from-slate-50 via-gray-50 to-white p-5 rounded-2xl border border-gray-300 shadow-sm relative overflow-hidden">
+                <div className="bg-gradient-to-br from-gray-50 via-slate-50 to-white p-3 rounded-xl border border-gray-200 shadow-xs">
                     <div className="flex items-center justify-between">
-                        <span className="text-xs font-black uppercase tracking-wider text-gray-950">Ledger Entries</span>
-                        <span className="w-8 h-8 rounded-lg bg-gray-200 flex items-center justify-center text-gray-900 text-sm font-black">📋</span>
+                        <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider">Total Rows</span>
+                        <span className="text-sm">📋</span>
                     </div>
-                    <div className="mt-3">
-                        <div className="text-2xl font-black text-gray-950">{kpiMetrics.totalMovementsCount.toLocaleString()}</div>
-                        <div className="text-xs font-bold text-gray-800 mt-1">
-                            Filtered transactions
+                    <div className="mt-1.5">
+                        <div className="text-lg font-black text-gray-900 tracking-tight">{kpiMetrics.totalMovementsCount.toLocaleString()}</div>
+                        <div className="text-[10px] font-bold text-gray-600 mt-0.5">
+                            Filtered entries
                         </div>
                     </div>
-                    <div className="mt-2 text-[11px] font-semibold text-gray-700">100% Audit trail logged</div>
+                    <div className="mt-1 text-[9px] text-gray-500">100% Audit compliant</div>
                 </div>
             </div>
 
             {/* ========================================== */}
-            {/* MULTI-DIMENSIONAL FILTER SUITE */}
+            {/* MULTI-DIMENSIONAL FILTER SUITE (COMPACT) */}
             {/* ========================================== */}
-            <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-xs space-y-2.5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
                     {/* Omni-search */}
                     <div className="lg:col-span-2">
-                        <label className="block text-xs font-black text-gray-950 mb-1">
-                            🔍 OMNI-SEARCH LEDGER
+                        <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5">
+                            🔍 Search Ledger
                         </label>
                         <div className="relative">
                             <input
@@ -1389,14 +1376,14 @@ export default function StockMovementPage() {
                                     setSearchQuery(e.target.value);
                                     setCurrentPage(1);
                                 }}
-                                placeholder="Search drug name, batch #, invoice #, receipt #, notes..."
-                                className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-bold text-gray-950 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                                placeholder="Search drug name, batch #, invoice #, receipt #..."
+                                className="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white"
                             />
-                            <span className="absolute left-3 top-3 text-gray-500 text-sm">🔎</span>
+                            <span className="absolute left-2.5 top-2 text-gray-400 text-xs">🔎</span>
                             {searchQuery && (
                                 <button
                                     onClick={() => setSearchQuery('')}
-                                    className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-700 text-sm font-bold"
+                                    className="absolute right-2.5 top-1.5 text-gray-400 hover:text-gray-600 text-xs font-bold"
                                 >
                                     ✕
                                 </button>
@@ -1406,8 +1393,8 @@ export default function StockMovementPage() {
 
                     {/* Movement Type Filter */}
                     <div>
-                        <label className="block text-xs font-black text-gray-950 mb-1">
-                            📌 MOVEMENT TYPE
+                        <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5">
+                            📌 Movement Type
                         </label>
                         <select
                             value={selectedMovementType}
@@ -1415,23 +1402,23 @@ export default function StockMovementPage() {
                                 setSelectedMovementType(e.target.value);
                                 setCurrentPage(1);
                             }}
-                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-bold text-gray-950 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                            className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 cursor-pointer outline-none focus:border-blue-500"
                         >
-                            <option value="ALL">All Types (Everything)</option>
+                            <option value="ALL">All Types</option>
                             <option value="PURCHASE_GRN">📥 Purchase / GRN In</option>
-                            <option value="DISPENSED_SALE">📤 Dispensed / POS Sale</option>
-                            <option value="STOCK_ADJUSTMENT">⚖️ Stock Adjustment / Audit</option>
+                            <option value="DISPENSED_SALE">📤 Dispensed / Sale</option>
+                            <option value="STOCK_ADJUSTMENT">⚖️ Stock Adjustment</option>
                             <option value="BIN_TRANSFER">🔄 Storage Bin Transfer</option>
                             <option value="SUPPLIER_RETURN">↩️ Vendor Return</option>
-                            <option value="DAMAGE_EXPIRED">⚠️ Damage / Expiry Write-Off</option>
-                            <option value="OPENING_STOCK">📦 Opening Stock / Init</option>
+                            <option value="DAMAGE_EXPIRED">⚠️ Damage / Expiry</option>
+                            <option value="OPENING_STOCK">📦 Opening Stock</option>
                         </select>
                     </div>
 
                     {/* Specific Product Filter */}
                     <div>
-                        <label className="block text-xs font-black text-gray-950 mb-1">
-                            💊 SPECIFIC MEDICATION
+                        <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5">
+                            💊 Specific Drug
                         </label>
                         <select
                             value={selectedProductId}
@@ -1439,7 +1426,7 @@ export default function StockMovementPage() {
                                 setSelectedProductId(e.target.value);
                                 setCurrentPage(1);
                             }}
-                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-bold text-gray-950 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                            className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 cursor-pointer outline-none focus:border-blue-500 truncate"
                         >
                             <option value="ALL">All Medications ({products.length})</option>
                             {products.map(p => (
@@ -1452,8 +1439,8 @@ export default function StockMovementPage() {
 
                     {/* Storage Location Filter */}
                     <div>
-                        <label className="block text-xs font-black text-gray-950 mb-1">
-                            📍 STORAGE BIN / BAY
+                        <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5">
+                            📍 Storage Location
                         </label>
                         <select
                             value={selectedStorageLocation}
@@ -1461,9 +1448,9 @@ export default function StockMovementPage() {
                                 setSelectedStorageLocation(e.target.value);
                                 setCurrentPage(1);
                             }}
-                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-bold text-gray-950 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                            className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 cursor-pointer outline-none focus:border-blue-500"
                         >
-                            <option value="ALL">All Storage Locations</option>
+                            <option value="ALL">All Storage Bins</option>
                             <option value="Main Store">🏢 Main Store</option>
                             <option value="Dispensing Shelf">💊 Dispensing Shelf</option>
                             <option value="Cold Chain (2-8°C)">❄️ Cold Chain (2-8°C)</option>
@@ -1474,16 +1461,16 @@ export default function StockMovementPage() {
                 </div>
 
                 {/* Date Presets Row */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-100">
-                    <div className="flex items-center flex-wrap gap-1.5">
-                        <span className="text-xs font-black text-gray-950 mr-2">📅 TIMEFRAME:</span>
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-100 text-xs">
+                    <div className="flex items-center flex-wrap gap-1">
+                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mr-1">Timeframe:</span>
                         {[
                             { key: 'today', label: 'Today' },
                             { key: 'yesterday', label: 'Yesterday' },
-                            { key: '7days', label: 'Last 7 Days' },
-                            { key: 'month', label: 'This Month' },
-                            { key: '90days', label: 'Last 90 Days' },
-                            { key: 'all', label: 'All Time' }
+                            { key: '7days', label: '7 Days' },
+                            { key: 'month', label: 'Month' },
+                            { key: '90days', label: '90 Days' },
+                            { key: 'all', label: 'All' }
                         ].map(preset => (
                             <button
                                 key={preset.key}
@@ -1493,10 +1480,10 @@ export default function StockMovementPage() {
                                     setCustomDateTo('');
                                     setCurrentPage(1);
                                 }}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${
+                                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all ${
                                     datePreset === preset.key && !customDateFrom
-                                        ? 'bg-blue-600 text-white shadow-sm'
-                                        : 'bg-gray-100 hover:bg-gray-200 text-gray-800'
+                                        ? 'bg-blue-600 text-white shadow-xs'
+                                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                                 }`}
                             >
                                 {preset.label}
@@ -1504,8 +1491,8 @@ export default function StockMovementPage() {
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <span className="text-xs font-black text-gray-700">Custom:</span>
+                    <div className="flex items-center gap-1.5 text-xs">
+                        <span className="text-[10px] font-bold text-gray-400">Custom:</span>
                         <input
                             type="date"
                             value={customDateFrom}
@@ -1514,9 +1501,9 @@ export default function StockMovementPage() {
                                 setDatePreset('all');
                                 setCurrentPage(1);
                             }}
-                            className="px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded-lg text-xs font-bold text-gray-950 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                            className="px-2 py-0.5 bg-gray-50 border border-gray-200 rounded text-[11px] font-semibold text-gray-800 focus:outline-none focus:border-blue-500"
                         />
-                        <span className="text-xs font-bold text-gray-500">to</span>
+                        <span className="text-gray-400">-</span>
                         <input
                             type="date"
                             value={customDateTo}
@@ -1525,7 +1512,7 @@ export default function StockMovementPage() {
                                 setDatePreset('all');
                                 setCurrentPage(1);
                             }}
-                            className="px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded-lg text-xs font-bold text-gray-950 focus:outline-none focus:ring-1 focus:ring-blue-600"
+                            className="px-2 py-0.5 bg-gray-50 border border-gray-200 rounded text-[11px] font-semibold text-gray-800 focus:outline-none focus:border-blue-500"
                         />
                         {(customDateFrom || customDateTo) && (
                             <button
@@ -1534,7 +1521,7 @@ export default function StockMovementPage() {
                                     setCustomDateTo('');
                                     setDatePreset('all');
                                 }}
-                                className="px-2 py-1 text-xs font-bold text-red-600 hover:text-red-800"
+                                className="text-[10px] font-bold text-red-600 hover:text-red-700 underline ml-1"
                             >
                                 Clear
                             </button>
@@ -1544,53 +1531,67 @@ export default function StockMovementPage() {
             </div>
 
             {/* ========================================== */}
-            {/* DATAGRID / TABLE */}
+            {/* DATAGRID / TABLE (EXACT MATCH TO BATCHES PAGE DENSITY) */}
             {/* ========================================== */}
-            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-                {/* Table Header Controls */}
-                <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-3">
-                        <span className="text-sm font-black text-gray-950">
-                            Showing {paginatedMovements.length} of {filteredMovements.length} movements
+            <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
+                {/* Table Header Bar with Auto-Fit Toggle */}
+                <div className="px-4 py-2.5 bg-gradient-to-r from-cyan-700 via-blue-700 to-indigo-800 text-white flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm">📦</span>
+                        <h2 className="text-xs font-bold tracking-wide">
+                            Stock Movement &amp; Inventory Audit Ledger
+                        </h2>
+                        <span className="px-2 py-0.2 bg-white/20 rounded-full text-[10px] font-bold backdrop-blur-xs">
+                            {filteredMovements.length} Records
                         </span>
                         {selectedIds.length > 0 && (
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-blue-100 text-blue-900 border border-blue-300">
+                            <span className="px-2 py-0.2 bg-emerald-400/30 text-emerald-100 rounded-full text-[10px] font-bold">
                                 {selectedIds.length} Selected
                             </span>
                         )}
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <label className="text-xs font-black text-gray-700">Rows per page:</label>
-                        <select
-                            value={pageSize}
-                            onChange={e => {
-                                setPageSize(Number(e.target.value));
-                                setCurrentPage(1);
-                            }}
-                            className="px-2.5 py-1 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-950"
+                    <div className="flex items-center gap-3 text-xs">
+                        <div className="flex items-center gap-1.5">
+                            <label className="text-[10px] text-white/80 font-bold">Per page:</label>
+                            <select
+                                value={pageSize}
+                                onChange={e => {
+                                    setPageSize(Number(e.target.value));
+                                    setCurrentPage(1);
+                                }}
+                                className="px-1.5 py-0.5 bg-white/10 border border-white/20 rounded text-xs font-bold text-white cursor-pointer"
+                            >
+                                <option value={15} className="text-gray-900">15</option>
+                                <option value={25} className="text-gray-900">25</option>
+                                <option value={50} className="text-gray-900">50</option>
+                                <option value={100} className="text-gray-900">100</option>
+                            </select>
+                        </div>
+
+                        <button
+                            onClick={() => setIsAutoFit(!isAutoFit)}
+                            className="px-2 py-0.5 bg-white/20 hover:bg-white/30 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 shadow-xs"
+                            title="Toggle Auto-Fit view (fits 100% on screen) or Expanded table"
                         >
-                            <option value={15}>15</option>
-                            <option value={25}>25</option>
-                            <option value={50}>50</option>
-                            <option value={100}>100</option>
-                        </select>
+                            <span>{isAutoFit ? '🖥️ Auto-Fit (Active)' : '↔️ Expanded'}</span>
+                        </button>
                     </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className={isAutoFit ? 'w-full overflow-hidden' : 'overflow-x-auto'}>
                     {isLoading ? (
-                        <div className="p-20 text-center">
-                            <div className="inline-block animate-spin text-5xl mb-3">🔄</div>
-                            <h3 className="text-base font-black text-gray-900">Loading Stock Movements Ledger...</h3>
-                            <p className="text-xs text-gray-500 mt-1">Connecting to Supabase inventory database</p>
+                        <div className="p-12 text-center">
+                            <div className="inline-block animate-spin text-3xl mb-2">🔄</div>
+                            <h3 className="text-xs font-bold text-gray-700">Loading Stock Movements Ledger...</h3>
+                            <p className="text-[10px] text-gray-400 mt-0.5">Connecting to Supabase inventory database</p>
                         </div>
                     ) : paginatedMovements.length === 0 ? (
-                        <div className="p-20 text-center">
-                            <span className="text-6xl block mb-3">📦</span>
-                            <h3 className="text-lg font-black text-gray-950">No Stock Movements Match Your Criteria</h3>
-                            <p className="text-sm text-gray-600 max-w-md mx-auto mt-1 font-semibold">
-                                Try clearing your search query or selecting a broader timeframe. You can also click Post Stock Adjustment to log physical stock.
+                        <div className="p-12 text-center">
+                            <span className="text-4xl block mb-2">📦</span>
+                            <h3 className="text-xs font-bold text-gray-800">No Stock Movements Match Your Criteria</h3>
+                            <p className="text-[11px] text-gray-500 max-w-sm mx-auto mt-0.5">
+                                Try clearing your search query or selecting a broader timeframe.
                             </p>
                             <button
                                 onClick={() => {
@@ -1600,56 +1601,36 @@ export default function StockMovementPage() {
                                     setSelectedStorageLocation('ALL');
                                     setDatePreset('all');
                                 }}
-                                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700"
+                                className="mt-2.5 px-3 py-1 bg-blue-600 text-white rounded text-xs font-bold hover:bg-blue-700"
                             >
-                                Reset All Filters
+                                Reset Filters
                             </button>
                         </div>
                     ) : (
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-gradient-to-r from-gray-100 via-gray-50 to-gray-100 border-b border-gray-200">
-                                    <th className="py-3.5 px-4 text-center w-10">
+                                <tr className="bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                                    <th className="px-2.5 py-2 text-center w-8">
                                         <input
                                             type="checkbox"
                                             checked={selectedIds.length === paginatedMovements.length && paginatedMovements.length > 0}
                                             onChange={handleSelectAll}
-                                            className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                                            className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                                         />
                                     </th>
-                                    <th className="py-3.5 px-3 text-xs font-black text-gray-950 uppercase tracking-wider">
-                                        Ref / Timestamp
-                                    </th>
-                                    <th className="py-3.5 px-4 text-xs font-black text-gray-950 uppercase tracking-wider">
-                                        Medication &amp; Code
-                                    </th>
-                                    <th className="py-3.5 px-3 text-xs font-black text-gray-950 uppercase tracking-wider">
-                                        Batch &amp; Expiry
-                                    </th>
-                                    <th className="py-3.5 px-3 text-xs font-black text-gray-950 uppercase tracking-wider">
-                                        Movement Type
-                                    </th>
-                                    <th className="py-3.5 px-3 text-xs font-black text-gray-950 uppercase tracking-wider">
-                                        Document / Origin
-                                    </th>
-                                    <th className="py-3.5 px-3 text-xs font-black text-gray-950 uppercase tracking-wider">
-                                        Location / Bin
-                                    </th>
-                                    <th className="py-3.5 px-3 text-right text-xs font-black text-gray-950 uppercase tracking-wider">
-                                        Delta (Change)
-                                    </th>
-                                    <th className="py-3.5 px-3 text-right text-xs font-black text-gray-950 uppercase tracking-wider">
-                                        Stock Balance
-                                    </th>
-                                    <th className="py-3.5 px-4 text-right text-xs font-black text-gray-950 uppercase tracking-wider">
-                                        Valuation (Cost)
-                                    </th>
-                                    <th className="py-3.5 px-4 text-center text-xs font-black text-gray-950 uppercase tracking-wider">
-                                        Quick Actions
-                                    </th>
+                                    <th className="px-2 py-2">Ref / Date</th>
+                                    <th className="px-2 py-2">Medication &amp; Formulation</th>
+                                    <th className="px-2 py-2">Batch / Lot</th>
+                                    <th className="px-2 py-2">Type</th>
+                                    <th className="px-2 py-2">Document #</th>
+                                    <th className="px-2 py-2">Storage Bin</th>
+                                    <th className="px-2 py-2 text-right">Delta Qty</th>
+                                    <th className="px-2 py-2 text-right">Balance</th>
+                                    <th className="px-2 py-2 text-right">Valuation</th>
+                                    <th className="px-2 py-2 text-center w-28">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-100">
+                            <tbody className="divide-y divide-gray-100 text-xs">
                                 {paginatedMovements.map(record => {
                                     const isPositive = record.qty_change > 0;
                                     const isZero = record.qty_change === 0;
@@ -1657,134 +1638,133 @@ export default function StockMovementPage() {
                                     return (
                                         <tr
                                             key={record.st_id}
-                                            className="hover:bg-blue-50/40 transition-colors group"
+                                            className="hover:bg-blue-50/50 transition-colors"
                                         >
-                                            <td className="py-3.5 px-4 text-center">
+                                            <td className="px-2.5 py-1.5 text-center">
                                                 <input
                                                     type="checkbox"
                                                     checked={selectedIds.includes(record.st_id)}
                                                     onChange={() => handleSelectOne(record.st_id)}
-                                                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500"
+                                                    className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                                                 />
                                             </td>
 
                                             {/* Ref / Timestamp */}
-                                            <td className="py-3.5 px-3">
-                                                <div className="font-mono text-xs font-black text-blue-700">
+                                            <td className="px-2 py-1.5 whitespace-nowrap min-w-0">
+                                                <span className="font-mono text-[10.5px] font-bold text-blue-700 bg-blue-50 px-1 py-0.2 rounded border border-blue-100">
                                                     {record.movement_id}
-                                                </div>
-                                                <div className="text-[11px] font-bold text-gray-700">
-                                                    {new Date(record.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                                </div>
-                                                <div className="text-[10px] text-gray-500">
-                                                    {new Date(record.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </div>
+                                                </span>
+                                                <p className="text-[9.5px] text-gray-500 mt-0.5">
+                                                    {new Date(record.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} • {new Date(record.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </p>
                                             </td>
 
                                             {/* Medication & Code */}
-                                            <td className="py-3.5 px-4">
-                                                <div className="font-black text-gray-950 text-sm">
-                                                    {record.product_name}
-                                                </div>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    <span className="font-mono text-[11px] font-bold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">
+                                            <td className="px-2 py-1.5 min-w-0">
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <span
+                                                        onClick={() => setDossierRecord(record)}
+                                                        className="font-bold text-gray-900 hover:text-blue-700 cursor-pointer truncate max-w-[190px] text-xs"
+                                                        title="Click to view dossier"
+                                                    >
+                                                        {record.product_name}
+                                                    </span>
+                                                    <span className="font-mono text-[9px] text-gray-500 bg-gray-100 px-1 py-0.2 rounded">
                                                         {record.product_code}
                                                     </span>
-                                                    <span className="text-[11px] font-semibold text-gray-500">
-                                                        {record.category}
-                                                    </span>
                                                 </div>
+                                                <p className="text-[9.5px] text-gray-500 truncate max-w-[180px] mt-0.5">
+                                                    {record.category}
+                                                </p>
                                             </td>
 
                                             {/* Batch & Expiry */}
-                                            <td className="py-3.5 px-3">
-                                                <div className="font-mono text-xs font-black text-gray-900">
+                                            <td className="px-2 py-1.5 whitespace-nowrap min-w-0">
+                                                <span className="font-mono font-bold text-purple-800 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded text-[10px] block truncate max-w-[110px]">
                                                     {record.batch_number}
-                                                </div>
+                                                </span>
                                                 {record.expiry_date ? (
-                                                    <div className="text-[11px] font-bold text-gray-600 flex items-center gap-1 mt-0.5">
-                                                        <span>📅 Exp: {new Date(record.expiry_date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}</span>
-                                                    </div>
+                                                    <p className="text-[9.5px] text-gray-500 mt-0.5">
+                                                        Exp: {new Date(record.expiry_date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+                                                    </p>
                                                 ) : (
-                                                    <span className="text-[10px] text-gray-400">Non-dated</span>
+                                                    <p className="text-[9px] text-gray-400 mt-0.5">Non-dated</p>
                                                 )}
                                             </td>
 
                                             {/* Movement Type */}
-                                            <td className="py-3.5 px-3">
+                                            <td className="px-2 py-1.5 whitespace-nowrap">
                                                 {getMovementTypeBadge(record.movement_type)}
                                             </td>
 
                                             {/* Document / Origin */}
-                                            <td className="py-3.5 px-3">
-                                                <div className="inline-flex items-center px-2 py-0.5 rounded font-mono text-xs font-black bg-gray-100 text-gray-900 border border-gray-300">
+                                            <td className="px-2 py-1.5 whitespace-nowrap min-w-0">
+                                                <span className="font-mono text-[10px] font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
                                                     {record.invoice_no}
-                                                </div>
-                                                <div className="text-[10px] text-gray-500 truncate max-w-[120px] mt-0.5">
+                                                </span>
+                                                <p className="text-[9px] text-gray-400 truncate max-w-[110px] mt-0.5" title={record.notes}>
                                                     {record.notes}
-                                                </div>
+                                                </p>
                                             </td>
 
                                             {/* Location / Bin */}
-                                            <td className="py-3.5 px-3">
+                                            <td className="px-2 py-1.5 whitespace-nowrap">
                                                 {getLocationBadge(record.storage_type)}
                                             </td>
 
                                             {/* Delta Change */}
-                                            <td className="py-3.5 px-3 text-right">
-                                                <div className={`font-mono text-sm font-black inline-flex items-center px-2 py-0.5 rounded-lg ${
+                                            <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                                                <span className={`font-mono text-[11px] font-bold px-1.5 py-0.5 rounded ${
                                                     isPositive 
-                                                        ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                                                         : isZero 
-                                                            ? 'bg-gray-100 text-gray-700' 
-                                                            : 'bg-rose-100 text-rose-950 border border-rose-300'
+                                                            ? 'bg-gray-100 text-gray-600' 
+                                                            : 'bg-rose-100 text-rose-800 border border-rose-200'
                                                 }`}>
                                                     {isPositive ? `+${record.qty_change}` : record.qty_change} {record.unit}
-                                                </div>
+                                                </span>
                                             </td>
 
                                             {/* Running Balance */}
-                                            <td className="py-3.5 px-3 text-right">
-                                                <div className="font-mono text-sm font-black text-gray-950">
+                                            <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                                                <span className="font-mono text-[11px] font-bold text-gray-900">
                                                     {(record.running_balance ?? 0).toLocaleString()}
-                                                </div>
-                                                <div className="text-[10px] font-bold text-gray-500">
-                                                    on hand
-                                                </div>
+                                                </span>
+                                                <p className="text-[9px] text-gray-400">on hand</p>
                                             </td>
 
                                             {/* Valuation */}
-                                            <td className="py-3.5 px-4 text-right">
-                                                <div className="font-black text-xs text-gray-950">
+                                            <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                                                <span className="font-mono text-[11px] font-bold text-gray-900">
                                                     KSh {record.total_cost_value.toLocaleString()}
-                                                </div>
-                                                <div className="text-[10px] font-bold text-gray-500">
-                                                    @ KSh {record.unit_cost.toLocaleString()}/unit
-                                                </div>
+                                                </span>
+                                                <p className="text-[9px] text-gray-400">
+                                                    @ KSh {record.unit_cost.toLocaleString()}
+                                                </p>
                                             </td>
 
-                                            {/* Quick Actions (5 Working Buttons) */}
-                                            <td className="py-3.5 px-4 text-center">
-                                                <div className="flex items-center justify-center gap-1.5">
+                                            {/* Quick Actions (5 Compact Buttons) */}
+                                            <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                                                <div className="flex items-center justify-center gap-1">
                                                     {/* 1. View 360 Dossier */}
                                                     <button
                                                         onClick={() => setDossierRecord(record)}
-                                                        className="w-8 h-8 rounded-lg bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white flex items-center justify-center transition-all border border-blue-200 hover:border-blue-600 shadow-sm"
-                                                        title="View 360° Movement Dossier & Audit Log"
+                                                        className="w-6 h-6 rounded bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white flex items-center justify-center transition-all border border-blue-200 text-[11px]"
+                                                        title="View 360° Movement Dossier"
                                                     >
                                                         👁️
                                                     </button>
 
-                                                    {/* 2. Print Voucher / Bin Card Slip */}
+                                                    {/* 2. Print Voucher */}
                                                     <button
                                                         onClick={() => handlePrintVoucher(record)}
-                                                        className="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-800 text-gray-800 hover:text-white flex items-center justify-center transition-all border border-gray-300 hover:border-gray-800 shadow-sm"
-                                                        title="Print Physical Bin Card / Movement Voucher"
+                                                        className="w-6 h-6 rounded bg-gray-100 hover:bg-gray-800 text-gray-700 hover:text-white flex items-center justify-center transition-all border border-gray-200 text-[11px]"
+                                                        title="Print Bin Card Voucher"
                                                     >
                                                         🖨️
                                                     </button>
 
-                                                    {/* 3. Quick Stock Adjustment for this product */}
+                                                    {/* 3. Quick Stock Adjustment */}
                                                     <button
                                                         onClick={() => {
                                                             setAdjProductId(record.product_id);
@@ -1793,8 +1773,8 @@ export default function StockMovementPage() {
                                                             setAdjType('RECONCILE');
                                                             setShowAdjustmentModal(true);
                                                         }}
-                                                        className="w-8 h-8 rounded-lg bg-purple-50 hover:bg-purple-600 text-purple-700 hover:text-white flex items-center justify-center transition-all border border-purple-200 hover:border-purple-600 shadow-sm"
-                                                        title="Quick Physical Audit Re-count for this Drug"
+                                                        className="w-6 h-6 rounded bg-purple-50 hover:bg-purple-600 text-purple-700 hover:text-white flex items-center justify-center transition-all border border-purple-200 text-[11px]"
+                                                        title="Quick Physical Count Re-audit"
                                                     >
                                                         ⚖️
                                                     </button>
@@ -1807,8 +1787,8 @@ export default function StockMovementPage() {
                                                             setTrfFromLocation(record.storage_type);
                                                             setShowTransferModal(true);
                                                         }}
-                                                        className="w-8 h-8 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white flex items-center justify-center transition-all border border-emerald-200 hover:border-emerald-600 shadow-sm"
-                                                        title="Transfer Stock to another Bin/Location"
+                                                        className="w-6 h-6 rounded bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white flex items-center justify-center transition-all border border-emerald-200 text-[11px]"
+                                                        title="Transfer Storage Bin"
                                                     >
                                                         🔄
                                                     </button>
@@ -1816,8 +1796,8 @@ export default function StockMovementPage() {
                                                     {/* 5. Delete / Void Transaction */}
                                                     <button
                                                         onClick={() => handleDeleteRecord(record)}
-                                                        className="w-8 h-8 rounded-lg bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white flex items-center justify-center transition-all border border-rose-200 hover:border-rose-600 shadow-sm"
-                                                        title="Void / Rollback this transaction"
+                                                        className="w-6 h-6 rounded bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white flex items-center justify-center transition-all border border-rose-200 text-[11px]"
+                                                        title="Void Transaction"
                                                     >
                                                         🗑️
                                                     </button>
@@ -1831,27 +1811,27 @@ export default function StockMovementPage() {
                     )}
                 </div>
 
-                {/* Pagination Footer */}
+                {/* Pagination Footer (Compact) */}
                 {totalPages > 1 && (
-                    <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between flex-wrap gap-3">
-                        <div className="text-xs font-black text-gray-700">
+                    <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 flex items-center justify-between flex-wrap gap-2 text-xs">
+                        <div className="text-[11px] font-bold text-gray-600">
                             Page {currentPage} of {totalPages} ({filteredMovements.length} total entries)
                         </div>
 
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1">
                             <button
                                 onClick={() => setCurrentPage(1)}
                                 disabled={currentPage === 1}
-                                className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+                                className="px-2 py-0.5 bg-white border border-gray-200 rounded text-[11px] font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40"
                             >
                                 First
                             </button>
                             <button
                                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                 disabled={currentPage === 1}
-                                className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+                                className="px-2 py-0.5 bg-white border border-gray-200 rounded text-[11px] font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40"
                             >
-                                Previous
+                                Prev
                             </button>
 
                             <div className="flex items-center gap-1">
@@ -1863,10 +1843,10 @@ export default function StockMovementPage() {
                                         <button
                                             key={pageNum}
                                             onClick={() => setCurrentPage(pageNum)}
-                                            className={`w-8 h-8 rounded-lg text-xs font-black transition-all ${
+                                            className={`w-6 h-6 rounded text-[11px] font-bold transition-all ${
                                                 currentPage === pageNum
                                                     ? 'bg-blue-600 text-white'
-                                                    : 'bg-white border border-gray-300 text-gray-800 hover:bg-gray-100'
+                                                    : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'
                                             }`}
                                         >
                                             {pageNum}
@@ -1878,14 +1858,14 @@ export default function StockMovementPage() {
                             <button
                                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                 disabled={currentPage === totalPages}
-                                className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+                                className="px-2 py-0.5 bg-white border border-gray-200 rounded text-[11px] font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40"
                             >
                                 Next
                             </button>
                             <button
                                 onClick={() => setCurrentPage(totalPages)}
                                 disabled={currentPage === totalPages}
-                                className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-bold text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+                                className="px-2 py-0.5 bg-white border border-gray-200 rounded text-[11px] font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40"
                             >
                                 Last
                             </button>
@@ -1895,122 +1875,115 @@ export default function StockMovementPage() {
             </div>
 
             {/* ========================================== */}
-            {/* MODAL 1: POST STOCK ADJUSTMENT & RECONCILE */}
+            {/* MODAL 1: POST STOCK ADJUSTMENT & RECONCILE (SLEEK COMPACT) */}
             {/* ========================================== */}
             {showAdjustmentModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-                    <div className="bg-white rounded-3xl max-w-2xl w-full border border-gray-200 shadow-2xl overflow-hidden animate-scaleUp">
-                        {/* Header */}
-                        <div className="px-6 py-5 bg-gradient-to-r from-purple-800 via-indigo-800 to-blue-900 text-white flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl">
-                                    ⚖️
-                                </div>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50 backdrop-blur-xs">
+                    <div className="bg-white rounded-2xl max-w-lg w-full border border-gray-200 shadow-xl overflow-hidden">
+                        <div className="px-4 py-3 bg-gradient-to-r from-purple-800 to-indigo-800 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="text-base">⚖️</span>
                                 <div>
-                                    <h2 className="text-lg font-black tracking-tight">Post Inventory Stock Adjustment</h2>
-                                    <p className="text-xs text-purple-200">Reconcile physical counts, surplus, shrinkages or damage</p>
+                                    <h2 className="text-sm font-bold">Post Inventory Stock Adjustment</h2>
+                                    <p className="text-[10px] text-purple-200">Reconcile physical counts, surplus or damage</p>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setShowAdjustmentModal(false)}
-                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white font-bold"
+                                className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-xs font-bold"
                             >
                                 ✕
                             </button>
                         </div>
 
-                        {/* Form */}
-                        <form onSubmit={handleSaveAdjustment} className="p-6 space-y-4">
-                            {/* Mode Selector */}
+                        <form onSubmit={handleSaveAdjustment} className="p-4 space-y-3 text-xs">
                             <div>
-                                <label className="block text-xs font-black text-gray-950 mb-2">
-                                    SELECT ADJUSTMENT METHOD
+                                <label className="block text-[10px] font-bold text-gray-600 uppercase mb-1">
+                                    Method
                                 </label>
-                                <div className="grid grid-cols-3 gap-2">
+                                <div className="grid grid-cols-3 gap-1.5">
                                     <button
                                         type="button"
                                         onClick={() => setAdjType('ADD')}
-                                        className={`py-2.5 px-3 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5 ${
+                                        className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all ${
                                             adjType === 'ADD'
-                                                ? 'bg-emerald-600 text-white border-emerald-600 shadow'
-                                                : 'bg-gray-50 text-gray-800 border-gray-300 hover:bg-gray-100'
+                                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                                : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
                                         }`}
                                     >
-                                        <span>➕</span> Add Surplus Stock
+                                        ➕ Add Stock
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setAdjType('SUBTRACT')}
-                                        className={`py-2.5 px-3 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5 ${
+                                        className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all ${
                                             adjType === 'SUBTRACT'
-                                                ? 'bg-rose-600 text-white border-rose-600 shadow'
-                                                : 'bg-gray-50 text-gray-800 border-gray-300 hover:bg-gray-100'
+                                                ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                                                : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
                                         }`}
                                     >
-                                        <span>➖</span> Deduct / Write-Off
+                                        ➖ Deduct
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setAdjType('RECONCILE')}
-                                        className={`py-2.5 px-3 rounded-xl text-xs font-black border transition-all flex items-center justify-center gap-1.5 ${
+                                        className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all ${
                                             adjType === 'RECONCILE'
-                                                ? 'bg-purple-600 text-white border-purple-600 shadow'
-                                                : 'bg-gray-50 text-gray-800 border-gray-300 hover:bg-gray-100'
+                                                ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                                                : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
                                         }`}
                                     >
-                                        <span>⚖️</span> Physical Count Re-audit
+                                        ⚖️ Re-audit
                                     </button>
                                 </div>
                             </div>
 
-                            {/* Select Drug */}
                             <div>
-                                <label className="block text-xs font-black text-gray-950 mb-1">
-                                    MEDICATION / DRUG ITEM *
+                                <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                                    Medication Item *
                                 </label>
                                 <select
                                     required
                                     value={adjProductId}
                                     onChange={e => setAdjProductId(e.target.value ? Number(e.target.value) : '')}
-                                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-bold text-gray-950 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:bg-white"
+                                    className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:border-purple-600"
                                 >
-                                    <option value="">-- Choose Medication to Adjust --</option>
+                                    <option value="">-- Choose Medication --</option>
                                     {products.map(p => (
                                         <option key={p.pid} value={p.pid}>
-                                            {p.product_code} - {p.product_name} (Current Stock: {p.current_stock} {p.sales_unit})
+                                            {p.product_code} - {p.product_name} (Stock: {p.current_stock} {p.sales_unit})
                                         </option>
                                     ))}
                                 </select>
                             </div>
 
-                            {/* Batch Selection */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-2">
                                 <div>
-                                    <label className="block text-xs font-black text-gray-950 mb-1">
-                                        LINKED BATCH (OPTIONAL)
+                                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                                        Batch (Optional)
                                     </label>
                                     <select
                                         value={adjBatchId}
                                         onChange={e => setAdjBatchId(e.target.value ? Number(e.target.value) : '')}
-                                        className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-bold text-gray-950 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:bg-white"
+                                        className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:border-purple-600"
                                     >
-                                        <option value="">-- Auto-assign or General Lot --</option>
+                                        <option value="">-- Default Lot --</option>
                                         {batches.map(b => (
                                             <option key={b.batch_id} value={b.batch_id}>
-                                                Batch: {b.batch_number} (Rem: {b.remaining_qty})
+                                                {b.batch_number} (Rem: {b.remaining_qty})
                                             </option>
                                         ))}
                                     </select>
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-black text-gray-950 mb-1">
-                                        STORAGE BIN / LOCATION
+                                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                                        Storage Bin
                                     </label>
                                     <select
                                         value={adjLocation}
                                         onChange={e => setAdjLocation(e.target.value as StorageLocation)}
-                                        className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-bold text-gray-950 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:bg-white"
+                                        className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:border-purple-600"
                                     >
                                         <option value="Main Store">🏢 Main Store</option>
                                         <option value="Dispensing Shelf">💊 Dispensing Shelf</option>
@@ -2021,11 +1994,10 @@ export default function StockMovementPage() {
                                 </div>
                             </div>
 
-                            {/* Quantity Inputs */}
                             {adjType === 'RECONCILE' ? (
-                                <div className="p-3.5 bg-purple-50 rounded-xl border border-purple-200 space-y-2">
-                                    <label className="block text-xs font-black text-purple-950">
-                                        ACTUAL PHYSICAL COUNT VERIFIED ON SHELF
+                                <div className="p-2.5 bg-purple-50 rounded-lg border border-purple-200 space-y-1">
+                                    <label className="block text-[10px] font-bold text-purple-900 uppercase">
+                                        Actual Physical Count Verified
                                     </label>
                                     <input
                                         type="number"
@@ -2034,27 +2006,23 @@ export default function StockMovementPage() {
                                         value={adjPhysicalCount}
                                         onChange={e => setAdjPhysicalCount(e.target.value)}
                                         placeholder="e.g. 145"
-                                        className="w-full px-3.5 py-2.5 bg-white border border-purple-300 rounded-xl text-lg font-black text-purple-950 focus:outline-none focus:ring-2 focus:ring-purple-600"
+                                        className="w-full px-2.5 py-1.5 bg-white border border-purple-300 rounded-lg text-sm font-bold text-purple-950 focus:outline-none focus:border-purple-600"
                                     />
                                     {adjProductId && adjPhysicalCount && (
-                                        <div className="text-xs font-bold text-purple-900 mt-1">
+                                        <div className="text-[10px] font-bold text-purple-800">
                                             {(() => {
                                                 const current = products.find(p => p.pid === Number(adjProductId))?.current_stock || 0;
                                                 const phys = parseFloat(adjPhysicalCount) || 0;
                                                 const diff = phys - current;
-                                                return (
-                                                    <span>
-                                                        System stock: {current} | Physical: {phys} | Variance Delta: {diff > 0 ? `+${diff}` : diff} units
-                                                    </span>
-                                                );
+                                                return <span>System: {current} | Physical: {phys} | Variance: {diff > 0 ? `+${diff}` : diff} units</span>;
                                             })()}
                                         </div>
                                     )}
                                 </div>
                             ) : (
                                 <div>
-                                    <label className="block text-xs font-black text-gray-950 mb-1">
-                                        QUANTITY TO {adjType === 'ADD' ? 'ADD (+)' : 'DEDUCT (-)'}
+                                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                                        Quantity to {adjType === 'ADD' ? 'Add (+)' : 'Deduct (-)'}
                                     </label>
                                     <input
                                         type="number"
@@ -2062,21 +2030,20 @@ export default function StockMovementPage() {
                                         required
                                         value={adjQuantity}
                                         onChange={e => setAdjQuantity(e.target.value)}
-                                        placeholder="Enter units (e.g. 10)"
-                                        className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-lg font-black text-gray-950 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:bg-white"
+                                        placeholder="e.g. 10"
+                                        className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:outline-none focus:border-purple-600"
                                     />
                                 </div>
                             )}
 
-                            {/* Reason Selector */}
                             <div>
-                                <label className="block text-xs font-black text-gray-950 mb-1">
-                                    ADJUSTMENT REASON CODE
+                                <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                                    Reason Code
                                 </label>
                                 <select
                                     value={adjReason}
                                     onChange={e => setAdjReason(e.target.value)}
-                                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-bold text-gray-950 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:bg-white"
+                                    className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:border-purple-600"
                                 >
                                     <option value="Physical Count Audit Discrepancy">Physical Count Audit Discrepancy</option>
                                     <option value="Damaged / Broken Vials during dispensing">Damaged / Broken Vials during dispensing</option>
@@ -2084,40 +2051,37 @@ export default function StockMovementPage() {
                                     <option value="Manufacturer Surplus Delivery">Manufacturer Surplus Delivery</option>
                                     <option value="Spillage or Leakage Defect">Spillage or Leakage Defect</option>
                                     <option value="Sample / Internal Clinic Use">Sample / Internal Clinic Use</option>
-                                    <option value="Theft or Unaccounted Shrinkage">Theft or Unaccounted Shrinkage</option>
                                     <option value="Batch Entry Correction">Batch Entry Correction</option>
                                 </select>
                             </div>
 
-                            {/* Detailed Notes */}
                             <div>
-                                <label className="block text-xs font-black text-gray-950 mb-1">
-                                    AUDITOR / PHARMACIST NOTES
+                                <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                                    Audit Remarks
                                 </label>
                                 <textarea
                                     rows={2}
                                     value={adjNotes}
                                     onChange={e => setAdjNotes(e.target.value)}
-                                    placeholder="Add any additional context or authorization references..."
-                                    className="w-full px-3.5 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-medium text-gray-950 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:bg-white resize-none"
+                                    placeholder="Add authorization context..."
+                                    className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-800 focus:outline-none focus:border-purple-600 resize-none"
                                 />
                             </div>
 
-                            {/* Footer Actions */}
-                            <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-3">
+                            <div className="pt-2 border-t border-gray-100 flex items-center justify-end gap-2">
                                 <button
                                     type="button"
                                     onClick={() => setShowAdjustmentModal(false)}
-                                    className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-sm"
+                                    className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold text-xs"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isSubmittingAdj}
-                                    className="px-6 py-2.5 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white rounded-xl font-black text-sm shadow-md disabled:opacity-50"
+                                    className="px-4 py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-lg font-bold text-xs shadow-xs disabled:opacity-50"
                                 >
-                                    {isSubmittingAdj ? '⏳ Posting...' : '✅ Save & Update Stock'}
+                                    {isSubmittingAdj ? 'Posting...' : 'Save Adjustment'}
                                 </button>
                             </div>
                         </form>
@@ -2126,90 +2090,86 @@ export default function StockMovementPage() {
             )}
 
             {/* ========================================== */}
-            {/* MODAL 2: INTER-BIN STORAGE TRANSFER */}
+            {/* MODAL 2: INTER-BIN STORAGE TRANSFER (COMPACT) */}
             {/* ========================================== */}
             {showTransferModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-                    <div className="bg-white rounded-3xl max-w-xl w-full border border-gray-200 shadow-2xl overflow-hidden animate-scaleUp">
-                        {/* Header */}
-                        <div className="px-6 py-5 bg-gradient-to-r from-blue-700 to-cyan-800 text-white flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl">
-                                    🔄
-                                </div>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50 backdrop-blur-xs">
+                    <div className="bg-white rounded-2xl max-w-md w-full border border-gray-200 shadow-xl overflow-hidden">
+                        <div className="px-4 py-3 bg-gradient-to-r from-blue-700 to-cyan-800 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="text-base">🔄</span>
                                 <div>
-                                    <h2 className="text-lg font-black tracking-tight">Inter-Bin Storage Location Transfer</h2>
-                                    <p className="text-xs text-blue-200">Re-allocate stock between Main Store, Dispensing Shelf, and Cold Chain</p>
+                                    <h2 className="text-sm font-bold">Inter-Bin Storage Transfer</h2>
+                                    <p className="text-[10px] text-blue-200">Re-allocate stock between bins</p>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setShowTransferModal(false)}
-                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white font-bold"
+                                className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-xs font-bold"
                             >
                                 ✕
                             </button>
                         </div>
 
-                        {/* Form */}
-                        <form onSubmit={handleSaveTransfer} className="p-6 space-y-4">
+                        <form onSubmit={handleSaveTransfer} className="p-4 space-y-3 text-xs">
                             <div>
-                                <label className="block text-xs font-black text-gray-950 mb-1">
-                                    SELECT MEDICATION TO TRANSFER *
+                                <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                                    Medication *
                                 </label>
                                 <select
                                     required
                                     value={trfProductId}
                                     onChange={e => setTrfProductId(e.target.value ? Number(e.target.value) : '')}
-                                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-bold text-gray-950 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                                    className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:border-blue-600"
                                 >
                                     <option value="">-- Choose Medication --</option>
                                     {products.map(p => (
                                         <option key={p.pid} value={p.pid}>
-                                            {p.product_code} - {p.product_name} (Current Stock: {p.current_stock} {p.sales_unit})
+                                            {p.product_code} - {p.product_name} (Stock: {p.current_stock})
                                         </option>
                                     ))}
                                 </select>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-2">
                                 <div>
-                                    <label className="block text-xs font-black text-gray-950 mb-1">
-                                        SOURCE LOCATION (FROM)
+                                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                                        Source (From)
                                     </label>
                                     <select
                                         value={trfFromLocation}
                                         onChange={e => setTrfFromLocation(e.target.value as StorageLocation)}
-                                        className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-bold text-gray-950 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                                        className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:border-blue-600"
                                     >
                                         <option value="Main Store">🏢 Main Store</option>
                                         <option value="Dispensing Shelf">💊 Dispensing Shelf</option>
-                                        <option value="Cold Chain (2-8°C)">❄️ Cold Chain (2-8°C)</option>
-                                        <option value="Quarantine Room">⛔ Quarantine Room</option>
+                                        <option value="Cold Chain (2-8°C)">❄️ Cold Chain</option>
+                                        <option value="Quarantine Room">⛔ Quarantine</option>
                                     </select>
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-black text-gray-950 mb-1">
-                                        TARGET LOCATION (TO)
+                                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                                        Target (To)
                                     </label>
                                     <select
                                         value={trfToLocation}
                                         onChange={e => setTrfToLocation(e.target.value as StorageLocation)}
-                                        className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-bold text-gray-950 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                                        className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:border-blue-600"
                                     >
                                         <option value="Dispensing Shelf">💊 Dispensing Shelf</option>
                                         <option value="Main Store">🏢 Main Store</option>
-                                        <option value="Cold Chain (2-8°C)">❄️ Cold Chain (2-8°C)</option>
-                                        <option value="Quarantine Room">⛔ Quarantine Room</option>
+                                        <option value="Cold Chain (2-8°C)">❄️ Cold Chain</option>
+                                        <option value="Quarantine Room">⛔ Quarantine</option>
                                         <option value="Damaged Bay">⚠️ Damaged Bay</option>
                                     </select>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-2">
                                 <div>
-                                    <label className="block text-xs font-black text-gray-950 mb-1">
-                                        TRANSFER QUANTITY *
+                                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                                        Quantity *
                                     </label>
                                     <input
                                         type="number"
@@ -2218,23 +2178,23 @@ export default function StockMovementPage() {
                                         value={trfQuantity}
                                         onChange={e => setTrfQuantity(e.target.value)}
                                         placeholder="e.g. 20"
-                                        className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-base font-black text-gray-950 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                                        className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-900 focus:outline-none focus:border-blue-600"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-black text-gray-950 mb-1">
-                                        LINKED BATCH (OPTIONAL)
+                                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                                        Batch (Optional)
                                     </label>
                                     <select
                                         value={trfBatchId}
                                         onChange={e => setTrfBatchId(e.target.value ? Number(e.target.value) : '')}
-                                        className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-sm font-bold text-gray-950 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white"
+                                        className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:border-blue-600"
                                     >
-                                        <option value="">-- Any / Default Batch --</option>
+                                        <option value="">-- Default Lot --</option>
                                         {batches.map(b => (
                                             <option key={b.batch_id} value={b.batch_id}>
-                                                Batch: {b.batch_number}
+                                                {b.batch_number}
                                             </option>
                                         ))}
                                     </select>
@@ -2242,32 +2202,32 @@ export default function StockMovementPage() {
                             </div>
 
                             <div>
-                                <label className="block text-xs font-black text-gray-950 mb-1">
-                                    INTERNAL TRANSFER NOTES / AUTHORIZATION
+                                <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
+                                    Notes
                                 </label>
                                 <textarea
                                     rows={2}
                                     value={trfNotes}
                                     onChange={e => setTrfNotes(e.target.value)}
-                                    placeholder="e.g. Front desk restocking for morning shift"
-                                    className="w-full px-3.5 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-medium text-gray-950 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:bg-white resize-none"
+                                    placeholder="Restocking notes..."
+                                    className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-800 focus:outline-none focus:border-blue-600 resize-none"
                                 />
                             </div>
 
-                            <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-3">
+                            <div className="pt-2 border-t border-gray-100 flex items-center justify-end gap-2">
                                 <button
                                     type="button"
                                     onClick={() => setShowTransferModal(false)}
-                                    className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-sm"
+                                    className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold text-xs"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isSubmittingTrf}
-                                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-sm shadow-md disabled:opacity-50"
+                                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-xs disabled:opacity-50"
                                 >
-                                    {isSubmittingTrf ? '⏳ Transferring...' : '🚀 Execute Transfer'}
+                                    {isSubmittingTrf ? 'Transferring...' : 'Execute Transfer'}
                                 </button>
                             </div>
                         </form>
@@ -2276,123 +2236,97 @@ export default function StockMovementPage() {
             )}
 
             {/* ========================================== */}
-            {/* MODAL 3: 360° MOVEMENT DOSSIER */}
+            {/* MODAL 3: 360° MOVEMENT DOSSIER (COMPACT) */}
             {/* ========================================== */}
             {dossierRecord && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-                    <div className="bg-white rounded-3xl max-w-2xl w-full border border-gray-200 shadow-2xl overflow-hidden animate-scaleUp">
-                        {/* Header */}
-                        <div className="px-6 py-5 bg-gradient-to-r from-gray-900 via-gray-800 to-blue-900 text-white flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-xl">
-                                    👁️
-                                </div>
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50 backdrop-blur-xs">
+                    <div className="bg-white rounded-2xl max-w-lg w-full border border-gray-200 shadow-xl overflow-hidden">
+                        <div className="px-4 py-3 bg-gradient-to-r from-gray-900 to-blue-900 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="text-base">👁️</span>
                                 <div>
-                                    <div className="flex items-center gap-2">
-                                        <h2 className="text-lg font-black tracking-tight">{dossierRecord.movement_id}</h2>
-                                        <span className="text-xs px-2 py-0.5 rounded font-mono bg-white/20 text-white font-bold">
+                                    <div className="flex items-center gap-1.5">
+                                        <h2 className="text-xs font-bold font-mono">{dossierRecord.movement_id}</h2>
+                                        <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-white/20 text-white font-bold">
                                             {dossierRecord.invoice_no}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-gray-300">Complete 360° Stock Movement Dossier &amp; Traceability</p>
+                                    <p className="text-[10px] text-gray-300">Stock Movement Dossier</p>
                                 </div>
                             </div>
                             <button
                                 onClick={() => setDossierRecord(null)}
-                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white font-bold"
+                                className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-xs font-bold"
                             >
                                 ✕
                             </button>
                         </div>
 
-                        {/* Content */}
-                        <div className="p-6 space-y-5">
-                            {/* Drug Header Card */}
-                            <div className="p-4 bg-blue-50/60 rounded-2xl border border-blue-200 flex items-center justify-between flex-wrap gap-3">
+                        <div className="p-4 space-y-3 text-xs">
+                            <div className="p-2.5 bg-blue-50/60 rounded-xl border border-blue-200 flex items-center justify-between flex-wrap gap-2">
                                 <div>
-                                    <span className="text-[11px] font-black text-blue-900 uppercase">Product Details</span>
-                                    <h3 className="text-base font-black text-gray-950 mt-0.5">{dossierRecord.product_name}</h3>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <span className="font-mono text-xs font-bold text-gray-700 bg-white px-2 py-0.5 rounded border border-blue-200">
-                                            {dossierRecord.product_code}
-                                        </span>
-                                        <span className="text-xs font-semibold text-gray-600">
-                                            Category: {dossierRecord.category}
-                                        </span>
-                                    </div>
+                                    <span className="text-[9px] font-bold text-blue-800 uppercase">Product</span>
+                                    <h3 className="text-xs font-bold text-gray-950">{dossierRecord.product_name}</h3>
+                                    <p className="font-mono text-[10px] text-gray-500 mt-0.5">{dossierRecord.product_code} • {dossierRecord.category}</p>
                                 </div>
                                 <div>
                                     {getMovementTypeBadge(dossierRecord.movement_type)}
                                 </div>
                             </div>
 
-                            {/* Details Grid */}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5">
-                                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
-                                    <div className="text-[11px] font-black text-gray-600 uppercase">Batch / Lot #</div>
-                                    <div className="text-sm font-black text-gray-950 mt-0.5 font-mono">{dossierRecord.batch_number}</div>
+                            <div className="grid grid-cols-3 gap-2">
+                                <div className="p-2 bg-gray-50 rounded-lg border border-gray-200">
+                                    <div className="text-[9px] font-bold text-gray-500 uppercase">Batch #</div>
+                                    <div className="text-xs font-bold font-mono text-gray-900 mt-0.5">{dossierRecord.batch_number}</div>
                                 </div>
-                                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
-                                    <div className="text-[11px] font-black text-gray-600 uppercase">Expiry Date</div>
-                                    <div className="text-sm font-black text-gray-950 mt-0.5 font-mono">
-                                        {dossierRecord.expiry_date || 'N/A'}
-                                    </div>
+                                <div className="p-2 bg-gray-50 rounded-lg border border-gray-200">
+                                    <div className="text-[9px] font-bold text-gray-500 uppercase">Expiry</div>
+                                    <div className="text-xs font-bold font-mono text-gray-900 mt-0.5">{dossierRecord.expiry_date || 'N/A'}</div>
                                 </div>
-                                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
-                                    <div className="text-[11px] font-black text-gray-600 uppercase">Storage Location</div>
+                                <div className="p-2 bg-gray-50 rounded-lg border border-gray-200">
+                                    <div className="text-[9px] font-bold text-gray-500 uppercase">Storage</div>
                                     <div className="mt-0.5">{getLocationBadge(dossierRecord.storage_type)}</div>
                                 </div>
-                                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
-                                    <div className="text-[11px] font-black text-gray-600 uppercase">Quantity Delta</div>
-                                    <div className={`text-base font-black mt-0.5 font-mono ${dossierRecord.qty_change > 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                                <div className="p-2 bg-gray-50 rounded-lg border border-gray-200">
+                                    <div className="text-[9px] font-bold text-gray-500 uppercase">Delta</div>
+                                    <div className={`text-xs font-bold font-mono mt-0.5 ${dossierRecord.qty_change > 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                                         {dossierRecord.qty_change > 0 ? `+${dossierRecord.qty_change}` : dossierRecord.qty_change} {dossierRecord.unit}
                                     </div>
                                 </div>
-                                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
-                                    <div className="text-[11px] font-black text-gray-600 uppercase">Unit Purchase Cost</div>
-                                    <div className="text-sm font-black text-gray-950 mt-0.5 font-mono">
-                                        KSh {dossierRecord.unit_cost.toLocaleString()}
-                                    </div>
+                                <div className="p-2 bg-gray-50 rounded-lg border border-gray-200">
+                                    <div className="text-[9px] font-bold text-gray-500 uppercase">Unit Cost</div>
+                                    <div className="text-xs font-bold font-mono text-gray-900 mt-0.5">KSh {dossierRecord.unit_cost.toLocaleString()}</div>
                                 </div>
-                                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
-                                    <div className="text-[11px] font-black text-gray-600 uppercase">Total Valuation Impact</div>
-                                    <div className="text-sm font-black text-gray-950 mt-0.5 font-mono">
-                                        KSh {dossierRecord.total_cost_value.toLocaleString()}
-                                    </div>
+                                <div className="p-2 bg-gray-50 rounded-lg border border-gray-200">
+                                    <div className="text-[9px] font-bold text-gray-500 uppercase">Valuation</div>
+                                    <div className="text-xs font-bold font-mono text-gray-900 mt-0.5">KSh {dossierRecord.total_cost_value.toLocaleString()}</div>
                                 </div>
                             </div>
 
-                            {/* Audit Notes */}
-                            <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-200">
-                                <div className="text-xs font-black text-gray-900 uppercase">Audit Remarks &amp; Rationale</div>
-                                <p className="text-xs font-semibold text-gray-700 mt-1 leading-relaxed">
-                                    {dossierRecord.notes || 'No remarks provided for this transaction.'}
+                            <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
+                                <div className="text-[10px] font-bold text-gray-700 uppercase">Remarks</div>
+                                <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
+                                    {dossierRecord.notes || 'No remarks provided.'}
                                 </p>
                             </div>
 
-                            {/* Operator & Timestamp */}
-                            <div className="flex items-center justify-between text-xs font-bold text-gray-600 pt-3 border-t border-gray-100">
-                                <div>
-                                    <span className="text-gray-500">Operator:</span> {dossierRecord.operator_name}
-                                </div>
-                                <div>
-                                    <span className="text-gray-500">Logged on:</span> {new Date(dossierRecord.created_at).toLocaleString()}
-                                </div>
+                            <div className="flex items-center justify-between text-[10px] font-semibold text-gray-500 pt-2 border-t border-gray-100">
+                                <div>Operator: {dossierRecord.operator_name}</div>
+                                <div>Date: {new Date(dossierRecord.created_at).toLocaleString()}</div>
                             </div>
 
-                            {/* Footer Actions */}
-                            <div className="pt-2 flex items-center justify-end gap-3">
+                            <div className="pt-2 flex items-center justify-end gap-2">
                                 <button
                                     onClick={() => handlePrintVoucher(dossierRecord)}
-                                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-xs flex items-center gap-1.5"
+                                    className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold text-xs flex items-center gap-1"
                                 >
                                     <span>🖨️</span> Print Voucher
                                 </button>
                                 <button
                                     onClick={() => setDossierRecord(null)}
-                                    className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs"
+                                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs"
                                 >
-                                    Close Dossier
+                                    Close
                                 </button>
                             </div>
                         </div>
@@ -2401,84 +2335,79 @@ export default function StockMovementPage() {
             )}
 
             {/* ========================================== */}
-            {/* PRINTABLE BIN CARD / VOUCHER (HIDDEN UNTIL PRINT) */}
+            {/* PRINTABLE BIN CARD / VOUCHER */}
             {/* ========================================== */}
             <div className="hidden print:block fixed inset-0 bg-white p-8 z-[9999]" ref={printAreaRef}>
                 {printRecord && (
-                    <div className="max-w-2xl mx-auto space-y-6 text-black font-sans">
-                        {/* Pharmacy Header */}
-                        <div className="border-b-2 border-black pb-4 text-center">
-                            <h1 className="text-2xl font-black uppercase tracking-wider">ALPHA PHARMACY &amp; HEALTHCARE</h1>
-                            <p className="text-xs font-bold mt-1">Licensed Retail &amp; Hospital Pharmacy | Ministry of Health Reg #PH-89420</p>
-                            <p className="text-xs">Location: CBD Plaza, Mezzanine Flr | Tel: +254 700 000 000 | Email: dispensary@alphapharmacy.ke</p>
-                            <div className="mt-3 inline-block px-4 py-1 bg-black text-white font-black text-sm uppercase rounded">
+                    <div className="max-w-xl mx-auto space-y-4 text-black font-sans text-xs">
+                        <div className="border-b-2 border-black pb-3 text-center">
+                            <h1 className="text-xl font-bold uppercase tracking-wider">ALPHA PHARMACY &amp; HEALTHCARE</h1>
+                            <p className="text-[10px] font-bold mt-0.5">Licensed Retail &amp; Hospital Pharmacy | Reg #PH-89420</p>
+                            <p className="text-[10px]">Location: CBD Plaza | Tel: +254 700 000 000 | dispensary@alphapharmacy.ke</p>
+                            <div className="mt-2 inline-block px-3 py-0.5 bg-black text-white font-bold text-xs uppercase rounded">
                                 INVENTORY BIN CARD &amp; MOVEMENT VOUCHER
                             </div>
                         </div>
 
-                        {/* Metadata Box */}
-                        <div className="grid grid-cols-2 gap-4 border border-black p-3 text-xs">
+                        <div className="grid grid-cols-2 gap-3 border border-black p-2.5 text-[11px]">
                             <div>
-                                <p><span className="font-bold">Voucher / Movement ID:</span> {printRecord.movement_id}</p>
-                                <p><span className="font-bold">Transaction Date:</span> {new Date(printRecord.created_at).toLocaleString()}</p>
-                                <p><span className="font-bold">Reference Doc:</span> {printRecord.invoice_no}</p>
-                                <p><span className="font-bold">Movement Type:</span> {printRecord.movement_type.replace(/_/g, ' ')}</p>
+                                <p><span className="font-bold">Voucher ID:</span> {printRecord.movement_id}</p>
+                                <p><span className="font-bold">Date:</span> {new Date(printRecord.created_at).toLocaleString()}</p>
+                                <p><span className="font-bold">Doc Ref:</span> {printRecord.invoice_no}</p>
+                                <p><span className="font-bold">Type:</span> {printRecord.movement_type.replace(/_/g, ' ')}</p>
                             </div>
                             <div>
-                                <p><span className="font-bold">Medication Name:</span> {printRecord.product_name}</p>
+                                <p><span className="font-bold">Medication:</span> {printRecord.product_name}</p>
                                 <p><span className="font-bold">Item Code:</span> {printRecord.product_code}</p>
-                                <p><span className="font-bold">Batch / Lot #:</span> {printRecord.batch_number}</p>
+                                <p><span className="font-bold">Batch / Lot:</span> {printRecord.batch_number}</p>
                                 <p><span className="font-bold">Expiry Date:</span> {printRecord.expiry_date || 'N/A'}</p>
                             </div>
                         </div>
 
-                        {/* Stock Transaction Table */}
-                        <table className="w-full border-collapse border border-black text-xs text-left">
+                        <table className="w-full border-collapse border border-black text-[11px] text-left">
                             <thead>
-                                <tr className="bg-gray-200">
-                                    <th className="border border-black p-2">Storage Bin</th>
-                                    <th className="border border-black p-2 text-right">Inflow Qty</th>
-                                    <th className="border border-black p-2 text-right">Outflow Qty</th>
-                                    <th className="border border-black p-2 text-right">Unit Cost</th>
-                                    <th className="border border-black p-2 text-right">Valuation Impact</th>
+                                <tr className="bg-gray-100">
+                                    <th className="border border-black p-1.5">Storage Bin</th>
+                                    <th className="border border-black p-1.5 text-right">Inflow</th>
+                                    <th className="border border-black p-1.5 text-right">Outflow</th>
+                                    <th className="border border-black p-1.5 text-right">Unit Cost</th>
+                                    <th className="border border-black p-1.5 text-right">Valuation</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td className="border border-black p-2 font-bold">{printRecord.storage_type}</td>
-                                    <td className="border border-black p-2 text-right font-mono font-bold">
+                                    <td className="border border-black p-1.5 font-bold">{printRecord.storage_type}</td>
+                                    <td className="border border-black p-1.5 text-right font-mono font-bold">
                                         {printRecord.qty_change > 0 ? `+${printRecord.qty_change} ${printRecord.unit}` : '-'}
                                     </td>
-                                    <td className="border border-black p-2 text-right font-mono font-bold">
+                                    <td className="border border-black p-1.5 text-right font-mono font-bold">
                                         {printRecord.qty_change < 0 ? `${printRecord.qty_change} ${printRecord.unit}` : '-'}
                                     </td>
-                                    <td className="border border-black p-2 text-right font-mono">
+                                    <td className="border border-black p-1.5 text-right font-mono">
                                         KSh {printRecord.unit_cost.toLocaleString()}
                                     </td>
-                                    <td className="border border-black p-2 text-right font-mono font-bold">
+                                    <td className="border border-black p-1.5 text-right font-mono font-bold">
                                         KSh {printRecord.total_cost_value.toLocaleString()}
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
 
-                        {/* Rationale */}
-                        <div className="border border-black p-3 text-xs">
-                            <span className="font-bold">Audit Rationale / Notes:</span>
-                            <p className="mt-1">{printRecord.notes || 'Verified according to standard pharmaceutical inventory procedures.'}</p>
+                        <div className="border border-black p-2 text-[10px]">
+                            <span className="font-bold">Audit Rationale / Remarks:</span>
+                            <p className="mt-0.5">{printRecord.notes || 'Verified according to standard pharmaceutical procedures.'}</p>
                         </div>
 
-                        {/* Sign-offs */}
-                        <div className="grid grid-cols-2 gap-8 pt-8 text-xs">
-                            <div className="border-t border-black pt-2 text-center">
+                        <div className="grid grid-cols-2 gap-6 pt-6 text-[10px]">
+                            <div className="border-t border-black pt-1 text-center">
                                 <p className="font-bold">Prepared / Logged By</p>
-                                <p className="mt-4">{printRecord.operator_name}</p>
-                                <p className="text-[10px] text-gray-600">Storekeeper / Assistant Pharmacist</p>
+                                <p className="mt-3">{printRecord.operator_name}</p>
+                                <p className="text-[9px] text-gray-500">Storekeeper</p>
                             </div>
-                            <div className="border-t border-black pt-2 text-center">
-                                <p className="font-bold">Verified &amp; Authorized By</p>
-                                <p className="mt-4">Dr. Jimhawkins Korir</p>
-                                <p className="text-[10px] text-gray-600">Superintendent Pharmacist in Charge</p>
+                            <div className="border-t border-black pt-1 text-center">
+                                <p className="font-bold">Authorized By</p>
+                                <p className="mt-3">Dr. Jimhawkins Korir</p>
+                                <p className="text-[9px] text-gray-500">Superintendent Pharmacist</p>
                             </div>
                         </div>
                     </div>
