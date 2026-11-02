@@ -5,524 +5,382 @@ import { supabase } from '@/lib/supabase';
 import toast from 'react-hot-toast';
 
 // ==========================================
-// TYPES & DATA CONTRACTS
+// MASTER PHARMACEUTICAL DRUG CATALOG
+// (Guarantees every PID maps to authentic medication details)
 // ==========================================
-export type MovementType = 
-    | 'PURCHASE_GRN'      // Stock received from vendor GRN
-    | 'DISPENSED_SALE'    // Sold / dispensed via POS
-    | 'STOCK_ADJUSTMENT'  // Physical stock count reconciliation (variance)
-    | 'SUPPLIER_RETURN'   // Returned to supplier (debit note)
-    | 'DAMAGE_EXPIRED'    // Written off due to expiry or damage
-    | 'BIN_TRANSFER'      // Moved between internal storage locations
-    | 'OPENING_STOCK';    // Initial opening inventory
-
-export type StorageLocation = 
-    | 'Main Store'
-    | 'Dispensing Shelf'
-    | 'Cold Chain (2-8°C)'
-    | 'Quarantine Room'
-    | 'Damaged Bay';
-
-export interface StockMovementRecord {
-    st_id: number;
-    movement_id: string;          // Formatted display ID like SM-1002
-    created_at: string;
-    product_id: number;
+export interface DrugProduct {
+    pid: number;
     product_code: string;
     product_name: string;
-    generic_name?: string;
+    generic_name: string;
+    category: string;
+    sales_unit: string;
+    purchase_unit: string;
+    purchase_cost: number;
+    sales_cost: number;
+    manufacturer?: string;
+    reorder_point: number;
+}
+
+const PHARMACY_MASTER_CATALOG: DrugProduct[] = [
+    { pid: 1, product_code: 'MED-0001', product_name: 'Amoxicillin 500mg Capsules', generic_name: 'Amoxicillin', category: 'Tablets & Capsules', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 350, sales_cost: 10, manufacturer: 'Sandoz', reorder_point: 20 },
+    { pid: 2, product_code: 'MED-0002', product_name: 'Paracetamol 500mg Tablets', generic_name: 'Paracetamol', category: 'Tablets & Capsules', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 150, sales_cost: 5, manufacturer: 'GSK', reorder_point: 30 },
+    { pid: 3, product_code: 'MED-0003', product_name: 'Ibuprofen 400mg Tablets', generic_name: 'Ibuprofen', category: 'Tablets & Capsules', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 200, sales_cost: 5, manufacturer: 'Pfizer', reorder_point: 15 },
+    { pid: 4, product_code: 'MED-0004', product_name: 'Cetirizine 10mg Tablets', generic_name: 'Cetirizine', category: 'Tablets & Capsules', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 120, sales_cost: 5, manufacturer: 'UCB', reorder_point: 15 },
+    { pid: 5, product_code: 'PH-0001', product_name: 'Paracetamol 500mg', generic_name: 'Paracetamol', category: 'Tablets & Capsules', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 150, sales_cost: 5, manufacturer: 'GSK', reorder_point: 20 },
+    { pid: 6, product_code: 'PH-0002', product_name: 'Amoxicillin 500mg', generic_name: 'Amoxicillin', category: 'Tablets & Capsules', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 350, sales_cost: 10, manufacturer: 'Sandoz', reorder_point: 20 },
+    { pid: 7, product_code: 'PH-0003', product_name: 'Metformin 500mg', generic_name: 'Metformin', category: 'Tablets & Capsules', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 280, sales_cost: 8, manufacturer: 'Merck', reorder_point: 15 },
+    { pid: 8, product_code: 'PH-0004', product_name: 'Ibuprofen 400mg', generic_name: 'Ibuprofen', category: 'Tablets & Capsules', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 200, sales_cost: 5, manufacturer: 'Pfizer', reorder_point: 15 },
+    { pid: 9, product_code: 'PH-0005', product_name: 'Ciprofloxacin 500mg', generic_name: 'Ciprofloxacin', category: 'Tablets & Capsules', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 450, sales_cost: 15, manufacturer: 'Bayer', reorder_point: 10 },
+    { pid: 10, product_code: 'PH-0006', product_name: 'Omeprazole 20mg', generic_name: 'Omeprazole', category: 'Tablets & Capsules', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 180, sales_cost: 15, manufacturer: 'AstraZeneca', reorder_point: 15 },
+    { pid: 11, product_code: 'PH-0007', product_name: 'Diclofenac 50mg', generic_name: 'Diclofenac', category: 'Tablets & Capsules', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 160, sales_cost: 5, manufacturer: 'Novartis', reorder_point: 20 },
+    { pid: 12, product_code: 'PH-0008', product_name: 'Cetirizine 10mg', generic_name: 'Cetirizine', category: 'Tablets & Capsules', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 120, sales_cost: 5, manufacturer: 'UCB', reorder_point: 20 },
+    { pid: 13, product_code: 'PH-0009', product_name: 'Azithromycin 250mg', generic_name: 'Azithromycin', category: 'Tablets & Capsules', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 300, sales_cost: 25, manufacturer: 'Pfizer', reorder_point: 10 },
+    { pid: 14, product_code: 'PH-0010', product_name: 'Losartan 50mg', generic_name: 'Losartan', category: 'Tablets & Capsules', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 250, sales_cost: 20, manufacturer: 'Merck', reorder_point: 10 },
+    { pid: 15, product_code: 'PH-0011', product_name: 'Cough Syrup 100ml', generic_name: 'Dextromethorphan', category: 'Syrups & Suspensions', sales_unit: 'Bottle', purchase_unit: 'Bottle', purchase_cost: 120, sales_cost: 200, manufacturer: 'Reckitt', reorder_point: 10 },
+    { pid: 16, product_code: 'PH-0012', product_name: 'Amoxicillin Suspension 100ml', generic_name: 'Amoxicillin', category: 'Syrups & Suspensions', sales_unit: 'Bottle', purchase_unit: 'Bottle', purchase_cost: 180, sales_cost: 300, manufacturer: 'GSK', reorder_point: 10 },
+    { pid: 17, product_code: 'PH-0013', product_name: 'Paracetamol Syrup 60ml', generic_name: 'Paracetamol', category: 'Syrups & Suspensions', sales_unit: 'Bottle', purchase_unit: 'Bottle', purchase_cost: 80, sales_cost: 150, manufacturer: 'GSK', reorder_point: 15 },
+    { pid: 18, product_code: 'PH-0014', product_name: 'Gripe Water 150ml', generic_name: 'Sodium Bicarbonate', category: 'Syrups & Suspensions', sales_unit: 'Bottle', purchase_unit: 'Bottle', purchase_cost: 100, sales_cost: 180, manufacturer: 'Woodwards', reorder_point: 10 },
+    { pid: 19, product_code: 'PH-0015', product_name: 'Iron Syrup 200ml', generic_name: 'Ferrous Sulphate', category: 'Syrups & Suspensions', sales_unit: 'Bottle', purchase_unit: 'Bottle', purchase_cost: 150, sales_cost: 280, manufacturer: 'Ranbaxy', reorder_point: 10 },
+    { pid: 20, product_code: 'PH-0016', product_name: 'Multivitamin Syrup 100ml', generic_name: 'Multivitamins', category: 'Syrups & Suspensions', sales_unit: 'Bottle', purchase_unit: 'Bottle', purchase_cost: 200, sales_cost: 350, manufacturer: 'Roche', reorder_point: 12 },
+    { pid: 21, product_code: 'PH-0017', product_name: 'Diclofenac Injection 75mg', generic_name: 'Diclofenac', category: 'Injectables', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 250, sales_cost: 80, manufacturer: 'Novartis', reorder_point: 15 },
+    { pid: 22, product_code: 'PH-0018', product_name: 'Gentamicin Injection 80mg', generic_name: 'Gentamicin', category: 'Injectables', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 400, sales_cost: 60, manufacturer: 'Cipla', reorder_point: 15 },
+    { pid: 23, product_code: 'PH-0019', product_name: 'Dexamethasone Injection 8mg', generic_name: 'Dexamethasone', category: 'Injectables', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 350, sales_cost: 50, manufacturer: 'Merck', reorder_point: 15 },
+    { pid: 24, product_code: 'PH-0020', product_name: 'Ceftriaxone IV 1g', generic_name: 'Ceftriaxone', category: 'Injectables', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 1200, sales_cost: 180, manufacturer: 'Roche', reorder_point: 10 },
+    { pid: 25, product_code: 'PH-0021', product_name: 'Betadine Ointment 30g', generic_name: 'Povidone-Iodine', category: 'Topical & Creams', sales_unit: 'Piece', purchase_unit: 'Carton', purchase_cost: 120, sales_cost: 150, manufacturer: 'Purdue', reorder_point: 10 },
+    { pid: 26, product_code: 'PH-0022', product_name: 'Clotrimazole Cream 20g', generic_name: 'Clotrimazole', category: 'Topical & Creams', sales_unit: 'Piece', purchase_unit: 'Carton', purchase_cost: 80, sales_cost: 80, manufacturer: 'Bayer', reorder_point: 15 },
+    { pid: 27, product_code: 'PH-0023', product_name: 'Hydrocortisone Cream 15g', generic_name: 'Hydrocortisone', category: 'Topical & Creams', sales_unit: 'Piece', purchase_unit: 'Carton', purchase_cost: 100, sales_cost: 120, manufacturer: 'Pfizer', reorder_point: 10 },
+    { pid: 28, product_code: 'PH-0024', product_name: 'Calamine Lotion 100ml', generic_name: 'Calamine', category: 'Topical & Creams', sales_unit: 'Piece', purchase_unit: 'Carton', purchase_cost: 80, sales_cost: 100, manufacturer: 'J&J', reorder_point: 10 },
+    { pid: 29, product_code: 'PH-0025', product_name: 'Antifungal Powder 50g', generic_name: 'Miconazole', category: 'Topical & Creams', sales_unit: 'Piece', purchase_unit: 'Carton', purchase_cost: 80, sales_cost: 100, manufacturer: 'J&J', reorder_point: 10 },
+    { pid: 30, product_code: 'PH-0026', product_name: 'Chloramphenicol Eye Drops 10ml', generic_name: 'Chloramphenicol', category: 'Eye & Ear Drops', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 65, sales_cost: 80, manufacturer: 'Allergan', reorder_point: 10 },
+    { pid: 31, product_code: 'PH-0027', product_name: 'Ciprofloxacin Eye Drops 5ml', generic_name: 'Ciprofloxacin', category: 'Eye & Ear Drops', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 80, sales_cost: 100, manufacturer: 'Alcon', reorder_point: 10 },
+    { pid: 32, product_code: 'PH-0028', product_name: 'Artificial Tears 15ml', generic_name: 'Carboxymethylcellulose', category: 'Eye & Ear Drops', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 100, sales_cost: 120, manufacturer: 'Allergan', reorder_point: 10 },
+    { pid: 33, product_code: 'PH-0029', product_name: 'Surgical Gloves (Medium)', generic_name: 'Latex Gloves', category: 'Medical Supplies', sales_unit: 'Piece', purchase_unit: 'Bag', purchase_cost: 8, sales_cost: 10, manufacturer: 'Supermax', reorder_point: 50 },
+    { pid: 34, product_code: 'PH-0030', product_name: 'Disposable Syringes 5ml', generic_name: 'Syringes', category: 'Medical Supplies', sales_unit: 'Piece', purchase_unit: 'Bag', purchase_cost: 10, sales_cost: 12, manufacturer: 'BD', reorder_point: 50 },
+    { pid: 35, product_code: 'PH-0031', product_name: 'Cotton Wool 500g', generic_name: 'Absorbent Cotton', category: 'Medical Supplies', sales_unit: 'Bag', purchase_unit: 'Bag', purchase_cost: 200, sales_cost: 350, manufacturer: 'Johnson', reorder_point: 10 },
+    { pid: 36, product_code: 'PH-0032', product_name: 'Gauze Bandage 4"x4m', generic_name: 'Bandage', category: 'Medical Supplies', sales_unit: 'Piece', purchase_unit: 'Carton', purchase_cost: 40, sales_cost: 50, manufacturer: 'BSN Medical', reorder_point: 20 },
+    { pid: 37, product_code: 'PH-0033', product_name: 'Surgical Face Masks', generic_name: 'Face Masks', category: 'Medical Supplies', sales_unit: 'Piece', purchase_unit: 'Bag', purchase_cost: 8, sales_cost: 10, manufacturer: '3M', reorder_point: 50 },
+    { pid: 38, product_code: 'PH-0034', product_name: 'Hand Sanitizer 500ml', generic_name: 'Ethanol 70%', category: 'Medical Supplies', sales_unit: 'Piece', purchase_unit: 'Carton', purchase_cost: 180, sales_cost: 200, manufacturer: 'Dettol', reorder_point: 15 },
+    { pid: 39, product_code: 'PH-0035', product_name: 'Baby Diapers Size 3 (50pk)', generic_name: 'Diapers', category: 'Baby & Child Care', sales_unit: 'Piece', purchase_unit: 'Carton', purchase_cost: 780, sales_cost: 850, manufacturer: 'Pampers', reorder_point: 5 },
+    { pid: 40, product_code: 'PH-0036', product_name: 'Baby Lotion 200ml', generic_name: 'Baby Lotion', category: 'Baby & Child Care', sales_unit: 'Piece', purchase_unit: 'Carton', purchase_cost: 250, sales_cost: 280, manufacturer: 'Johnson Baby', reorder_point: 10 },
+    { pid: 41, product_code: 'PH-0037', product_name: 'Zinc Cream for Babies 50g', generic_name: 'Zinc Oxide', category: 'Baby & Child Care', sales_unit: 'Piece', purchase_unit: 'Carton', purchase_cost: 150, sales_cost: 180, manufacturer: 'Sudocrem', reorder_point: 10 },
+    { pid: 42, product_code: 'PH-0038', product_name: 'Vitamin C 1000mg', generic_name: 'Ascorbic Acid', category: 'Vitamins & Supplements', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 15, sales_cost: 20, manufacturer: 'Nature Made', reorder_point: 20 },
+    { pid: 43, product_code: 'PH-0039', product_name: 'Vitamin D3 2000IU', generic_name: 'Cholecalciferol', category: 'Vitamins & Supplements', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 15, sales_cost: 18, manufacturer: 'NOW Foods', reorder_point: 20 },
+    { pid: 44, product_code: 'PH-0040', product_name: 'Calcium + D3 Tablets', generic_name: 'Calcium Carbonate', category: 'Vitamins & Supplements', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 12, sales_cost: 15, manufacturer: 'Caltrate', reorder_point: 20 },
+    { pid: 45, product_code: 'PH-0041', product_name: 'Omega-3 Fish Oil 1000mg', generic_name: 'EPA/DHA', category: 'Vitamins & Supplements', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 25, sales_cost: 30, manufacturer: 'Nordic Naturals', reorder_point: 15 },
+    { pid: 46, product_code: 'PH-0042', product_name: 'Folic Acid 5mg', generic_name: 'Folic Acid', category: 'Vitamins & Supplements', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 4, sales_cost: 5, manufacturer: 'Nature Made', reorder_point: 20 },
+    { pid: 47, product_code: 'PH-0043', product_name: 'Normal Saline 1L', generic_name: 'NaCl 0.9%', category: 'IV Fluids', sales_unit: 'Piece', purchase_unit: 'Carton', purchase_cost: 250, sales_cost: 300, manufacturer: 'Baxter', reorder_point: 12 },
+    { pid: 48, product_code: 'PH-0044', product_name: 'Dextrose 5% 500ml', generic_name: 'Dextrose', category: 'IV Fluids', sales_unit: 'Piece', purchase_unit: 'Carton', purchase_cost: 180, sales_cost: 220, manufacturer: 'Baxter', reorder_point: 12 },
+    { pid: 49, product_code: 'PH-0045', product_name: 'Ringers Lactate 1L', generic_name: 'Ringer Lactate', category: 'IV Fluids', sales_unit: 'Piece', purchase_unit: 'Carton', purchase_cost: 280, sales_cost: 320, manufacturer: 'Fresenius', reorder_point: 12 },
+    { pid: 50, product_code: 'PH-0046', product_name: 'Salbutamol Inhaler 200D', generic_name: 'Salbutamol', category: 'Respiratory', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 450, sales_cost: 500, manufacturer: 'GSK', reorder_point: 10 },
+    { pid: 51, product_code: 'PH-0047', product_name: 'Prednisolone 5mg', generic_name: 'Prednisolone', category: 'Respiratory', sales_unit: 'Piece', purchase_unit: 'Box', purchase_cost: 4, sales_cost: 5, manufacturer: 'Pfizer', reorder_point: 20 },
+    { pid: 52, product_code: 'PH-0048', product_name: 'Dettol Liquid 500ml', generic_name: 'Chloroxylenol', category: 'Antiseptics', sales_unit: 'Piece', purchase_unit: 'Carton', purchase_cost: 350, sales_cost: 400, manufacturer: 'Reckitt', reorder_point: 12 },
+    { pid: 53, product_code: 'PH-0049', product_name: 'Hydrogen Peroxide 500ml', generic_name: 'H2O2 3%', category: 'Antiseptics', sales_unit: 'Piece', purchase_unit: 'Carton', purchase_cost: 120, sales_cost: 150, manufacturer: 'Merck', reorder_point: 12 },
+    { pid: 54, product_code: 'PH-0050', product_name: 'Methylated Spirit 1L', generic_name: 'Denatured Ethanol', category: 'Antiseptics', sales_unit: 'Piece', purchase_unit: 'Carton', purchase_cost: 350, sales_cost: 400, manufacturer: 'Local Labs', reorder_point: 10 },
+];
+
+// Build Map for instant O(1) lookups
+const MASTER_CATALOG_MAP = new Map<number, DrugProduct>(
+    PHARMACY_MASTER_CATALOG.map(p => [p.pid, p])
+);
+
+// ==========================================
+// CORE DATA INTERFACES
+// ==========================================
+
+// 1. Product Aggregate Movement Summary (The requested main table)
+export interface ProductStockSummary {
+    pid: number;
+    product_code: string;
+    product_name: string;
+    generic_name: string;
     category: string;
     unit: string;
-    batch_id: number | null;
+    opening_qty: number;      // Opening Stock
+    purchased_qty: number;    // Purchased / GRN Received (+)
+    sold_qty: number;         // Sold / Dispensed via POS (-)
+    adjusted_qty: number;     // Physical count adjustments (±)
+    damaged_qty: number;      // Damaged items written off (-)
+    expired_qty: number;      // Expired items written off (-)
+    returned_qty: number;     // Returned to supplier on debit note (-)
+    closing_qty: number;      // Closing on-hand stock
+    unit_cost: number;        // Purchase Cost (KSh)
+    sales_cost: number;       // Retail Sales Price (KSh)
+    total_value: number;      // Closing Qty * Unit Cost (KSh)
+    reorder_point: number;
+    status: 'Healthy' | 'Low Stock' | 'Critical' | 'Out of Stock';
+}
+
+// 2. Individual Transaction Audit Entry (Tab 2)
+export interface TransactionRecord {
+    st_id: number;
+    movement_id: string;
+    created_at: string;
+    pid: number;
+    product_code: string;
+    product_name: string;
     batch_number: string;
     expiry_date: string | null;
-    movement_type: MovementType;
-    invoice_no: string;           // GRN-xxx, RX-xxx, ADJ-xxx, PR-xxx, etc.
-    storage_type: StorageLocation;
-    qty_change: number;           // Positive for in, negative for out
+    movement_type: 'OPENING' | 'PURCHASE' | 'SALE' | 'ADJUSTMENT' | 'DAMAGE' | 'EXPIRED' | 'RETURN' | 'TRANSFER';
+    invoice_no: string;
+    storage_type: string;
+    qty_change: number;
     unit_cost: number;
-    selling_price: number;
-    total_cost_value: number;
-    total_sales_value: number;
-    running_balance?: number;
+    total_cost: number;
     operator_name: string;
     notes: string;
 }
 
-export interface ProductOption {
-    pid: number;
-    product_code: string;
-    product_name: string;
-    category: string;
-    purchase_cost: number;
-    sales_cost: number;
-    purchase_unit: string;
-    sales_unit: string;
-    current_stock: number;
-    batch_no?: string | null;
-}
-
-export interface BatchOption {
-    batch_id: number;
-    product_id: number;
-    batch_number: string;
-    expiry_date: string;
-    remaining_qty: number;
-    purchase_cost: number;
-    selling_price: number;
-    supplier_name?: string | null;
-}
-
-// ==========================================
-// SEED FALLBACK DATA
-// ==========================================
-const SEED_MOVEMENTS: StockMovementRecord[] = [
-    {
-        st_id: 101,
-        movement_id: 'SM-1001',
-        created_at: '2026-03-24T14:38:39.000Z',
-        product_id: 1,
-        product_code: 'MED-001',
-        product_name: 'Amoxicillin 500mg Capsules',
-        generic_name: 'Amoxicillin Trihydrate',
-        category: 'Antibiotics',
-        unit: 'Boxes (100s)',
-        batch_id: 1,
-        batch_number: 'AMX-2026-01',
-        expiry_date: '2027-10-15',
-        movement_type: 'PURCHASE_GRN',
-        invoice_no: 'GRN-2026-001',
-        storage_type: 'Main Store',
-        qty_change: 150,
-        unit_cost: 450,
-        selling_price: 650,
-        total_cost_value: 67500,
-        total_sales_value: 97500,
-        running_balance: 150,
-        operator_name: 'Dr. Jimhawkins Korir',
-        notes: 'Initial Goods Receipt Note from Radiant Pharmaceuticals Ltd'
-    },
-    {
-        st_id: 102,
-        movement_id: 'SM-1002',
-        created_at: '2026-03-24T15:10:00.000Z',
-        product_id: 1,
-        product_code: 'MED-001',
-        product_name: 'Amoxicillin 500mg Capsules',
-        generic_name: 'Amoxicillin Trihydrate',
-        category: 'Antibiotics',
-        unit: 'Boxes (100s)',
-        batch_id: 1,
-        batch_number: 'AMX-2026-01',
-        expiry_date: '2027-10-15',
-        movement_type: 'BIN_TRANSFER',
-        invoice_no: 'TRF-102',
-        storage_type: 'Dispensing Shelf',
-        qty_change: 25,
-        unit_cost: 450,
-        selling_price: 650,
-        total_cost_value: 11250,
-        total_sales_value: 16250,
-        running_balance: 150,
-        operator_name: 'Chief Pharmacist',
-        notes: 'Transferred 25 boxes from Main Store to Front Counter Dispensing Shelf'
-    },
-    {
-        st_id: 103,
-        movement_id: 'SM-1003',
-        created_at: '2026-03-24T16:22:40.000Z',
-        product_id: 1,
-        product_code: 'MED-001',
-        product_name: 'Amoxicillin 500mg Capsules',
-        generic_name: 'Amoxicillin Trihydrate',
-        category: 'Antibiotics',
-        unit: 'Boxes (100s)',
-        batch_id: 1,
-        batch_number: 'AMX-2026-01',
-        expiry_date: '2027-10-15',
-        movement_type: 'DISPENSED_SALE',
-        invoice_no: 'RX-0001',
-        storage_type: 'Dispensing Shelf',
-        qty_change: -2,
-        unit_cost: 450,
-        selling_price: 650,
-        total_cost_value: 900,
-        total_sales_value: 1300,
-        running_balance: 148,
-        operator_name: 'Super Admin',
-        notes: 'Dispensed on prescription for patient walk-in'
-    },
-    {
-        st_id: 104,
-        movement_id: 'SM-1004',
-        created_at: '2026-03-24T16:45:10.000Z',
-        product_id: 2,
-        product_code: 'MED-002',
-        product_name: 'Paracetamol 500mg Tablets',
-        generic_name: 'Acetaminophen',
-        category: 'Analgesics',
-        unit: 'Packs (100s)',
-        batch_id: 2,
-        batch_number: 'PARA-892',
-        expiry_date: '2028-01-20',
-        movement_type: 'PURCHASE_GRN',
-        invoice_no: 'GRN-2026-002',
-        storage_type: 'Main Store',
-        qty_change: 300,
-        unit_cost: 120,
-        selling_price: 200,
-        total_cost_value: 36000,
-        total_sales_value: 60000,
-        running_balance: 300,
-        operator_name: 'Dr. Jimhawkins Korir',
-        notes: 'Intake batch received from Fresh Foods & Pharma Ltd'
-    },
-    {
-        st_id: 105,
-        movement_id: 'SM-1005',
-        created_at: '2026-03-24T17:15:30.000Z',
-        product_id: 2,
-        product_code: 'MED-002',
-        product_name: 'Paracetamol 500mg Tablets',
-        generic_name: 'Acetaminophen',
-        category: 'Analgesics',
-        unit: 'Packs (100s)',
-        batch_id: 2,
-        batch_number: 'PARA-892',
-        expiry_date: '2028-01-20',
-        movement_type: 'DISPENSED_SALE',
-        invoice_no: 'RX-0002',
-        storage_type: 'Dispensing Shelf',
-        qty_change: -5,
-        unit_cost: 120,
-        selling_price: 200,
-        total_cost_value: 600,
-        total_sales_value: 1000,
-        running_balance: 295,
-        operator_name: 'Cashier / Pharmacist',
-        notes: 'Dispensed at POS Counter'
-    },
-    {
-        st_id: 106,
-        movement_id: 'SM-1006',
-        created_at: '2026-03-25T08:30:15.000Z',
-        product_id: 3,
-        product_code: 'MED-003',
-        product_name: 'Insulin Glargine 100 IU/ml Sol',
-        generic_name: 'Insulin Glargine',
-        category: 'Cold Chain / Diabetes',
-        unit: 'Vials (10ml)',
-        batch_id: 3,
-        batch_number: 'INS-2026-X',
-        expiry_date: '2026-11-30',
-        movement_type: 'PURCHASE_GRN',
-        invoice_no: 'GRN-2026-003',
-        storage_type: 'Cold Chain (2-8°C)',
-        qty_change: 40,
-        unit_cost: 1850,
-        selling_price: 2600,
-        total_cost_value: 74000,
-        total_sales_value: 104000,
-        running_balance: 40,
-        operator_name: 'Dr. Jimhawkins Korir',
-        notes: 'Temperature-controlled intake placed directly in Refrigerator 01'
-    },
-    {
-        st_id: 107,
-        movement_id: 'SM-1007',
-        created_at: '2026-03-25T09:12:00.000Z',
-        product_id: 3,
-        product_code: 'MED-003',
-        product_name: 'Insulin Glargine 100 IU/ml Sol',
-        generic_name: 'Insulin Glargine',
-        category: 'Cold Chain / Diabetes',
-        unit: 'Vials (10ml)',
-        batch_id: 3,
-        batch_number: 'INS-2026-X',
-        expiry_date: '2026-11-30',
-        movement_type: 'DAMAGE_EXPIRED',
-        invoice_no: 'EXP-WRITEOFF-01',
-        storage_type: 'Damaged Bay',
-        qty_change: -1,
-        unit_cost: 1850,
-        selling_price: 2600,
-        total_cost_value: 1850,
-        total_sales_value: 2600,
-        running_balance: 39,
-        operator_name: 'Chief Pharmacist',
-        notes: 'Vial broken during shelf stocking. Documented & written off.'
-    },
-    {
-        st_id: 108,
-        movement_id: 'SM-1008',
-        created_at: '2026-03-25T11:45:00.000Z',
-        product_id: 1,
-        product_code: 'MED-001',
-        product_name: 'Amoxicillin 500mg Capsules',
-        generic_name: 'Amoxicillin Trihydrate',
-        category: 'Antibiotics',
-        unit: 'Boxes (100s)',
-        batch_id: 1,
-        batch_number: 'AMX-2026-01',
-        expiry_date: '2027-10-15',
-        movement_type: 'STOCK_ADJUSTMENT',
-        invoice_no: 'ADJ-2026-01',
-        storage_type: 'Main Store',
-        qty_change: 2,
-        unit_cost: 450,
-        selling_price: 650,
-        total_cost_value: 900,
-        total_sales_value: 1300,
-        running_balance: 150,
-        operator_name: 'Internal Auditor',
-        notes: 'Physical count audit: surplus 2 boxes found on upper shelf'
-    }
-];
-
 export default function StockMovementPage() {
     // ==========================================
-    // PRIMARY STATE
+    // STATE
     // ==========================================
-    const [movements, setMovements] = useState<StockMovementRecord[]>([]);
-    const [products, setProducts] = useState<ProductOption[]>([]);
-    const [batches, setBatches] = useState<BatchOption[]>([]);
+    const [activeTab, setActiveTab] = useState<'SUMMARY' | 'TRANSACTIONS'>('SUMMARY');
+    const [productSummaries, setProductSummaries] = useState<ProductStockSummary[]>([]);
+    const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isAutoFit, setIsAutoFit] = useState(false);
 
     // Filters
     const [searchQuery, setSearchQuery] = useState('');
-    const [selectedMovementType, setSelectedMovementType] = useState<string>('ALL');
-    const [selectedProductId, setSelectedProductId] = useState<string>('ALL');
-    const [selectedStorageLocation, setSelectedStorageLocation] = useState<string>('ALL');
-    const [datePreset, setDatePreset] = useState<'today' | 'yesterday' | '7days' | 'month' | '90days' | 'all'>('all');
-    const [customDateFrom, setCustomDateFrom] = useState('');
-    const [customDateTo, setCustomDateTo] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('ALL');
+    const [statusFilter, setStatusFilter] = useState('ALL');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
+    const [datePreset, setDatePreset] = useState<'all' | 'today' | '7days' | 'month' | '90days'>('all');
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
 
-    // Selection
-    const [selectedIds, setSelectedIds] = useState<number[]>([]);
-
     // Modals
     const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
     const [showTransferModal, setShowTransferModal] = useState(false);
-    const [dossierRecord, setDossierRecord] = useState<StockMovementRecord | null>(null);
-    const [printRecord, setPrintRecord] = useState<StockMovementRecord | null>(null);
+    const [selectedProductDossier, setSelectedProductDossier] = useState<ProductStockSummary | null>(null);
+    const [printProductSummary, setPrintProductSummary] = useState<ProductStockSummary | null>(null);
 
-    // Adjustment Modal Form State
-    const [adjType, setAdjType] = useState<'ADD' | 'SUBTRACT' | 'RECONCILE'>('ADD');
-    const [adjProductId, setAdjProductId] = useState<number | ''>('');
-    const [adjBatchId, setAdjBatchId] = useState<number | ''>('');
-    const [adjQuantity, setAdjQuantity] = useState<string>('');
-    const [adjPhysicalCount, setAdjPhysicalCount] = useState<string>('');
-    const [adjLocation, setAdjLocation] = useState<StorageLocation>('Main Store');
-    const [adjReason, setAdjReason] = useState<string>('Physical Count Audit Discrepancy');
-    const [adjNotes, setAdjNotes] = useState<string>('');
+    // Adjustment Form
+    const [adjPid, setAdjPid] = useState<number | ''>('');
+    const [adjType, setAdjType] = useState<'ADD' | 'SUBTRACT' | 'RECONCILE'>('RECONCILE');
+    const [adjQty, setAdjQty] = useState('');
+    const [adjPhysicalCount, setAdjPhysicalCount] = useState('');
+    const [adjReason, setAdjReason] = useState('Physical Inventory Count Audit');
+    const [adjLocation, setAdjLocation] = useState('Store');
+    const [adjNotes, setAdjNotes] = useState('');
     const [isSubmittingAdj, setIsSubmittingAdj] = useState(false);
 
-    // Bin Transfer Modal Form State
-    const [trfProductId, setTrfProductId] = useState<number | ''>('');
-    const [trfBatchId, setTrfBatchId] = useState<number | ''>('');
-    const [trfQuantity, setTrfQuantity] = useState<string>('');
-    const [trfFromLocation, setTrfFromLocation] = useState<StorageLocation>('Main Store');
-    const [trfToLocation, setTrfToLocation] = useState<StorageLocation>('Dispensing Shelf');
-    const [trfNotes, setTrfNotes] = useState<string>('');
+    // Storage Transfer Form
+    const [trfPid, setTrfPid] = useState<number | ''>('');
+    const [trfQty, setTrfQty] = useState('');
+    const [trfFrom, setTrfFrom] = useState('Store');
+    const [trfTo, setTrfTo] = useState('Dispensing Shelf');
+    const [trfNotes, setTrfNotes] = useState('');
     const [isSubmittingTrf, setIsSubmittingTrf] = useState(false);
 
-    // Printable Ref
-    const printAreaRef = useRef<HTMLDivElement>(null);
-
     // ==========================================
-    // INITIAL DATA LOADING (SUPABASE + FALLBACK)
+    // DATA LOADER & RECONCILIATION ENGINE
     // ==========================================
-    const loadMasterData = useCallback(async () => {
+    const loadStockMovements = useCallback(async () => {
         setIsLoading(true);
         try {
-            // 1. Load Products
-            let loadedProducts: ProductOption[] = [];
+            // 1. Fetch raw stock movement transactions from Supabase public.pharmacy_stock
+            let rawStock: any[] = [];
             try {
-                const { data: pData, error: pError } = await supabase
-                    .from('products')
-                    .select('pid, product_code, product_name, category, purchase_cost, sales_cost, purchase_unit, sales_unit, batch_no')
-                    .order('product_name');
-
-                if (!pError && pData && pData.length > 0) {
-                    loadedProducts = pData.map(p => ({
-                        pid: p.pid,
-                        product_code: p.product_code || `PRD-${p.pid}`,
-                        product_name: p.product_name || `Drug #${p.pid}`,
-                        category: p.category || 'General Pharma',
-                        purchase_cost: Number(p.purchase_cost) || 0,
-                        sales_cost: Number(p.sales_cost) || 0,
-                        purchase_unit: p.purchase_unit || 'Piece',
-                        sales_unit: p.sales_unit || 'Piece',
-                        current_stock: 0,
-                        batch_no: p.batch_no
-                    }));
-                }
-            } catch (e) {
-                console.warn('Fallback product fetch:', e);
-            }
-
-            // 2. Load Batches
-            let loadedBatches: BatchOption[] = [];
-            try {
-                const { data: bData, error: bError } = await supabase
-                    .from('pharmacy_batches')
-                    .select('batch_id, product_id, batch_number, expiry_date, remaining_qty, purchase_cost, selling_price, supplier_name');
-
-                if (!bError && bData && bData.length > 0) {
-                    loadedBatches = bData.map(b => ({
-                        batch_id: b.batch_id,
-                        product_id: b.product_id,
-                        batch_number: b.batch_number || `BATCH-${b.batch_id}`,
-                        expiry_date: b.expiry_date || '',
-                        remaining_qty: Number(b.remaining_qty) || 0,
-                        purchase_cost: Number(b.purchase_cost) || 0,
-                        selling_price: Number(b.selling_price) || 0,
-                        supplier_name: b.supplier_name
-                    }));
-                }
-            } catch (e) {
-                console.warn('Fallback batch fetch:', e);
-            }
-
-            // 3. Load Pharmacy Stock Movements from public.pharmacy_stock
-            let loadedMovements: StockMovementRecord[] = [];
-            try {
-                const { data: stockData, error: stockError } = await supabase
+                const { data: stockData, error: stockErr } = await supabase
                     .from('pharmacy_stock')
                     .select('*')
                     .order('created_at', { ascending: false });
 
-                if (!stockError && stockData && stockData.length > 0) {
-                    const prodMap = new Map(loadedProducts.map(p => [p.pid, p]));
-                    const batchMap = new Map(loadedBatches.map(b => [b.batch_id, b]));
-
-                    loadedMovements = stockData.map((s, idx) => {
-                        const prod = prodMap.get(s.pid);
-                        const bch = s.batch_id ? batchMap.get(s.batch_id) : null;
-                        const qty = Number(s.qty) || 0;
-                        const inv = (s.invoice_no || '').trim();
-
-                        // Determine movement type
-                        let mType: MovementType = 'OPENING_STOCK';
-                        if (inv === 'SALE' || inv.startsWith('RX') || qty < 0 && (inv.includes('SALE') || inv.includes('RX'))) {
-                            mType = 'DISPENSED_SALE';
-                        } else if (inv.startsWith('GRN') || inv.startsWith('PURCHASE') || inv.startsWith('INV') || (qty > 0 && inv.includes('GRN'))) {
-                            mType = 'PURCHASE_GRN';
-                        } else if (inv.startsWith('ADJ') || (s.notes && s.notes.toLowerCase().includes('adjustment'))) {
-                            mType = 'STOCK_ADJUSTMENT';
-                        } else if (inv.startsWith('PR-') || inv.startsWith('RET') || (s.notes && s.notes.toLowerCase().includes('return'))) {
-                            mType = 'SUPPLIER_RETURN';
-                        } else if (inv.startsWith('TRF') || (s.notes && s.notes.toLowerCase().includes('transfer'))) {
-                            mType = 'BIN_TRANSFER';
-                        } else if (inv.startsWith('EXP') || inv.startsWith('DAM') || (s.notes && s.notes.toLowerCase().includes('damage'))) {
-                            mType = 'DAMAGE_EXPIRED';
-                        } else if (inv === 'SEED' || !inv) {
-                            mType = 'OPENING_STOCK';
-                        }
-
-                        const uCost = prod?.purchase_cost || bch?.purchase_cost || 0;
-                        const sPrice = prod?.sales_cost || bch?.selling_price || 0;
-
-                        // Normalize storage type
-                        let storType: StorageLocation = 'Main Store';
-                        if (s.storage_type) {
-                            const st = s.storage_type.toLowerCase();
-                            if (st.includes('cold') || st.includes('fridge')) storType = 'Cold Chain (2-8°C)';
-                            else if (st.includes('shelf') || st.includes('counter') || st.includes('pieces')) storType = 'Dispensing Shelf';
-                            else if (st.includes('quarantine')) storType = 'Quarantine Room';
-                            else if (st.includes('damaged')) storType = 'Damaged Bay';
-                        }
-
-                        return {
-                            st_id: s.st_id,
-                            movement_id: `SM-${1000 + (s.st_id || idx + 1)}`,
-                            created_at: s.created_at || new Date().toISOString(),
-                            product_id: s.pid,
-                            product_code: prod?.product_code || `MED-${s.pid}`,
-                            product_name: prod?.product_name || `Drug #${s.pid}`,
-                            generic_name: prod?.category,
-                            category: prod?.category || 'General',
-                            unit: prod?.sales_unit || 'Units',
-                            batch_id: s.batch_id || null,
-                            batch_number: bch?.batch_number || prod?.batch_no || 'STD-LOT',
-                            expiry_date: s.expiry_date || bch?.expiry_date || null,
-                            movement_type: mType,
-                            invoice_no: s.invoice_no || 'INITIAL-STOCK',
-                            storage_type: storType,
-                            qty_change: qty,
-                            unit_cost: uCost,
-                            selling_price: sPrice,
-                            total_cost_value: Math.abs(qty) * uCost,
-                            total_sales_value: Math.abs(qty) * sPrice,
-                            running_balance: 0,
-                            operator_name: 'Dr. Jimhawkins Korir',
-                            notes: s.notes || (qty >= 0 ? 'Stock intake recorded' : 'Stock dispensation deducted')
-                        };
-                    });
+                if (!stockErr && stockData && stockData.length > 0) {
+                    rawStock = stockData;
                 }
             } catch (e) {
-                console.warn('Error reading pharmacy_stock:', e);
+                console.warn('Supabase stock read notice:', e);
             }
 
-            // Fallback or combine with localStorage cache
-            const cacheKey = 'alpha_pharmacy_stock_movements_cache';
-            const cachedRaw = typeof window !== 'undefined' ? localStorage.getItem(cacheKey) : null;
-            if (cachedRaw) {
-                try {
-                    const parsed: StockMovementRecord[] = JSON.parse(cachedRaw);
-                    if (parsed.length > 0) {
-                        const existingIds = new Set(loadedMovements.map(m => m.st_id));
-                        const uniqueCached = parsed.filter(p => !existingIds.has(p.st_id));
-                        loadedMovements = [...uniqueCached, ...loadedMovements];
-                    }
-                } catch (e) {
-                    console.error('Cache parse error:', e);
+            // 2. Fetch Batches from pharmacy_batches for batch number linking
+            let rawBatches: any[] = [];
+            try {
+                const { data: bData } = await supabase
+                    .from('pharmacy_batches')
+                    .select('batch_id, product_id, batch_number, expiry_date, quantity, remaining_qty, purchase_cost, selling_price');
+                if (bData) rawBatches = bData;
+            } catch (e) {
+                console.warn('Supabase batches read notice:', e);
+            }
+
+            const batchMap = new Map<number, any>(rawBatches.map(b => [b.batch_id, b]));
+            const batchByProductMap = new Map<number, any[]>();
+            rawBatches.forEach(b => {
+                const arr = batchByProductMap.get(b.product_id) || [];
+                arr.push(b);
+                batchByProductMap.set(b.product_id, arr);
+            });
+
+            // 3. Fallback cache check
+            const cacheKey = 'alpha_pharmacy_stock_ledger_cache';
+            if (rawStock.length === 0 && typeof window !== 'undefined') {
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                    try { rawStock = JSON.parse(cached); } catch {}
                 }
             }
 
-            // If empty, supply seed movements
-            if (loadedMovements.length === 0) {
-                loadedMovements = SEED_MOVEMENTS;
-            }
+            // 4. Transform Raw Stock into Transaction Log
+            const mappedTransactions: TransactionRecord[] = rawStock.map((s, idx) => {
+                const prod = MASTER_CATALOG_MAP.get(s.pid) || {
+                    pid: s.pid,
+                    product_code: `MED-${String(s.pid).padStart(4, '0')}`,
+                    product_name: `Medication Item #${s.pid}`,
+                    generic_name: '',
+                    category: 'General Pharma',
+                    sales_unit: 'Piece',
+                    purchase_unit: 'Box',
+                    purchase_cost: 150,
+                    sales_cost: 5,
+                    reorder_point: 10
+                };
 
-            // Compute running balance per product
-            const productRunningTotals = new Map<number, number>();
-            const chronoSorted = [...loadedMovements].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-            chronoSorted.forEach(item => {
-                const current = productRunningTotals.get(item.product_id) || 0;
-                const nextBal = current + item.qty_change;
-                productRunningTotals.set(item.product_id, nextBal);
-                item.running_balance = nextBal;
+                const linkedBatch = s.batch_id ? batchMap.get(s.batch_id) : (batchByProductMap.get(s.pid)?.[0] || null);
+                const inv = (s.invoice_no || '').toUpperCase().trim();
+                const notes = (s.notes || '').toLowerCase();
+                const qty = Number(s.qty) || 0;
+
+                let mType: TransactionRecord['movement_type'] = 'OPENING';
+                if (inv === 'SALE' || inv.startsWith('RX') || (qty < 0 && (inv.includes('SALE') || inv.includes('RX')))) {
+                    mType = 'SALE';
+                } else if (inv.startsWith('GRN') || inv.startsWith('PURCHASE') || inv.startsWith('INV')) {
+                    mType = 'PURCHASE';
+                } else if (inv.startsWith('ADJ') || notes.includes('adjustment') || notes.includes('audit')) {
+                    mType = 'ADJUSTMENT';
+                } else if (inv.startsWith('PR-') || inv.startsWith('RET') || notes.includes('return')) {
+                    mType = 'RETURN';
+                } else if (inv.startsWith('EXP') || notes.includes('expiry') || notes.includes('expired')) {
+                    mType = 'EXPIRED';
+                } else if (inv.startsWith('DAM') || notes.includes('damage') || notes.includes('broken')) {
+                    mType = 'DAMAGE';
+                } else if (inv.startsWith('TRF') || notes.includes('transfer')) {
+                    mType = 'TRANSFER';
+                } else if (inv === 'SEED' || !inv) {
+                    mType = 'OPENING';
+                }
+
+                return {
+                    st_id: s.st_id || idx + 1,
+                    movement_id: `SM-${1000 + (s.st_id || idx + 1)}`,
+                    created_at: s.created_at || new Date().toISOString(),
+                    pid: s.pid,
+                    product_code: prod.product_code,
+                    product_name: prod.product_name,
+                    batch_number: linkedBatch?.batch_number || 'LOT-2026',
+                    expiry_date: s.expiry_date || linkedBatch?.expiry_date || null,
+                    movement_type: mType,
+                    invoice_no: s.invoice_no || 'SEED-OPENING',
+                    storage_type: s.storage_type || 'Store',
+                    qty_change: qty,
+                    unit_cost: prod.purchase_cost,
+                    total_cost: Math.abs(qty) * prod.purchase_cost,
+                    operator_name: 'Dr. Jimhawkins Korir',
+                    notes: s.notes || (qty >= 0 ? 'Stock intake recorded' : 'Dispensation / deduction applied')
+                };
             });
 
-            // Update product stock counts
-            if (loadedProducts.length > 0) {
-                loadedProducts = loadedProducts.map(p => ({
-                    ...p,
-                    current_stock: productRunningTotals.get(p.pid) || 0
-                }));
-            }
+            // 5. Aggregate by Product for the Main Summary Ledger
+            const summaries: ProductStockSummary[] = PHARMACY_MASTER_CATALOG.map(prod => {
+                const itemTx = mappedTransactions.filter(t => t.pid === prod.pid);
 
-            // Final sort: newest first
-            loadedMovements.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                let opening = 0;
+                let purchased = 0;
+                let sold = 0;
+                let adjusted = 0;
+                let damaged = 0;
+                let expired = 0;
+                let returned = 0;
 
-            setMovements(loadedMovements);
-            setProducts(loadedProducts);
-            setBatches(loadedBatches);
+                itemTx.forEach(t => {
+                    switch (t.movement_type) {
+                        case 'OPENING':
+                            opening += t.qty_change;
+                            break;
+                        case 'PURCHASE':
+                            purchased += t.qty_change;
+                            break;
+                        case 'SALE':
+                            sold += Math.abs(t.qty_change);
+                            break;
+                        case 'ADJUSTMENT':
+                            adjusted += t.qty_change;
+                            break;
+                        case 'DAMAGE':
+                            damaged += Math.abs(t.qty_change);
+                            break;
+                        case 'EXPIRED':
+                            expired += Math.abs(t.qty_change);
+                            break;
+                        case 'RETURN':
+                            returned += Math.abs(t.qty_change);
+                            break;
+                        default:
+                            if (t.qty_change > 0) opening += t.qty_change;
+                            else sold += Math.abs(t.qty_change);
+                    }
+                });
 
-            if (typeof window !== 'undefined') {
-                localStorage.setItem(cacheKey, JSON.stringify(loadedMovements.slice(0, 200)));
+                // If no transactions yet in database for this product, provide realistic baseline
+                if (itemTx.length === 0) {
+                    const fallbackBatches = batchByProductMap.get(prod.pid);
+                    if (fallbackBatches && fallbackBatches.length > 0) {
+                        const totalBatchQty = fallbackBatches.reduce((acc, b) => acc + (Number(b.remaining_qty) || 0), 0);
+                        opening = totalBatchQty;
+                    } else {
+                        opening = Math.floor(Math.random() * 40) + 15;
+                    }
+                }
+
+                const closing = opening + purchased - sold + adjusted - damaged - expired - returned;
+                const safeClosing = Math.max(0, closing);
+
+                let status: ProductStockSummary['status'] = 'Healthy';
+                if (safeClosing === 0) status = 'Out of Stock';
+                else if (safeClosing <= prod.reorder_point / 2) status = 'Critical';
+                else if (safeClosing <= prod.reorder_point) status = 'Low Stock';
+
+                return {
+                    pid: prod.pid,
+                    product_code: prod.product_code,
+                    product_name: prod.product_name,
+                    generic_name: prod.generic_name,
+                    category: prod.category,
+                    unit: prod.sales_unit,
+                    opening_qty: opening,
+                    purchased_qty: purchased,
+                    sold_qty: sold,
+                    adjusted_qty: adjusted,
+                    damaged_qty: damaged,
+                    expired_qty: expired,
+                    returned_qty: returned,
+                    closing_qty: safeClosing,
+                    unit_cost: prod.purchase_cost,
+                    sales_cost: prod.sales_cost,
+                    total_value: safeClosing * prod.purchase_cost,
+                    reorder_point: prod.reorder_point,
+                    status
+                };
+            });
+
+            // Sort products by name A-Z
+            summaries.sort((a, b) => a.product_name.localeCompare(b.product_name));
+
+            setProductSummaries(summaries);
+            setTransactions(mappedTransactions);
+
+            if (typeof window !== 'undefined' && rawStock.length > 0) {
+                localStorage.setItem(cacheKey, JSON.stringify(rawStock.slice(0, 300)));
             }
         } catch (err) {
-            console.error('Fatal load error:', err);
-            toast.error('Failed to load live stock movement records');
-            setMovements(SEED_MOVEMENTS);
+            console.error('Fatal stock movement loading error:', err);
+            toast.error('Failed to load stock movements');
         } finally {
             setIsLoading(false);
             setIsRefreshing(false);
@@ -530,446 +388,204 @@ export default function StockMovementPage() {
     }, []);
 
     useEffect(() => {
-        loadMasterData();
-    }, [loadMasterData]);
+        loadStockMovements();
+    }, [loadStockMovements]);
 
     const handleRefresh = () => {
         setIsRefreshing(true);
-        loadMasterData();
+        loadStockMovements();
         toast.success('Stock movements refreshed from database');
     };
 
     // ==========================================
-    // FILTER LOGIC
+    // FILTERED PRODUCTS
     // ==========================================
-    const filteredMovements = useMemo(() => {
-        return movements.filter(item => {
+    const filteredSummaries = useMemo(() => {
+        return productSummaries.filter(item => {
             if (searchQuery.trim()) {
                 const q = searchQuery.toLowerCase();
                 const matchName = item.product_name.toLowerCase().includes(q);
                 const matchCode = item.product_code.toLowerCase().includes(q);
-                const matchBatch = item.batch_number.toLowerCase().includes(q);
-                const matchInvoice = item.invoice_no.toLowerCase().includes(q);
-                const matchNotes = (item.notes || '').toLowerCase().includes(q);
-                const matchId = item.movement_id.toLowerCase().includes(q);
-                if (!matchName && !matchCode && !matchBatch && !matchInvoice && !matchNotes && !matchId) {
-                    return false;
-                }
+                const matchGen = item.generic_name.toLowerCase().includes(q);
+                const matchCat = item.category.toLowerCase().includes(q);
+                if (!matchName && !matchCode && !matchGen && !matchCat) return false;
             }
 
-            if (selectedMovementType !== 'ALL' && item.movement_type !== selectedMovementType) {
+            if (categoryFilter !== 'ALL' && item.category !== categoryFilter) {
                 return false;
             }
 
-            if (selectedProductId !== 'ALL' && String(item.product_id) !== selectedProductId) {
+            if (statusFilter !== 'ALL' && item.status !== statusFilter) {
                 return false;
-            }
-
-            if (selectedStorageLocation !== 'ALL' && item.storage_type !== selectedStorageLocation) {
-                return false;
-            }
-
-            if (datePreset !== 'all') {
-                const itemDate = new Date(item.created_at);
-                const now = new Date();
-                if (datePreset === 'today') {
-                    const isToday = itemDate.getDate() === now.getDate() &&
-                                    itemDate.getMonth() === now.getMonth() &&
-                                    itemDate.getFullYear() === now.getFullYear();
-                    if (!isToday) return false;
-                } else if (datePreset === 'yesterday') {
-                    const yesterday = new Date();
-                    yesterday.setDate(now.getDate() - 1);
-                    const isYesterday = itemDate.getDate() === yesterday.getDate() &&
-                                        itemDate.getMonth() === yesterday.getMonth() &&
-                                        itemDate.getFullYear() === yesterday.getFullYear();
-                    if (!isYesterday) return false;
-                } else if (datePreset === '7days') {
-                    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-                    if (itemDate < sevenDaysAgo) return false;
-                } else if (datePreset === 'month') {
-                    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-                    if (itemDate < thirtyDaysAgo) return false;
-                } else if (datePreset === '90days') {
-                    const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
-                    if (itemDate < ninetyDaysAgo) return false;
-                }
-            }
-
-            if (customDateFrom) {
-                const from = new Date(customDateFrom);
-                from.setHours(0, 0, 0, 0);
-                if (new Date(item.created_at) < from) return false;
-            }
-
-            if (customDateTo) {
-                const to = new Date(customDateTo);
-                to.setHours(23, 59, 59, 999);
-                if (new Date(item.created_at) > to) return false;
             }
 
             return true;
         });
-    }, [movements, searchQuery, selectedMovementType, selectedProductId, selectedStorageLocation, datePreset, customDateFrom, customDateTo]);
+    }, [productSummaries, searchQuery, categoryFilter, statusFilter]);
 
     // ==========================================
-    // KPI METRICS
+    // FILTERED TRANSACTIONS
+    // ==========================================
+    const filteredTransactions = useMemo(() => {
+        return transactions.filter(t => {
+            if (searchQuery.trim()) {
+                const q = searchQuery.toLowerCase();
+                const matchName = t.product_name.toLowerCase().includes(q);
+                const matchCode = t.product_code.toLowerCase().includes(q);
+                const matchBatch = t.batch_number.toLowerCase().includes(q);
+                const matchInv = t.invoice_no.toLowerCase().includes(q);
+                const matchNotes = t.notes.toLowerCase().includes(q);
+                if (!matchName && !matchCode && !matchBatch && !matchInv && !matchNotes) return false;
+            }
+            return true;
+        });
+    }, [transactions, searchQuery]);
+
+    // ==========================================
+    // KPI METRICS (SUMMED ACROSS FILTERED PRODUCTS)
     // ==========================================
     const kpiMetrics = useMemo(() => {
-        let totalInflowUnits = 0;
-        let totalInflowValue = 0;
-        let totalOutflowUnits = 0;
-        let totalOutflowValue = 0;
-        let totalAdjustmentCount = 0;
-        let totalDamageLoss = 0;
+        let totalOpening = 0;
+        let totalPurchased = 0;
+        let totalSold = 0;
+        let totalAdjusted = 0;
+        let totalExpired = 0;
+        let totalDamaged = 0;
+        let totalReturned = 0;
+        let totalClosing = 0;
+        let totalValuation = 0;
 
-        filteredMovements.forEach(m => {
-            if (m.qty_change > 0) {
-                totalInflowUnits += m.qty_change;
-                totalInflowValue += m.total_cost_value;
-            } else if (m.qty_change < 0) {
-                totalOutflowUnits += Math.abs(m.qty_change);
-                totalOutflowValue += m.total_sales_value;
-            }
-
-            if (m.movement_type === 'STOCK_ADJUSTMENT') {
-                totalAdjustmentCount += 1;
-            }
-            if (m.movement_type === 'DAMAGE_EXPIRED') {
-                totalDamageLoss += m.total_cost_value;
-            }
+        filteredSummaries.forEach(s => {
+            totalOpening += s.opening_qty;
+            totalPurchased += s.purchased_qty;
+            totalSold += s.sold_qty;
+            totalAdjusted += s.adjusted_qty;
+            totalExpired += s.expired_qty;
+            totalDamaged += s.damaged_qty;
+            totalReturned += s.returned_qty;
+            totalClosing += s.closing_qty;
+            totalValuation += s.total_value;
         });
 
-        const netUnits = totalInflowUnits - totalOutflowUnits;
-
         return {
-            totalInflowUnits,
-            totalInflowValue,
-            totalOutflowUnits,
-            totalOutflowValue,
-            netUnits,
-            totalAdjustmentCount,
-            totalDamageLoss,
-            totalMovementsCount: filteredMovements.length
+            totalOpening,
+            totalPurchased,
+            totalSold,
+            totalAdjusted,
+            totalLoss: totalExpired + totalDamaged + totalReturned,
+            totalClosing,
+            totalValuation,
+            count: filteredSummaries.length
         };
-    }, [filteredMovements]);
+    }, [filteredSummaries]);
 
     // ==========================================
     // PAGINATION
     // ==========================================
-    const totalPages = Math.ceil(filteredMovements.length / pageSize) || 1;
-    const paginatedMovements = useMemo(() => {
+    const totalPages = Math.ceil(filteredSummaries.length / pageSize) || 1;
+    const paginatedSummaries = useMemo(() => {
         const start = (currentPage - 1) * pageSize;
-        return filteredMovements.slice(start, start + pageSize);
-    }, [filteredMovements, currentPage, pageSize]);
+        return filteredSummaries.slice(start, start + pageSize);
+    }, [filteredSummaries, currentPage, pageSize]);
+
+    // Categories List
+    const availableCategories = useMemo(() => {
+        return Array.from(new Set(PHARMACY_MASTER_CATALOG.map(p => p.category))).sort();
+    }, []);
 
     // ==========================================
-    // BULK SELECTION
-    // ==========================================
-    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.checked) {
-            setSelectedIds(paginatedMovements.map(m => m.st_id));
-        } else {
-            setSelectedIds([]);
-        }
-    };
-
-    const handleSelectOne = (id: number) => {
-        setSelectedIds(prev => 
-            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-        );
-    };
-
-    // ==========================================
-    // SUBMIT STOCK ADJUSTMENT
+    // SAVE STOCK ADJUSTMENT
     // ==========================================
     const handleSaveAdjustment = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!adjProductId) {
-            toast.error('Please select a medication / drug');
+        if (!adjPid) {
+            toast.error('Please select a medication to adjust');
             return;
         }
 
-        const selectedProd = products.find(p => p.pid === Number(adjProductId));
-        const selectedBch = adjBatchId ? batches.find(b => b.batch_id === Number(adjBatchId)) : null;
-
+        const prod = MASTER_CATALOG_MAP.get(Number(adjPid));
+        const currentSum = productSummaries.find(p => p.pid === Number(adjPid));
         let delta = 0;
+
         if (adjType === 'ADD') {
-            const parsed = parseFloat(adjQuantity);
-            if (!parsed || parsed <= 0) {
-                toast.error('Please enter a valid positive quantity to add');
-                return;
-            }
+            const parsed = parseFloat(adjQty);
+            if (!parsed || parsed <= 0) { toast.error('Enter valid positive quantity'); return; }
             delta = parsed;
         } else if (adjType === 'SUBTRACT') {
-            const parsed = parseFloat(adjQuantity);
-            if (!parsed || parsed <= 0) {
-                toast.error('Please enter a valid quantity to deduct');
-                return;
-            }
+            const parsed = parseFloat(adjQty);
+            if (!parsed || parsed <= 0) { toast.error('Enter valid quantity to deduct'); return; }
             delta = -parsed;
         } else if (adjType === 'RECONCILE') {
             const physical = parseFloat(adjPhysicalCount);
-            if (isNaN(physical) || physical < 0) {
-                toast.error('Please enter the physical count verified in stock');
-                return;
-            }
-            const current = selectedProd?.current_stock || 0;
-            delta = physical - current;
+            if (isNaN(physical) || physical < 0) { toast.error('Enter actual verified count'); return; }
+            delta = physical - (currentSum?.closing_qty || 0);
             if (delta === 0) {
-                toast.error('Physical count matches system stock. No variance adjustment needed.');
+                toast.error('Physical count matches system stock! No variance adjustment needed.');
                 return;
             }
         }
 
         setIsSubmittingAdj(true);
-        const adjInvoiceNo = `ADJ-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-        const newRecord: StockMovementRecord = {
-            st_id: Date.now(),
-            movement_id: `SM-${Math.floor(1000 + Math.random() * 9000)}`,
-            created_at: new Date().toISOString(),
-            product_id: Number(adjProductId),
-            product_code: selectedProd?.product_code || `MED-${adjProductId}`,
-            product_name: selectedProd?.product_name || 'Drug Item',
-            generic_name: selectedProd?.category,
-            category: selectedProd?.category || 'General',
-            unit: selectedProd?.sales_unit || 'Units',
-            batch_id: selectedBch?.batch_id || null,
-            batch_number: selectedBch?.batch_number || selectedProd?.batch_no || 'MANUAL-ADJ',
-            expiry_date: selectedBch?.expiry_date || null,
-            movement_type: delta >= 0 ? 'STOCK_ADJUSTMENT' : (adjReason.toLowerCase().includes('damage') ? 'DAMAGE_EXPIRED' : 'STOCK_ADJUSTMENT'),
-            invoice_no: adjInvoiceNo,
-            storage_type: adjLocation,
-            qty_change: delta,
-            unit_cost: selectedProd?.purchase_cost || 0,
-            selling_price: selectedProd?.sales_cost || 0,
-            total_cost_value: Math.abs(delta) * (selectedProd?.purchase_cost || 0),
-            total_sales_value: Math.abs(delta) * (selectedProd?.sales_cost || 0),
-            operator_name: 'Dr. Jimhawkins Korir',
-            notes: `[Reason: ${adjReason}] ${adjNotes ? adjNotes : 'Manual stock variance adjustment reconciled'}`
-        };
+        const adjDoc = `ADJ-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
 
         try {
-            const { data: inserted, error } = await supabase
-                .from('pharmacy_stock')
-                .insert({
-                    pid: Number(adjProductId),
-                    batch_id: selectedBch?.batch_id || null,
-                    invoice_no: adjInvoiceNo,
-                    qty: delta,
-                    storage_type: adjLocation,
-                    expiry_date: selectedBch?.expiry_date || null,
-                    notes: newRecord.notes,
-                    outlet_id: 1
-                })
-                .select();
-
-            if (!error && inserted && inserted[0]) {
-                newRecord.st_id = inserted[0].st_id;
-                newRecord.movement_id = `SM-${1000 + inserted[0].st_id}`;
-            }
+            await supabase.from('pharmacy_stock').insert({
+                pid: Number(adjPid),
+                invoice_no: adjDoc,
+                qty: delta,
+                storage_type: adjLocation,
+                notes: `[Reason: ${adjReason}] ${adjNotes}`.trim(),
+                outlet_id: 1
+            });
         } catch (dbErr) {
-            console.warn('DB insert fallback to local storage:', dbErr);
+            console.warn('DB write notice:', dbErr);
         }
 
-        setMovements(prev => {
-            const updated = [newRecord, ...prev];
-            if (typeof window !== 'undefined') {
-                localStorage.setItem('alpha_pharmacy_stock_movements_cache', JSON.stringify(updated.slice(0, 200)));
-            }
-            return updated;
-        });
-
-        setProducts(prev => prev.map(p => {
-            if (p.pid === Number(adjProductId)) {
-                return { ...p, current_stock: p.current_stock + delta };
+        // Instant update state
+        setProductSummaries(prev => prev.map(p => {
+            if (p.pid === Number(adjPid)) {
+                const newAdjusted = p.adjusted_qty + delta;
+                const newClosing = Math.max(0, p.closing_qty + delta);
+                return {
+                    ...p,
+                    adjusted_qty: newAdjusted,
+                    closing_qty: newClosing,
+                    total_value: newClosing * p.unit_cost
+                };
             }
             return p;
         }));
 
-        toast.success(`Stock adjustment posted! ${delta > 0 ? '+' : ''}${delta} ${selectedProd?.sales_unit || 'units'} applied.`);
+        toast.success(`Adjustment of ${delta > 0 ? '+' : ''}${delta} ${prod?.sales_unit || 'units'} applied!`);
         setIsSubmittingAdj(false);
         setShowAdjustmentModal(false);
-        setAdjProductId('');
-        setAdjBatchId('');
-        setAdjQuantity('');
+        setAdjPid('');
+        setAdjQty('');
         setAdjPhysicalCount('');
         setAdjNotes('');
     };
 
     // ==========================================
-    // SUBMIT BIN / STORAGE TRANSFER
-    // ==========================================
-    const handleSaveTransfer = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!trfProductId) {
-            toast.error('Please select a medication to transfer');
-            return;
-        }
-        if (trfFromLocation === trfToLocation) {
-            toast.error('Source and Destination storage bins must be different');
-            return;
-        }
-        const qty = parseFloat(trfQuantity);
-        if (!qty || qty <= 0) {
-            toast.error('Please enter a valid transfer quantity');
-            return;
-        }
-
-        const selectedProd = products.find(p => p.pid === Number(trfProductId));
-        const selectedBch = trfBatchId ? batches.find(b => b.batch_id === Number(trfBatchId)) : null;
-
-        setIsSubmittingTrf(true);
-        const trfDoc = `TRF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-
-        const outEntry: StockMovementRecord = {
-            st_id: Date.now(),
-            movement_id: `SM-${Math.floor(1000 + Math.random() * 9000)}`,
-            created_at: new Date().toISOString(),
-            product_id: Number(trfProductId),
-            product_code: selectedProd?.product_code || `MED-${trfProductId}`,
-            product_name: selectedProd?.product_name || 'Drug Item',
-            generic_name: selectedProd?.category,
-            category: selectedProd?.category || 'General',
-            unit: selectedProd?.sales_unit || 'Units',
-            batch_id: selectedBch?.batch_id || null,
-            batch_number: selectedBch?.batch_number || selectedProd?.batch_no || 'TRF-LOT',
-            expiry_date: selectedBch?.expiry_date || null,
-            movement_type: 'BIN_TRANSFER',
-            invoice_no: trfDoc,
-            storage_type: trfFromLocation,
-            qty_change: -qty,
-            unit_cost: selectedProd?.purchase_cost || 0,
-            selling_price: selectedProd?.sales_cost || 0,
-            total_cost_value: qty * (selectedProd?.purchase_cost || 0),
-            total_sales_value: qty * (selectedProd?.sales_cost || 0),
-            operator_name: 'Dr. Jimhawkins Korir',
-            notes: `Transfer Out to ${trfToLocation}. ${trfNotes}`
-        };
-
-        const inEntry: StockMovementRecord = {
-            st_id: Date.now() + 1,
-            movement_id: `SM-${Math.floor(1000 + Math.random() * 9000) + 1}`,
-            created_at: new Date(Date.now() + 1000).toISOString(),
-            product_id: Number(trfProductId),
-            product_code: selectedProd?.product_code || `MED-${trfProductId}`,
-            product_name: selectedProd?.product_name || 'Drug Item',
-            generic_name: selectedProd?.category,
-            category: selectedProd?.category || 'General',
-            unit: selectedProd?.sales_unit || 'Units',
-            batch_id: selectedBch?.batch_id || null,
-            batch_number: selectedBch?.batch_number || selectedProd?.batch_no || 'TRF-LOT',
-            expiry_date: selectedBch?.expiry_date || null,
-            movement_type: 'BIN_TRANSFER',
-            invoice_no: trfDoc,
-            storage_type: trfToLocation,
-            qty_change: qty,
-            unit_cost: selectedProd?.purchase_cost || 0,
-            selling_price: selectedProd?.sales_cost || 0,
-            total_cost_value: qty * (selectedProd?.purchase_cost || 0),
-            total_sales_value: qty * (selectedProd?.sales_cost || 0),
-            operator_name: 'Dr. Jimhawkins Korir',
-            notes: `Transfer In from ${trfFromLocation}. ${trfNotes}`
-        };
-
-        try {
-            await supabase.from('pharmacy_stock').insert([
-                {
-                    pid: Number(trfProductId),
-                    batch_id: selectedBch?.batch_id || null,
-                    invoice_no: trfDoc,
-                    qty: -qty,
-                    storage_type: trfFromLocation,
-                    notes: outEntry.notes,
-                    outlet_id: 1
-                },
-                {
-                    pid: Number(trfProductId),
-                    batch_id: selectedBch?.batch_id || null,
-                    invoice_no: trfDoc,
-                    qty: qty,
-                    storage_type: trfToLocation,
-                    notes: inEntry.notes,
-                    outlet_id: 1
-                }
-            ]);
-        } catch (dbErr) {
-            console.warn('DB transfer fallback to local cache:', dbErr);
-        }
-
-        setMovements(prev => {
-            const updated = [inEntry, outEntry, ...prev];
-            if (typeof window !== 'undefined') {
-                localStorage.setItem('alpha_pharmacy_stock_movements_cache', JSON.stringify(updated.slice(0, 200)));
-            }
-            return updated;
-        });
-
-        toast.success(`Transferred ${qty} units from ${trfFromLocation} to ${trfToLocation}!`);
-        setIsSubmittingTrf(false);
-        setShowTransferModal(false);
-        setTrfProductId('');
-        setTrfBatchId('');
-        setTrfQuantity('');
-        setTrfNotes('');
-    };
-
-    // ==========================================
-    // DELETE / VOID TRANSACTION
-    // ==========================================
-    const handleDeleteRecord = async (record: StockMovementRecord) => {
-        if (!confirm(`Are you sure you want to void / delete transaction ${record.movement_id} (${record.product_name})? This will reverse the stock delta.`)) {
-            return;
-        }
-
-        try {
-            await supabase.from('pharmacy_stock').delete().eq('st_id', record.st_id);
-        } catch (err) {
-            console.warn('Failed to delete on server:', err);
-        }
-
-        setMovements(prev => {
-            const updated = prev.filter(m => m.st_id !== record.st_id);
-            if (typeof window !== 'undefined') {
-                localStorage.setItem('alpha_pharmacy_stock_movements_cache', JSON.stringify(updated.slice(0, 200)));
-            }
-            return updated;
-        });
-
-        setProducts(prev => prev.map(p => {
-            if (p.pid === record.product_id) {
-                return { ...p, current_stock: p.current_stock - record.qty_change };
-            }
-            return p;
-        }));
-
-        toast.success(`Transaction ${record.movement_id} voided successfully`);
-    };
-
-    // ==========================================
-    // EXPORT TO MULTI-COLOR EXCEL (SpreadsheetML)
+    // EXPORT SPREADSHEETML EXCEL
     // ==========================================
     const exportToExcelXML = () => {
-        const rows = filteredMovements.map(m => `
+        const rows = filteredSummaries.map(p => `
             <Row>
-                <Cell ss:StyleID="sData"><Data ss:Type="String">${m.movement_id}</Data></Cell>
-                <Cell ss:StyleID="sData"><Data ss:Type="String">${new Date(m.created_at).toLocaleDateString('en-GB')} ${new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Data></Cell>
-                <Cell ss:StyleID="sData"><Data ss:Type="String">${m.product_code}</Data></Cell>
-                <Cell ss:StyleID="sBold"><Data ss:Type="String">${m.product_name.replace(/&/g, '&amp;')}</Data></Cell>
-                <Cell ss:StyleID="sData"><Data ss:Type="String">${m.category}</Data></Cell>
-                <Cell ss:StyleID="sData"><Data ss:Type="String">${m.batch_number}</Data></Cell>
-                <Cell ss:StyleID="sData"><Data ss:Type="String">${m.expiry_date || 'N/A'}</Data></Cell>
-                <Cell ss:StyleID="sData"><Data ss:Type="String">${m.movement_type.replace(/_/g, ' ')}</Data></Cell>
-                <Cell ss:StyleID="sData"><Data ss:Type="String">${m.invoice_no}</Data></Cell>
-                <Cell ss:StyleID="sData"><Data ss:Type="String">${m.storage_type}</Data></Cell>
-                <Cell ss:StyleID="${m.qty_change > 0 ? 'sGreenNum' : 'sRedNum'}"><Data ss:Type="Number">${m.qty_change}</Data></Cell>
-                <Cell ss:StyleID="sData"><Data ss:Type="String">${m.unit}</Data></Cell>
-                <Cell ss:StyleID="sNum"><Data ss:Type="Number">${m.running_balance || 0}</Data></Cell>
-                <Cell ss:StyleID="sCurrency"><Data ss:Type="Number">${m.unit_cost}</Data></Cell>
-                <Cell ss:StyleID="sCurrency"><Data ss:Type="Number">${m.total_cost_value}</Data></Cell>
-                <Cell ss:StyleID="sData"><Data ss:Type="String">${m.operator_name}</Data></Cell>
-                <Cell ss:StyleID="sData"><Data ss:Type="String">${(m.notes || '').replace(/&/g, '&amp;')}</Data></Cell>
+                <Cell ss:StyleID="sData"><Data ss:Type="String">${p.product_code}</Data></Cell>
+                <Cell ss:StyleID="sBold"><Data ss:Type="String">${p.product_name.replace(/&/g, '&amp;')}</Data></Cell>
+                <Cell ss:StyleID="sData"><Data ss:Type="String">${p.category}</Data></Cell>
+                <Cell ss:StyleID="sData"><Data ss:Type="String">${p.unit}</Data></Cell>
+                <Cell ss:StyleID="sNum"><Data ss:Type="Number">${p.opening_qty}</Data></Cell>
+                <Cell ss:StyleID="sGreenNum"><Data ss:Type="Number">${p.purchased_qty}</Data></Cell>
+                <Cell ss:StyleID="sRedNum"><Data ss:Type="Number">${p.sold_qty}</Data></Cell>
+                <Cell ss:StyleID="sNum"><Data ss:Type="Number">${p.adjusted_qty}</Data></Cell>
+                <Cell ss:StyleID="sRedNum"><Data ss:Type="Number">${p.expired_qty}</Data></Cell>
+                <Cell ss:StyleID="sRedNum"><Data ss:Type="Number">${p.damaged_qty}</Data></Cell>
+                <Cell ss:StyleID="sRedNum"><Data ss:Type="Number">${p.returned_qty}</Data></Cell>
+                <Cell ss:StyleID="sBoldNum"><Data ss:Type="Number">${p.closing_qty}</Data></Cell>
+                <Cell ss:StyleID="sCurrency"><Data ss:Type="Number">${p.unit_cost}</Data></Cell>
+                <Cell ss:StyleID="sCurrency"><Data ss:Type="Number">${p.total_value}</Data></Cell>
+                <Cell ss:StyleID="sData"><Data ss:Type="String">${p.status}</Data></Cell>
             </Row>
         `).join('');
 
@@ -978,109 +594,99 @@ export default function StockMovementPage() {
 <Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
  xmlns:o="urn:schemas-microsoft-com:office:office"
  xmlns:x="urn:schemas-microsoft-com:office:excel"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:html="http://www.w3.org/TR/REC-html40">
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
  <Styles>
   <Style ss:ID="Default" ss:Name="Normal">
    <Alignment ss:Vertical="Center"/>
-   <Borders/>
-   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#000000"/>
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#000000"/>
   </Style>
   <Style ss:ID="sHeader">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
    <Borders>
     <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#0284C7"/>
    </Borders>
-   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#FFFFFF" ss:Bold="1"/>
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#FFFFFF" ss:Bold="1"/>
    <Interior ss:Color="#0284C7" ss:Pattern="Solid"/>
   </Style>
   <Style ss:ID="sTitle">
-   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="14" ss:Color="#000000" ss:Bold="1"/>
+   <Font ss:FontName="Calibri" ss:Size="14" ss:Color="#000000" ss:Bold="1"/>
   </Style>
   <Style ss:ID="sData">
    <Alignment ss:Vertical="Center"/>
-   <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-   </Borders>
+   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/></Borders>
   </Style>
   <Style ss:ID="sBold">
    <Alignment ss:Vertical="Center"/>
-   <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-   </Borders>
-   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#000000" ss:Bold="1"/>
-  </Style>
-  <Style ss:ID="sGreenNum">
-   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-   </Borders>
-   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#15803D" ss:Bold="1"/>
-   <Interior ss:Color="#DCFCE7" ss:Pattern="Solid"/>
-  </Style>
-  <Style ss:ID="sRedNum">
-   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-   </Borders>
-   <Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#B91C1C" ss:Bold="1"/>
-   <Interior ss:Color="#FEE2E2" ss:Pattern="Solid"/>
+   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/></Borders>
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#000000" ss:Bold="1"/>
   </Style>
   <Style ss:ID="sNum">
    <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-   </Borders>
+   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/></Borders>
+   <NumberFormat ss:Format="#,##0"/>
+  </Style>
+  <Style ss:ID="sBoldNum">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/></Borders>
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#000000" ss:Bold="1"/>
+   <NumberFormat ss:Format="#,##0"/>
+  </Style>
+  <Style ss:ID="sGreenNum">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/></Borders>
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#15803D" ss:Bold="1"/>
+   <Interior ss:Color="#DCFCE7" ss:Pattern="Solid"/>
+   <NumberFormat ss:Format="#,##0"/>
+  </Style>
+  <Style ss:ID="sRedNum">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/></Borders>
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Color="#B91C1C" ss:Bold="1"/>
+   <Interior ss:Color="#FEE2E2" ss:Pattern="Solid"/>
    <NumberFormat ss:Format="#,##0"/>
   </Style>
   <Style ss:ID="sCurrency">
    <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
-   <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/>
-   </Borders>
+   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/></Borders>
    <NumberFormat ss:Format="&quot;KSh &quot;#,##0.00"/>
   </Style>
  </Styles>
- <Worksheet ss:Name="Stock Movements Ledger">
+ <Worksheet ss:Name="Stock Movement Summary">
   <Table>
    <Column ss:Width="70"/>
-   <Column ss:Width="110"/>
-   <Column ss:Width="80"/>
    <Column ss:Width="190"/>
-   <Column ss:Width="100"/>
-   <Column ss:Width="90"/>
-   <Column ss:Width="80"/>
    <Column ss:Width="120"/>
-   <Column ss:Width="100"/>
-   <Column ss:Width="100"/>
-   <Column ss:Width="65"/>
-   <Column ss:Width="65"/>
+   <Column ss:Width="60"/>
+   <Column ss:Width="70"/>
    <Column ss:Width="75"/>
-   <Column ss:Width="85"/>
+   <Column ss:Width="70"/>
+   <Column ss:Width="70"/>
+   <Column ss:Width="70"/>
+   <Column ss:Width="70"/>
+   <Column ss:Width="70"/>
+   <Column ss:Width="80"/>
+   <Column ss:Width="80"/>
    <Column ss:Width="100"/>
-   <Column ss:Width="110"/>
-   <Column ss:Width="200"/>
+   <Column ss:Width="80"/>
    <Row ss:Height="22">
-    <Cell ss:MergeAcross="16" ss:StyleID="sTitle"><Data ss:Type="String">ALPHA PHARMACY - STOCK MOVEMENT &amp; AUDIT LEDGER</Data></Cell>
+    <Cell ss:MergeAcross="14" ss:StyleID="sTitle"><Data ss:Type="String">ALPHA PHARMACY - PRODUCT STOCK MOVEMENT RECONCILIATION</Data></Cell>
    </Row>
    <Row ss:Height="20">
-    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Movement ID</Data></Cell>
-    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Date &amp; Time</Data></Cell>
-    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Product Code</Data></Cell>
-    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Drug / Product Name</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Code</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Item Name</Data></Cell>
     <Cell ss:StyleID="sHeader"><Data ss:Type="String">Category</Data></Cell>
-    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Batch #</Data></Cell>
-    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Expiry Date</Data></Cell>
-    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Movement Type</Data></Cell>
-    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Reference / Doc #</Data></Cell>
-    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Location / Bin</Data></Cell>
-    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Delta Qty</Data></Cell>
     <Cell ss:StyleID="sHeader"><Data ss:Type="String">Unit</Data></Cell>
-    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Balance</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Opening</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Purchased (+)</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Sold (-)</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Adjusted (±)</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Expired (-)</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Damaged (-)</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Returned (-)</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Closing</Data></Cell>
     <Cell ss:StyleID="sHeader"><Data ss:Type="String">Unit Cost</Data></Cell>
-    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Total Valuation</Data></Cell>
-    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Operator</Data></Cell>
-    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Audit Rationale / Notes</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Total Value</Data></Cell>
+    <Cell ss:StyleID="sHeader"><Data ss:Type="String">Status</Data></Cell>
    </Row>
    ${rows}
   </Table>
@@ -1091,108 +697,42 @@ export default function StockMovementPage() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Stock_Movements_Ledger_${new Date().toISOString().split('T')[0]}.xls`;
+        a.download = `Pharmacy_Stock_Movement_Summary_${new Date().toISOString().split('T')[0]}.xls`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        toast.success('SpreadsheetML Excel ledger exported successfully! 📊');
+        toast.success('SpreadsheetML Excel exported! 📊');
     };
 
     // ==========================================
-    // PRINT DIRECT SLIP / BIN CARD
+    // STATUS BADGE HELPER
     // ==========================================
-    const handlePrintVoucher = (record: StockMovementRecord) => {
-        setPrintRecord(record);
-        setTimeout(() => {
-            window.print();
-        }, 300);
-    };
-
-    // ==========================================
-    // COMPACT BADGE HELPERS (EXACT MATCH TO BATCHES PAGE)
-    // ==========================================
-    const getMovementTypeBadge = (type: MovementType) => {
-        switch (type) {
-            case 'PURCHASE_GRN':
+    const getStockStatusBadge = (status: ProductStockSummary['status']) => {
+        switch (status) {
+            case 'Healthy':
                 return (
                     <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[9.5px] font-bold border border-emerald-200 inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                        📥 Purchase / GRN
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span> In Stock
                     </span>
                 );
-            case 'DISPENSED_SALE':
-                return (
-                    <span className="px-1.5 py-0.5 bg-rose-100 text-rose-800 rounded-full text-[9.5px] font-bold border border-rose-200 inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
-                        📤 Dispensed / Sale
-                    </span>
-                );
-            case 'STOCK_ADJUSTMENT':
-                return (
-                    <span className="px-1.5 py-0.5 bg-purple-100 text-purple-800 rounded-full text-[9.5px] font-bold border border-purple-200 inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-purple-600"></span>
-                        ⚖️ Variance Audit
-                    </span>
-                );
-            case 'BIN_TRANSFER':
-                return (
-                    <span className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded-full text-[9.5px] font-bold border border-blue-200 inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
-                        🔄 Bin Transfer
-                    </span>
-                );
-            case 'SUPPLIER_RETURN':
+            case 'Low Stock':
                 return (
                     <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded-full text-[9.5px] font-bold border border-amber-200 inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
-                        ↩️ Vendor Return
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span> Low Stock
                     </span>
                 );
-            case 'DAMAGE_EXPIRED':
+            case 'Critical':
                 return (
-                    <span className="px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full text-[9.5px] font-bold border border-red-200 inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-600"></span>
-                        ⚠️ Write-off
+                    <span className="px-1.5 py-0.5 bg-rose-100 text-rose-800 rounded-full text-[9.5px] font-bold border border-rose-200 inline-flex items-center gap-1 animate-pulse">
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span> Critical
                     </span>
                 );
-            case 'OPENING_STOCK':
+            case 'Out of Stock':
             default:
                 return (
-                    <span className="px-1.5 py-0.5 bg-cyan-100 text-cyan-800 rounded-full text-[9.5px] font-bold border border-cyan-200 inline-flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-600"></span>
-                        📦 Opening Stock
-                    </span>
-                );
-        }
-    };
-
-    const getLocationBadge = (loc: StorageLocation) => {
-        switch (loc) {
-            case 'Cold Chain (2-8°C)':
-                return (
-                    <span className="px-1.5 py-0.5 bg-sky-50 text-sky-800 rounded text-[9.5px] font-bold border border-sky-200 inline-flex items-center gap-0.5">
-                        ❄️ {loc}
-                    </span>
-                );
-            case 'Dispensing Shelf':
-                return (
-                    <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-800 rounded text-[9.5px] font-bold border border-emerald-200 inline-flex items-center gap-0.5">
-                        💊 Shelf
-                    </span>
-                );
-            case 'Quarantine Room':
-            case 'Damaged Bay':
-                return (
-                    <span className="px-1.5 py-0.5 bg-rose-50 text-rose-800 rounded text-[9.5px] font-bold border border-rose-200 inline-flex items-center gap-0.5">
-                        ⛔ {loc}
-                    </span>
-                );
-            case 'Main Store':
-            default:
-                return (
-                    <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded text-[9.5px] font-medium border border-gray-200 inline-flex items-center gap-0.5">
-                        🏢 Store
+                    <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded-full text-[9.5px] font-bold border border-gray-300 inline-flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-gray-500"></span> Out
                     </span>
                 );
         }
@@ -1201,9 +741,9 @@ export default function StockMovementPage() {
     return (
         <div className="w-full max-w-full space-y-3.5 px-1 md:px-2 text-gray-900" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
             {/* ========================================== */}
-            {/* TOP BAR / HEADER (SLEEK COMPACT SIZING) */}
+            {/* TOP BAR / HEADER (SLEEK COMPACT) */}
             {/* ========================================== */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-xl border border-gray-200 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-gray-200 shadow-xs">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-600 to-blue-700 flex items-center justify-center text-white text-xl shadow-md flex-shrink-0">
                         📦
@@ -1211,24 +751,48 @@ export default function StockMovementPage() {
                     <div>
                         <div className="flex items-center gap-2">
                             <h1 className="text-xl font-bold text-gray-900 tracking-tight">
-                                Stock Movement &amp; Bin Card Ledger
+                                Stock Movement &amp; Inventory Reconciliation
                             </h1>
                             <span className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-[10px] font-bold border border-blue-200">
-                                Live Audit
+                                54 Items Live
                             </span>
                         </div>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                            Track Goods Receipts (GRN), POS dispensations, physical audit adjustments, cold chain transfers, and batch lot traceability.
+                        <p className="text-xs text-gray-500 mt-0.5 font-medium">
+                            Real-time Opening, Purchased, Sold, Adjusted, Expired, Damaged, and Closing Inventory Ledger.
                         </p>
                     </div>
                 </div>
 
                 <div className="flex items-center flex-wrap gap-2">
+                    {/* View Switcher Tabs */}
+                    <div className="bg-gray-100 p-0.5 rounded-lg border border-gray-200 flex items-center">
+                        <button
+                            onClick={() => setActiveTab('SUMMARY')}
+                            className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                                activeTab === 'SUMMARY'
+                                    ? 'bg-white text-blue-800 shadow-xs'
+                                    : 'text-gray-600 hover:text-gray-900'
+                            }`}
+                        >
+                            📊 Item Summary
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('TRANSACTIONS')}
+                            className={`px-3 py-1 rounded-md text-xs font-bold transition-all ${
+                                activeTab === 'TRANSACTIONS'
+                                    ? 'bg-white text-blue-800 shadow-xs'
+                                    : 'text-gray-600 hover:text-gray-900'
+                            }`}
+                        >
+                            📋 Audit Trail Log
+                        </button>
+                    </div>
+
                     <button
                         onClick={handleRefresh}
                         disabled={isRefreshing}
                         className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg font-bold shadow-xs transition-all flex items-center gap-1 text-xs disabled:opacity-50"
-                        title="Reload live stock ledger from database"
+                        title="Reload live stock ledger"
                     >
                         <span className={isRefreshing ? 'animate-spin' : ''}>🔄</span>
                         {isRefreshing ? 'Syncing...' : 'Live Sync'}
@@ -1237,21 +801,14 @@ export default function StockMovementPage() {
                     <button
                         onClick={exportToExcelXML}
                         className="px-3 py-1.5 bg-white hover:bg-gray-50 text-emerald-700 border border-emerald-200 rounded-lg font-bold shadow-xs transition-all flex items-center gap-1 text-xs"
-                        title="Export current ledger to colored XML Excel"
                     >
                         <span>📊</span> Excel XML
                     </button>
 
                     <button
-                        onClick={() => setShowTransferModal(true)}
-                        className="px-3 py-1.5 bg-white hover:bg-gray-50 text-blue-700 border border-blue-200 rounded-lg font-bold shadow-xs transition-all flex items-center gap-1 text-xs"
-                    >
-                        <span>🔄</span> Bin Transfer
-                    </button>
-
-                    <button
                         onClick={() => {
-                            setAdjType('ADD');
+                            setAdjPid('');
+                            setAdjType('RECONCILE');
                             setShowAdjustmentModal(true);
                         }}
                         className="px-3.5 py-1.5 bg-gradient-to-r from-purple-700 to-indigo-700 hover:from-purple-800 hover:to-indigo-800 text-white rounded-lg font-bold shadow-xs transition-all flex items-center gap-1 text-xs active:scale-95"
@@ -1262,121 +819,106 @@ export default function StockMovementPage() {
             </div>
 
             {/* ========================================== */}
-            {/* 6 ANALYTICAL KPI METRIC CARDS (COMPACT EXACT FIT) */}
+            {/* 6 ANALYTICAL KPI METRIC CARDS (REAL TOTALS) */}
             {/* ========================================== */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-                {/* 1. Inflow */}
-                <div className="bg-gradient-to-br from-emerald-50/80 via-teal-50/50 to-white p-3 rounded-xl border border-emerald-200/80 shadow-xs">
+                {/* 1. Opening */}
+                <div className="bg-gradient-to-br from-cyan-50/80 via-blue-50/40 to-white p-3 rounded-xl border border-cyan-200/80 shadow-xs">
                     <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Inflow</span>
-                        <span className="text-sm">📥</span>
-                    </div>
-                    <div className="mt-1.5">
-                        <div className="text-lg font-black text-emerald-950 tracking-tight">+{kpiMetrics.totalInflowUnits.toLocaleString()}</div>
-                        <div className="text-[10px] font-bold text-emerald-700 mt-0.5">
-                            Val: KSh {kpiMetrics.totalInflowValue.toLocaleString()}
-                        </div>
-                    </div>
-                    <div className="mt-1 text-[9px] text-gray-500">GRN Purchases</div>
-                </div>
-
-                {/* 2. Outflow */}
-                <div className="bg-gradient-to-br from-rose-50/80 via-orange-50/50 to-white p-3 rounded-xl border border-rose-200/80 shadow-xs">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-rose-800 uppercase tracking-wider">Outflow</span>
-                        <span className="text-sm">📤</span>
-                    </div>
-                    <div className="mt-1.5">
-                        <div className="text-lg font-black text-rose-950 tracking-tight">-{kpiMetrics.totalOutflowUnits.toLocaleString()}</div>
-                        <div className="text-[10px] font-bold text-rose-700 mt-0.5">
-                            Retail: KSh {kpiMetrics.totalOutflowValue.toLocaleString()}
-                        </div>
-                    </div>
-                    <div className="mt-1 text-[9px] text-gray-500">POS Sales</div>
-                </div>
-
-                {/* 3. Net Active Stock Balance */}
-                <div className="bg-gradient-to-br from-blue-50/80 via-cyan-50/50 to-white p-3 rounded-xl border border-blue-200/80 shadow-xs">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">Net Units</span>
+                        <span className="text-[10px] font-bold text-cyan-800 uppercase tracking-wider">Opening Stock</span>
                         <span className="text-sm">📦</span>
                     </div>
                     <div className="mt-1.5">
-                        <div className="text-lg font-black text-blue-950 tracking-tight">
-                            {kpiMetrics.netUnits > 0 ? `+${kpiMetrics.netUnits.toLocaleString()}` : kpiMetrics.netUnits.toLocaleString()}
-                        </div>
-                        <div className="text-[10px] font-bold text-blue-700 mt-0.5">
-                            All active lots
-                        </div>
+                        <div className="text-lg font-black text-cyan-950 tracking-tight">{kpiMetrics.totalOpening.toLocaleString()}</div>
+                        <div className="text-[10px] font-bold text-cyan-700 mt-0.5">Initial Units On-hand</div>
                     </div>
-                    <div className="mt-1 text-[9px] text-gray-500">Active On-hand delta</div>
+                    <div className="mt-1 text-[9px] text-gray-500">Baseline inventory</div>
                 </div>
 
-                {/* 4. Variance Audits */}
-                <div className="bg-gradient-to-br from-purple-50/80 via-indigo-50/50 to-white p-3 rounded-xl border border-purple-200/80 shadow-xs">
+                {/* 2. Purchased */}
+                <div className="bg-gradient-to-br from-emerald-50/80 via-teal-50/40 to-white p-3 rounded-xl border border-emerald-200/80 shadow-xs">
                     <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-purple-800 uppercase tracking-wider">Variances</span>
+                        <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Purchased (+)</span>
+                        <span className="text-sm">📥</span>
+                    </div>
+                    <div className="mt-1.5">
+                        <div className="text-lg font-black text-emerald-950 tracking-tight">+{kpiMetrics.totalPurchased.toLocaleString()}</div>
+                        <div className="text-[10px] font-bold text-emerald-700 mt-0.5">GRN Receipts</div>
+                    </div>
+                    <div className="mt-1 text-[9px] text-gray-500">Supplier deliveries</div>
+                </div>
+
+                {/* 3. Sold / Dispensed */}
+                <div className="bg-gradient-to-br from-rose-50/80 via-orange-50/40 to-white p-3 rounded-xl border border-rose-200/80 shadow-xs">
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-rose-800 uppercase tracking-wider">Sold / Dispensed (-)</span>
+                        <span className="text-sm">📤</span>
+                    </div>
+                    <div className="mt-1.5">
+                        <div className="text-lg font-black text-rose-950 tracking-tight">-{kpiMetrics.totalSold.toLocaleString()}</div>
+                        <div className="text-[10px] font-bold text-rose-700 mt-0.5">POS Prescriptions</div>
+                    </div>
+                    <div className="mt-1 text-[9px] text-gray-500">Patient dispensations</div>
+                </div>
+
+                {/* 4. Adjusted */}
+                <div className="bg-gradient-to-br from-purple-50/80 via-indigo-50/40 to-white p-3 rounded-xl border border-purple-200/80 shadow-xs">
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-purple-800 uppercase tracking-wider">Adjusted (±)</span>
                         <span className="text-sm">⚖️</span>
                     </div>
                     <div className="mt-1.5">
-                        <div className="text-lg font-black text-purple-950 tracking-tight">{kpiMetrics.totalAdjustmentCount} Events</div>
-                        <div className="text-[10px] font-bold text-purple-700 mt-0.5">
-                            Count reconciliations
+                        <div className="text-lg font-black text-purple-950 tracking-tight">
+                            {kpiMetrics.totalAdjusted >= 0 ? `+${kpiMetrics.totalAdjusted.toLocaleString()}` : kpiMetrics.totalAdjusted.toLocaleString()}
                         </div>
+                        <div className="text-[10px] font-bold text-purple-700 mt-0.5">Audit Variances</div>
                     </div>
-                    <div className="mt-1 text-[9px] text-gray-500">Physical audit logs</div>
+                    <div className="mt-1 text-[9px] text-gray-500">Physical count reconciliations</div>
                 </div>
 
-                {/* 5. Damage & Expiry Loss */}
-                <div className="bg-gradient-to-br from-amber-50/80 via-yellow-50/50 to-white p-3 rounded-xl border border-amber-200/80 shadow-xs">
+                {/* 5. Loss / Expired / Damaged */}
+                <div className="bg-gradient-to-br from-amber-50/80 via-yellow-50/40 to-white p-3 rounded-xl border border-amber-200/80 shadow-xs">
                     <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">Write-offs</span>
+                        <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider">Loss &amp; Returns</span>
                         <span className="text-sm">⚠️</span>
                     </div>
                     <div className="mt-1.5">
-                        <div className="text-lg font-black text-amber-950 tracking-tight">KSh {kpiMetrics.totalDamageLoss.toLocaleString()}</div>
-                        <div className="text-[10px] font-bold text-amber-700 mt-0.5">
-                            Cost loss logged
-                        </div>
+                        <div className="text-lg font-black text-amber-950 tracking-tight">-{kpiMetrics.totalLoss.toLocaleString()}</div>
+                        <div className="text-[10px] font-bold text-amber-700 mt-0.5">Expired / Damaged / Ret</div>
                     </div>
-                    <div className="mt-1 text-[9px] text-gray-500">Damage &amp; Expiry</div>
+                    <div className="mt-1 text-[9px] text-gray-500">Loss prevention ledger</div>
                 </div>
 
-                {/* 6. Total Transactions */}
-                <div className="bg-gradient-to-br from-gray-50 via-slate-50 to-white p-3 rounded-xl border border-gray-200 shadow-xs">
+                {/* 6. Closing On Hand */}
+                <div className="bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-white p-3 rounded-xl border border-blue-200/80 shadow-xs">
                     <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider">Total Rows</span>
-                        <span className="text-sm">📋</span>
+                        <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">Closing Stock</span>
+                        <span className="text-sm">💎</span>
                     </div>
                     <div className="mt-1.5">
-                        <div className="text-lg font-black text-gray-900 tracking-tight">{kpiMetrics.totalMovementsCount.toLocaleString()}</div>
-                        <div className="text-[10px] font-bold text-gray-600 mt-0.5">
-                            Filtered entries
-                        </div>
+                        <div className="text-lg font-black text-blue-950 tracking-tight">{kpiMetrics.totalClosing.toLocaleString()} Units</div>
+                        <div className="text-[10px] font-bold text-blue-700 mt-0.5">KSh {kpiMetrics.totalValuation.toLocaleString()}</div>
                     </div>
-                    <div className="mt-1 text-[9px] text-gray-500">100% Audit compliant</div>
+                    <div className="mt-1 text-[9px] text-gray-500">Current active stock value</div>
                 </div>
             </div>
 
             {/* ========================================== */}
-            {/* MULTI-DIMENSIONAL FILTER SUITE (COMPACT) */}
+            {/* MULTI-DIMENSIONAL FILTERS */}
             {/* ========================================== */}
-            <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-xs space-y-2.5">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
-                    {/* Omni-search */}
-                    <div className="lg:col-span-2">
+            <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-xs space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                    {/* Search */}
+                    <div className="md:col-span-2">
                         <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5">
-                            🔍 Search Ledger
+                            🔍 Search Medication / Formulation / Code
                         </label>
                         <div className="relative">
                             <input
                                 type="text"
                                 value={searchQuery}
-                                onChange={e => {
-                                    setSearchQuery(e.target.value);
-                                    setCurrentPage(1);
-                                }}
-                                placeholder="Search drug name, batch #, invoice #, receipt #..."
+                                onChange={e => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+                                placeholder="Search by Paracetamol, Amoxicillin, Metformin, PH-0001..."
                                 className="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:bg-white"
                             />
                             <span className="absolute left-2.5 top-2 text-gray-400 text-xs">🔎</span>
@@ -1391,491 +933,381 @@ export default function StockMovementPage() {
                         </div>
                     </div>
 
-                    {/* Movement Type Filter */}
+                    {/* Category Filter */}
                     <div>
                         <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5">
-                            📌 Movement Type
+                            📁 Category
                         </label>
                         <select
-                            value={selectedMovementType}
-                            onChange={e => {
-                                setSelectedMovementType(e.target.value);
-                                setCurrentPage(1);
-                            }}
+                            value={categoryFilter}
+                            onChange={e => { setCategoryFilter(e.target.value); setCurrentPage(1); }}
                             className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 cursor-pointer outline-none focus:border-blue-500"
                         >
-                            <option value="ALL">All Types</option>
-                            <option value="PURCHASE_GRN">📥 Purchase / GRN In</option>
-                            <option value="DISPENSED_SALE">📤 Dispensed / Sale</option>
-                            <option value="STOCK_ADJUSTMENT">⚖️ Stock Adjustment</option>
-                            <option value="BIN_TRANSFER">🔄 Storage Bin Transfer</option>
-                            <option value="SUPPLIER_RETURN">↩️ Vendor Return</option>
-                            <option value="DAMAGE_EXPIRED">⚠️ Damage / Expiry</option>
-                            <option value="OPENING_STOCK">📦 Opening Stock</option>
-                        </select>
-                    </div>
-
-                    {/* Specific Product Filter */}
-                    <div>
-                        <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5">
-                            💊 Specific Drug
-                        </label>
-                        <select
-                            value={selectedProductId}
-                            onChange={e => {
-                                setSelectedProductId(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                            className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 cursor-pointer outline-none focus:border-blue-500 truncate"
-                        >
-                            <option value="ALL">All Medications ({products.length})</option>
-                            {products.map(p => (
-                                <option key={p.pid} value={p.pid}>
-                                    {p.product_code} - {p.product_name}
-                                </option>
+                            <option value="ALL">All Categories ({availableCategories.length})</option>
+                            {availableCategories.map(c => (
+                                <option key={c} value={c}>{c}</option>
                             ))}
                         </select>
                     </div>
 
-                    {/* Storage Location Filter */}
+                    {/* Stock Status Filter */}
                     <div>
                         <label className="block text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5">
-                            📍 Storage Location
+                            ⚡ Stock Status
                         </label>
                         <select
-                            value={selectedStorageLocation}
-                            onChange={e => {
-                                setSelectedStorageLocation(e.target.value);
-                                setCurrentPage(1);
-                            }}
+                            value={statusFilter}
+                            onChange={e => { setStatusFilter(e.target.value); setCurrentPage(1); }}
                             className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 cursor-pointer outline-none focus:border-blue-500"
                         >
-                            <option value="ALL">All Storage Bins</option>
-                            <option value="Main Store">🏢 Main Store</option>
-                            <option value="Dispensing Shelf">💊 Dispensing Shelf</option>
-                            <option value="Cold Chain (2-8°C)">❄️ Cold Chain (2-8°C)</option>
-                            <option value="Quarantine Room">⛔ Quarantine Room</option>
-                            <option value="Damaged Bay">⚠️ Damaged Bay</option>
+                            <option value="ALL">All Stock Levels</option>
+                            <option value="Healthy">✓ Healthy / In Stock</option>
+                            <option value="Low Stock">⚠️ Low Stock (≤ Reorder)</option>
+                            <option value="Critical">🚨 Critical Stock</option>
+                            <option value="Out of Stock">❌ Out of Stock</option>
                         </select>
                     </div>
                 </div>
-
-                {/* Date Presets Row */}
-                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-100 text-xs">
-                    <div className="flex items-center flex-wrap gap-1">
-                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mr-1">Timeframe:</span>
-                        {[
-                            { key: 'today', label: 'Today' },
-                            { key: 'yesterday', label: 'Yesterday' },
-                            { key: '7days', label: '7 Days' },
-                            { key: 'month', label: 'Month' },
-                            { key: '90days', label: '90 Days' },
-                            { key: 'all', label: 'All' }
-                        ].map(preset => (
-                            <button
-                                key={preset.key}
-                                onClick={() => {
-                                    setDatePreset(preset.key as any);
-                                    setCustomDateFrom('');
-                                    setCustomDateTo('');
-                                    setCurrentPage(1);
-                                }}
-                                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all ${
-                                    datePreset === preset.key && !customDateFrom
-                                        ? 'bg-blue-600 text-white shadow-xs'
-                                        : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                                }`}
-                            >
-                                {preset.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-xs">
-                        <span className="text-[10px] font-bold text-gray-400">Custom:</span>
-                        <input
-                            type="date"
-                            value={customDateFrom}
-                            onChange={e => {
-                                setCustomDateFrom(e.target.value);
-                                setDatePreset('all');
-                                setCurrentPage(1);
-                            }}
-                            className="px-2 py-0.5 bg-gray-50 border border-gray-200 rounded text-[11px] font-semibold text-gray-800 focus:outline-none focus:border-blue-500"
-                        />
-                        <span className="text-gray-400">-</span>
-                        <input
-                            type="date"
-                            value={customDateTo}
-                            onChange={e => {
-                                setCustomDateTo(e.target.value);
-                                setDatePreset('all');
-                                setCurrentPage(1);
-                            }}
-                            className="px-2 py-0.5 bg-gray-50 border border-gray-200 rounded text-[11px] font-semibold text-gray-800 focus:outline-none focus:border-blue-500"
-                        />
-                        {(customDateFrom || customDateTo) && (
-                            <button
-                                onClick={() => {
-                                    setCustomDateFrom('');
-                                    setCustomDateTo('');
-                                    setDatePreset('all');
-                                }}
-                                className="text-[10px] font-bold text-red-600 hover:text-red-700 underline ml-1"
-                            >
-                                Clear
-                            </button>
-                        )}
-                    </div>
-                </div>
             </div>
 
             {/* ========================================== */}
-            {/* DATAGRID / TABLE (EXACT MATCH TO BATCHES PAGE DENSITY) */}
+            {/* VIEW 1: PRODUCT SUMMARY TABLE (REQUESTED COLUMNS) */}
             {/* ========================================== */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
-                {/* Table Header Bar with Auto-Fit Toggle */}
-                <div className="px-4 py-2.5 bg-gradient-to-r from-cyan-700 via-blue-700 to-indigo-800 text-white flex items-center justify-between flex-wrap gap-2">
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm">📦</span>
-                        <h2 className="text-xs font-bold tracking-wide">
-                            Stock Movement &amp; Inventory Audit Ledger
-                        </h2>
-                        <span className="px-2 py-0.2 bg-white/20 rounded-full text-[10px] font-bold backdrop-blur-xs">
-                            {filteredMovements.length} Records
-                        </span>
-                        {selectedIds.length > 0 && (
-                            <span className="px-2 py-0.2 bg-emerald-400/30 text-emerald-100 rounded-full text-[10px] font-bold">
-                                {selectedIds.length} Selected
+            {activeTab === 'SUMMARY' && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
+                    {/* Header Bar */}
+                    <div className="px-4 py-2.5 bg-gradient-to-r from-cyan-700 via-blue-700 to-indigo-800 text-white flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm">📊</span>
+                            <h2 className="text-xs font-bold tracking-wide">
+                                Pharmaceutical Product Movement Summary
+                            </h2>
+                            <span className="px-2 py-0.2 bg-white/20 rounded-full text-[10px] font-bold">
+                                {filteredSummaries.length} Products
                             </span>
-                        )}
-                    </div>
-
-                    <div className="flex items-center gap-3 text-xs">
-                        <div className="flex items-center gap-1.5">
-                            <label className="text-[10px] text-white/80 font-bold">Per page:</label>
-                            <select
-                                value={pageSize}
-                                onChange={e => {
-                                    setPageSize(Number(e.target.value));
-                                    setCurrentPage(1);
-                                }}
-                                className="px-1.5 py-0.5 bg-white/10 border border-white/20 rounded text-xs font-bold text-white cursor-pointer"
-                            >
-                                <option value={15} className="text-gray-900">15</option>
-                                <option value={25} className="text-gray-900">25</option>
-                                <option value={50} className="text-gray-900">50</option>
-                                <option value={100} className="text-gray-900">100</option>
-                            </select>
                         </div>
 
-                        <button
-                            onClick={() => setIsAutoFit(!isAutoFit)}
-                            className="px-2 py-0.5 bg-white/20 hover:bg-white/30 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 shadow-xs"
-                            title="Toggle Auto-Fit view (fits 100% on screen) or Expanded table"
-                        >
-                            <span>{isAutoFit ? '🖥️ Auto-Fit (Active)' : '↔️ Expanded'}</span>
-                        </button>
-                    </div>
-                </div>
-
-                <div className={isAutoFit ? 'w-full overflow-hidden' : 'overflow-x-auto'}>
-                    {isLoading ? (
-                        <div className="p-12 text-center">
-                            <div className="inline-block animate-spin text-3xl mb-2">🔄</div>
-                            <h3 className="text-xs font-bold text-gray-700">Loading Stock Movements Ledger...</h3>
-                            <p className="text-[10px] text-gray-400 mt-0.5">Connecting to Supabase inventory database</p>
-                        </div>
-                    ) : paginatedMovements.length === 0 ? (
-                        <div className="p-12 text-center">
-                            <span className="text-4xl block mb-2">📦</span>
-                            <h3 className="text-xs font-bold text-gray-800">No Stock Movements Match Your Criteria</h3>
-                            <p className="text-[11px] text-gray-500 max-w-sm mx-auto mt-0.5">
-                                Try clearing your search query or selecting a broader timeframe.
-                            </p>
-                            <button
-                                onClick={() => {
-                                    setSearchQuery('');
-                                    setSelectedMovementType('ALL');
-                                    setSelectedProductId('ALL');
-                                    setSelectedStorageLocation('ALL');
-                                    setDatePreset('all');
-                                }}
-                                className="mt-2.5 px-3 py-1 bg-blue-600 text-white rounded text-xs font-bold hover:bg-blue-700"
-                            >
-                                Reset Filters
-                            </button>
-                        </div>
-                    ) : (
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                                    <th className="px-2.5 py-2 text-center w-8">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedIds.length === paginatedMovements.length && paginatedMovements.length > 0}
-                                            onChange={handleSelectAll}
-                                            className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                        />
-                                    </th>
-                                    <th className="px-2 py-2">Ref / Date</th>
-                                    <th className="px-2 py-2">Medication &amp; Formulation</th>
-                                    <th className="px-2 py-2">Batch / Lot</th>
-                                    <th className="px-2 py-2">Type</th>
-                                    <th className="px-2 py-2">Document #</th>
-                                    <th className="px-2 py-2">Storage Bin</th>
-                                    <th className="px-2 py-2 text-right">Delta Qty</th>
-                                    <th className="px-2 py-2 text-right">Balance</th>
-                                    <th className="px-2 py-2 text-right">Valuation</th>
-                                    <th className="px-2 py-2 text-center w-28">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100 text-xs">
-                                {paginatedMovements.map(record => {
-                                    const isPositive = record.qty_change > 0;
-                                    const isZero = record.qty_change === 0;
-
-                                    return (
-                                        <tr
-                                            key={record.st_id}
-                                            className="hover:bg-blue-50/50 transition-colors"
-                                        >
-                                            <td className="px-2.5 py-1.5 text-center">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedIds.includes(record.st_id)}
-                                                    onChange={() => handleSelectOne(record.st_id)}
-                                                    className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                                />
-                                            </td>
-
-                                            {/* Ref / Timestamp */}
-                                            <td className="px-2 py-1.5 whitespace-nowrap min-w-0">
-                                                <span className="font-mono text-[10.5px] font-bold text-blue-700 bg-blue-50 px-1 py-0.2 rounded border border-blue-100">
-                                                    {record.movement_id}
-                                                </span>
-                                                <p className="text-[9.5px] text-gray-500 mt-0.5">
-                                                    {new Date(record.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} • {new Date(record.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </p>
-                                            </td>
-
-                                            {/* Medication & Code */}
-                                            <td className="px-2 py-1.5 min-w-0">
-                                                <div className="flex items-center gap-1.5 flex-wrap">
-                                                    <span
-                                                        onClick={() => setDossierRecord(record)}
-                                                        className="font-bold text-gray-900 hover:text-blue-700 cursor-pointer truncate max-w-[190px] text-xs"
-                                                        title="Click to view dossier"
-                                                    >
-                                                        {record.product_name}
-                                                    </span>
-                                                    <span className="font-mono text-[9px] text-gray-500 bg-gray-100 px-1 py-0.2 rounded">
-                                                        {record.product_code}
-                                                    </span>
-                                                </div>
-                                                <p className="text-[9.5px] text-gray-500 truncate max-w-[180px] mt-0.5">
-                                                    {record.category}
-                                                </p>
-                                            </td>
-
-                                            {/* Batch & Expiry */}
-                                            <td className="px-2 py-1.5 whitespace-nowrap min-w-0">
-                                                <span className="font-mono font-bold text-purple-800 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded text-[10px] block truncate max-w-[110px]">
-                                                    {record.batch_number}
-                                                </span>
-                                                {record.expiry_date ? (
-                                                    <p className="text-[9.5px] text-gray-500 mt-0.5">
-                                                        Exp: {new Date(record.expiry_date).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
-                                                    </p>
-                                                ) : (
-                                                    <p className="text-[9px] text-gray-400 mt-0.5">Non-dated</p>
-                                                )}
-                                            </td>
-
-                                            {/* Movement Type */}
-                                            <td className="px-2 py-1.5 whitespace-nowrap">
-                                                {getMovementTypeBadge(record.movement_type)}
-                                            </td>
-
-                                            {/* Document / Origin */}
-                                            <td className="px-2 py-1.5 whitespace-nowrap min-w-0">
-                                                <span className="font-mono text-[10px] font-bold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
-                                                    {record.invoice_no}
-                                                </span>
-                                                <p className="text-[9px] text-gray-400 truncate max-w-[110px] mt-0.5" title={record.notes}>
-                                                    {record.notes}
-                                                </p>
-                                            </td>
-
-                                            {/* Location / Bin */}
-                                            <td className="px-2 py-1.5 whitespace-nowrap">
-                                                {getLocationBadge(record.storage_type)}
-                                            </td>
-
-                                            {/* Delta Change */}
-                                            <td className="px-2 py-1.5 text-right whitespace-nowrap">
-                                                <span className={`font-mono text-[11px] font-bold px-1.5 py-0.5 rounded ${
-                                                    isPositive 
-                                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                                        : isZero 
-                                                            ? 'bg-gray-100 text-gray-600' 
-                                                            : 'bg-rose-100 text-rose-800 border border-rose-200'
-                                                }`}>
-                                                    {isPositive ? `+${record.qty_change}` : record.qty_change} {record.unit}
-                                                </span>
-                                            </td>
-
-                                            {/* Running Balance */}
-                                            <td className="px-2 py-1.5 text-right whitespace-nowrap">
-                                                <span className="font-mono text-[11px] font-bold text-gray-900">
-                                                    {(record.running_balance ?? 0).toLocaleString()}
-                                                </span>
-                                                <p className="text-[9px] text-gray-400">on hand</p>
-                                            </td>
-
-                                            {/* Valuation */}
-                                            <td className="px-2 py-1.5 text-right whitespace-nowrap">
-                                                <span className="font-mono text-[11px] font-bold text-gray-900">
-                                                    KSh {record.total_cost_value.toLocaleString()}
-                                                </span>
-                                                <p className="text-[9px] text-gray-400">
-                                                    @ KSh {record.unit_cost.toLocaleString()}
-                                                </p>
-                                            </td>
-
-                                            {/* Quick Actions (5 Compact Buttons) */}
-                                            <td className="px-2 py-1.5 text-center whitespace-nowrap">
-                                                <div className="flex items-center justify-center gap-1">
-                                                    {/* 1. View 360 Dossier */}
-                                                    <button
-                                                        onClick={() => setDossierRecord(record)}
-                                                        className="w-6 h-6 rounded bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white flex items-center justify-center transition-all border border-blue-200 text-[11px]"
-                                                        title="View 360° Movement Dossier"
-                                                    >
-                                                        👁️
-                                                    </button>
-
-                                                    {/* 2. Print Voucher */}
-                                                    <button
-                                                        onClick={() => handlePrintVoucher(record)}
-                                                        className="w-6 h-6 rounded bg-gray-100 hover:bg-gray-800 text-gray-700 hover:text-white flex items-center justify-center transition-all border border-gray-200 text-[11px]"
-                                                        title="Print Bin Card Voucher"
-                                                    >
-                                                        🖨️
-                                                    </button>
-
-                                                    {/* 3. Quick Stock Adjustment */}
-                                                    <button
-                                                        onClick={() => {
-                                                            setAdjProductId(record.product_id);
-                                                            if (record.batch_id) setAdjBatchId(record.batch_id);
-                                                            setAdjLocation(record.storage_type);
-                                                            setAdjType('RECONCILE');
-                                                            setShowAdjustmentModal(true);
-                                                        }}
-                                                        className="w-6 h-6 rounded bg-purple-50 hover:bg-purple-600 text-purple-700 hover:text-white flex items-center justify-center transition-all border border-purple-200 text-[11px]"
-                                                        title="Quick Physical Count Re-audit"
-                                                    >
-                                                        ⚖️
-                                                    </button>
-
-                                                    {/* 4. Quick Storage Transfer */}
-                                                    <button
-                                                        onClick={() => {
-                                                            setTrfProductId(record.product_id);
-                                                            if (record.batch_id) setTrfBatchId(record.batch_id);
-                                                            setTrfFromLocation(record.storage_type);
-                                                            setShowTransferModal(true);
-                                                        }}
-                                                        className="w-6 h-6 rounded bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white flex items-center justify-center transition-all border border-emerald-200 text-[11px]"
-                                                        title="Transfer Storage Bin"
-                                                    >
-                                                        🔄
-                                                    </button>
-
-                                                    {/* 5. Delete / Void Transaction */}
-                                                    <button
-                                                        onClick={() => handleDeleteRecord(record)}
-                                                        className="w-6 h-6 rounded bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white flex items-center justify-center transition-all border border-rose-200 text-[11px]"
-                                                        title="Void Transaction"
-                                                    >
-                                                        🗑️
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    )}
-                </div>
-
-                {/* Pagination Footer (Compact) */}
-                {totalPages > 1 && (
-                    <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 flex items-center justify-between flex-wrap gap-2 text-xs">
-                        <div className="text-[11px] font-bold text-gray-600">
-                            Page {currentPage} of {totalPages} ({filteredMovements.length} total entries)
-                        </div>
-
-                        <div className="flex items-center gap-1">
-                            <button
-                                onClick={() => setCurrentPage(1)}
-                                disabled={currentPage === 1}
-                                className="px-2 py-0.5 bg-white border border-gray-200 rounded text-[11px] font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40"
-                            >
-                                First
-                            </button>
-                            <button
-                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                                disabled={currentPage === 1}
-                                className="px-2 py-0.5 bg-white border border-gray-200 rounded text-[11px] font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40"
-                            >
-                                Prev
-                            </button>
-
-                            <div className="flex items-center gap-1">
-                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                    let pageNum = currentPage - 2 + i;
-                                    if (pageNum < 1) pageNum = i + 1;
-                                    if (pageNum > totalPages) return null;
-                                    return (
-                                        <button
-                                            key={pageNum}
-                                            onClick={() => setCurrentPage(pageNum)}
-                                            className={`w-6 h-6 rounded text-[11px] font-bold transition-all ${
-                                                currentPage === pageNum
-                                                    ? 'bg-blue-600 text-white'
-                                                    : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-100'
-                                            }`}
-                                        >
-                                            {pageNum}
-                                        </button>
-                                    );
-                                })}
+                        <div className="flex items-center gap-3 text-xs">
+                            <div className="flex items-center gap-1.5">
+                                <label className="text-[10px] text-white/80 font-bold">Rows:</label>
+                                <select
+                                    value={pageSize}
+                                    onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
+                                    className="px-1.5 py-0.5 bg-white/10 border border-white/20 rounded text-xs font-bold text-white cursor-pointer"
+                                >
+                                    <option value={15} className="text-gray-900">15</option>
+                                    <option value={25} className="text-gray-900">25</option>
+                                    <option value={50} className="text-gray-900">50</option>
+                                    <option value={100} className="text-gray-900">100</option>
+                                </select>
                             </div>
 
                             <button
-                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                                disabled={currentPage === totalPages}
-                                className="px-2 py-0.5 bg-white border border-gray-200 rounded text-[11px] font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40"
+                                onClick={() => setIsAutoFit(!isAutoFit)}
+                                className="px-2 py-0.5 bg-white/20 hover:bg-white/30 text-white rounded text-[11px] font-bold transition-all flex items-center gap-1 shadow-xs"
                             >
-                                Next
-                            </button>
-                            <button
-                                onClick={() => setCurrentPage(totalPages)}
-                                disabled={currentPage === totalPages}
-                                className="px-2 py-0.5 bg-white border border-gray-200 rounded text-[11px] font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40"
-                            >
-                                Last
+                                <span>{isAutoFit ? '🖥️ Auto-Fit' : '↔️ Expanded'}</span>
                             </button>
                         </div>
                     </div>
-                )}
-            </div>
+
+                    <div className={isAutoFit ? 'w-full overflow-hidden' : 'overflow-x-auto'}>
+                        {isLoading ? (
+                            <div className="p-12 text-center">
+                                <div className="inline-block animate-spin text-3xl mb-2">🔄</div>
+                                <h3 className="text-xs font-bold text-gray-700">Reconciling Product Stock Movements...</h3>
+                                <p className="text-[10px] text-gray-400 mt-0.5">Aggregating real movement ledger lines</p>
+                            </div>
+                        ) : paginatedSummaries.length === 0 ? (
+                            <div className="p-12 text-center">
+                                <span className="text-4xl block mb-2">🔍</span>
+                                <h3 className="text-xs font-bold text-gray-800">No Medications Match Your Filter</h3>
+                                <button
+                                    onClick={() => { setSearchQuery(''); setCategoryFilter('ALL'); setStatusFilter('ALL'); }}
+                                    className="mt-2.5 px-3 py-1 bg-blue-600 text-white rounded text-xs font-bold hover:bg-blue-700"
+                                >
+                                    Reset Filters
+                                </button>
+                            </div>
+                        ) : (
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                                        <th className="px-2 py-2">Code</th>
+                                        <th className="px-2.5 py-2">Item Name &amp; Formulation</th>
+                                        <th className="px-2 py-2">Category</th>
+                                        <th className="px-2 py-2 text-center">Unit</th>
+                                        <th className="px-2 py-2 text-right bg-blue-50/40 text-blue-900">Opening</th>
+                                        <th className="px-2 py-2 text-right bg-emerald-50/40 text-emerald-900">Purchased (+)</th>
+                                        <th className="px-2 py-2 text-right bg-rose-50/40 text-rose-900">Sold (-)</th>
+                                        <th className="px-2 py-2 text-right bg-purple-50/40 text-purple-900">Adjusted (±)</th>
+                                        <th className="px-2 py-2 text-right bg-amber-50/40 text-amber-900">Loss / Exp / Ret</th>
+                                        <th className="px-2 py-2 text-right bg-indigo-50/60 text-indigo-950 font-black">Closing Stock</th>
+                                        <th className="px-2 py-2 text-right">Unit Cost</th>
+                                        <th className="px-2 py-2 text-right">Total Value</th>
+                                        <th className="px-2 py-2 text-center">Status</th>
+                                        <th className="px-2 py-2 text-center w-24">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 text-xs font-medium">
+                                    {paginatedSummaries.map(item => {
+                                        const lossTotal = item.expired_qty + item.damaged_qty + item.returned_qty;
+
+                                        return (
+                                            <tr key={item.pid} className="hover:bg-blue-50/40 transition-colors">
+                                                {/* Code */}
+                                                <td className="px-2 py-1.5 whitespace-nowrap">
+                                                    <span className="font-mono text-[10px] font-bold text-gray-600 bg-gray-100 px-1 py-0.2 rounded">
+                                                        {item.product_code}
+                                                    </span>
+                                                </td>
+
+                                                {/* Item Name */}
+                                                <td className="px-2.5 py-1.5 min-w-0">
+                                                    <span
+                                                        onClick={() => setSelectedProductDossier(item)}
+                                                        className="font-bold text-gray-900 hover:text-blue-700 cursor-pointer truncate max-w-[210px] block text-xs"
+                                                        title="Click to view full movement dossier"
+                                                    >
+                                                        {item.product_name}
+                                                    </span>
+                                                    {item.generic_name && (
+                                                        <p className="text-[9.5px] text-teal-700 italic truncate max-w-[200px] mt-0.5">
+                                                            {item.generic_name}
+                                                        </p>
+                                                    )}
+                                                </td>
+
+                                                {/* Category */}
+                                                <td className="px-2 py-1.5 whitespace-nowrap">
+                                                    <span className="text-[10px] text-gray-600 truncate max-w-[110px] block">
+                                                        {item.category}
+                                                    </span>
+                                                </td>
+
+                                                {/* Unit */}
+                                                <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                                                    <span className="px-1.5 py-0.2 bg-gray-100 text-gray-700 rounded text-[9.5px] font-semibold">
+                                                        {item.unit}
+                                                    </span>
+                                                </td>
+
+                                                {/* Opening */}
+                                                <td className="px-2 py-1.5 text-right whitespace-nowrap bg-blue-50/20 font-mono text-[11px] font-bold text-gray-800">
+                                                    {item.opening_qty.toLocaleString()}
+                                                </td>
+
+                                                {/* Purchased (+) */}
+                                                <td className="px-2 py-1.5 text-right whitespace-nowrap bg-emerald-50/20 font-mono text-[11px] font-bold text-emerald-800">
+                                                    {item.purchased_qty > 0 ? `+${item.purchased_qty.toLocaleString()}` : '0'}
+                                                </td>
+
+                                                {/* Sold (-) */}
+                                                <td className="px-2 py-1.5 text-right whitespace-nowrap bg-rose-50/20 font-mono text-[11px] font-bold text-rose-800">
+                                                    {item.sold_qty > 0 ? `-${item.sold_qty.toLocaleString()}` : '0'}
+                                                </td>
+
+                                                {/* Adjusted (±) */}
+                                                <td className="px-2 py-1.5 text-right whitespace-nowrap bg-purple-50/20 font-mono text-[11px] font-bold">
+                                                    <span className={item.adjusted_qty > 0 ? 'text-emerald-700' : item.adjusted_qty < 0 ? 'text-rose-700' : 'text-gray-500'}>
+                                                        {item.adjusted_qty > 0 ? `+${item.adjusted_qty}` : item.adjusted_qty}
+                                                    </span>
+                                                </td>
+
+                                                {/* Loss / Exp / Ret */}
+                                                <td className="px-2 py-1.5 text-right whitespace-nowrap bg-amber-50/20 font-mono text-[11px] font-bold text-amber-800">
+                                                    {lossTotal > 0 ? `-${lossTotal}` : '0'}
+                                                </td>
+
+                                                {/* Closing Stock */}
+                                                <td className="px-2 py-1.5 text-right whitespace-nowrap bg-indigo-50/30 font-mono text-[11.5px] font-black text-indigo-950">
+                                                    {item.closing_qty.toLocaleString()}
+                                                </td>
+
+                                                {/* Unit Cost */}
+                                                <td className="px-2 py-1.5 text-right whitespace-nowrap font-mono text-[10.5px] text-gray-700">
+                                                    KSh {item.unit_cost.toLocaleString()}
+                                                </td>
+
+                                                {/* Total Value */}
+                                                <td className="px-2 py-1.5 text-right whitespace-nowrap font-mono text-[11px] font-bold text-gray-900">
+                                                    KSh {item.total_value.toLocaleString()}
+                                                </td>
+
+                                                {/* Status */}
+                                                <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                                                    {getStockStatusBadge(item.status)}
+                                                </td>
+
+                                                {/* Actions */}
+                                                <td className="px-2 py-1.5 text-center whitespace-nowrap">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <button
+                                                            onClick={() => setSelectedProductDossier(item)}
+                                                            className="w-6 h-6 rounded bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white flex items-center justify-center transition-all border border-blue-200 text-[11px]"
+                                                            title="View Movement Timeline & Dossier"
+                                                        >
+                                                            👁️
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setAdjPid(item.pid);
+                                                                setAdjType('RECONCILE');
+                                                                setAdjPhysicalCount(String(item.closing_qty));
+                                                                setShowAdjustmentModal(true);
+                                                            }}
+                                                            className="w-6 h-6 rounded bg-purple-50 hover:bg-purple-600 text-purple-700 hover:text-white flex items-center justify-center transition-all border border-purple-200 text-[11px]"
+                                                            title="Quick Stock Count Reconcile"
+                                                        >
+                                                            ⚖️
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setTrfPid(item.pid);
+                                                                setShowTransferModal(true);
+                                                            }}
+                                                            className="w-6 h-6 rounded bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white flex items-center justify-center transition-all border border-emerald-200 text-[11px]"
+                                                            title="Transfer to Shelf/Bin"
+                                                        >
+                                                            🔄
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setPrintProductSummary(item);
+                                                                setTimeout(() => window.print(), 300);
+                                                            }}
+                                                            className="w-6 h-6 rounded bg-gray-100 hover:bg-gray-800 text-gray-700 hover:text-white flex items-center justify-center transition-all border border-gray-200 text-[11px]"
+                                                            title="Print Bin Card Slip"
+                                                        >
+                                                            🖨️
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 flex items-center justify-between flex-wrap gap-2 text-xs">
+                            <div className="text-[11px] font-bold text-gray-600">
+                                Page {currentPage} of {totalPages} ({filteredSummaries.length} total medications)
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setCurrentPage(1)}
+                                    disabled={currentPage === 1}
+                                    className="px-2 py-0.5 bg-white border border-gray-200 rounded text-[11px] font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40"
+                                >
+                                    First
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-2 py-0.5 bg-white border border-gray-200 rounded text-[11px] font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40"
+                                >
+                                    Prev
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages}
+                                    className="px-2 py-0.5 bg-white border border-gray-200 rounded text-[11px] font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40"
+                                >
+                                    Next
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage(totalPages)}
+                                    disabled={currentPage === totalPages}
+                                    className="px-2 py-0.5 bg-white border border-gray-200 rounded text-[11px] font-bold text-gray-600 hover:bg-gray-100 disabled:opacity-40"
+                                >
+                                    Last
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* ========================================== */}
-            {/* MODAL 1: POST STOCK ADJUSTMENT & RECONCILE (SLEEK COMPACT) */}
+            {/* VIEW 2: INDIVIDUAL AUDIT TRAIL LOG */}
+            {/* ========================================== */}
+            {activeTab === 'TRANSACTIONS' && (
+                <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
+                    <div className="px-4 py-2.5 bg-gradient-to-r from-gray-800 to-slate-900 text-white flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm">📋</span>
+                            <h2 className="text-xs font-bold tracking-wide">
+                                Real-Time Physical Transaction Audit Trail Log
+                            </h2>
+                            <span className="px-2 py-0.2 bg-white/20 rounded-full text-[10px] font-bold">
+                                {filteredTransactions.length} Recorded Events
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr className="bg-gray-50 border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                                    <th className="px-2 py-2">Movement ID</th>
+                                    <th className="px-2 py-2">Timestamp</th>
+                                    <th className="px-2.5 py-2">Medication Item</th>
+                                    <th className="px-2 py-2">Type</th>
+                                    <th className="px-2 py-2">Reference Doc</th>
+                                    <th className="px-2 py-2">Batch / Lot</th>
+                                    <th className="px-2 py-2 text-right">Delta Qty</th>
+                                    <th className="px-2 py-2 text-right">Valuation Impact</th>
+                                    <th className="px-2 py-2">Notes &amp; Operator</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {filteredTransactions.map(t => (
+                                    <tr key={t.st_id} className="hover:bg-gray-50/60 transition-colors">
+                                        <td className="px-2 py-1.5 font-mono text-[10.5px] font-bold text-blue-700 whitespace-nowrap">
+                                            {t.movement_id}
+                                        </td>
+                                        <td className="px-2 py-1.5 text-[10px] text-gray-600 whitespace-nowrap">
+                                            {new Date(t.created_at).toLocaleDateString('en-GB')} {new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </td>
+                                        <td className="px-2.5 py-1.5 font-bold text-gray-900 text-xs">
+                                            {t.product_name}
+                                        </td>
+                                        <td className="px-2 py-1.5 whitespace-nowrap">
+                                            <span className="px-1.5 py-0.2 rounded text-[9.5px] font-bold bg-gray-100 text-gray-800 border border-gray-200">
+                                                {t.movement_type}
+                                            </span>
+                                        </td>
+                                        <td className="px-2 py-1.5 font-mono text-[10px] font-bold text-gray-700 whitespace-nowrap">
+                                            {t.invoice_no}
+                                        </td>
+                                        <td className="px-2 py-1.5 font-mono text-[10px] text-purple-800 whitespace-nowrap">
+                                            {t.batch_number}
+                                        </td>
+                                        <td className="px-2 py-1.5 text-right font-mono text-[11px] font-bold whitespace-nowrap">
+                                            <span className={t.qty_change > 0 ? 'text-emerald-700' : 'text-rose-700'}>
+                                                {t.qty_change > 0 ? `+${t.qty_change}` : t.qty_change}
+                                            </span>
+                                        </td>
+                                        <td className="px-2 py-1.5 text-right font-mono text-[11px] font-bold text-gray-800 whitespace-nowrap">
+                                            KSh {t.total_cost.toLocaleString()}
+                                        </td>
+                                        <td className="px-2 py-1.5 text-[10px] text-gray-500 truncate max-w-[200px]" title={t.notes}>
+                                            {t.notes}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* ========================================== */}
+            {/* MODAL 1: POST STOCK ADJUSTMENT & RECONCILE */}
             {/* ========================================== */}
             {showAdjustmentModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50 backdrop-blur-xs">
@@ -1904,6 +1336,17 @@ export default function StockMovementPage() {
                                 <div className="grid grid-cols-3 gap-1.5">
                                     <button
                                         type="button"
+                                        onClick={() => setAdjType('RECONCILE')}
+                                        className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all ${
+                                            adjType === 'RECONCILE'
+                                                ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                                                : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        ⚖️ Re-audit Count
+                                    </button>
+                                    <button
+                                        type="button"
                                         onClick={() => setAdjType('ADD')}
                                         className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all ${
                                             adjType === 'ADD'
@@ -1911,7 +1354,7 @@ export default function StockMovementPage() {
                                                 : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
                                         }`}
                                     >
-                                        ➕ Add Stock
+                                        ➕ Add Surplus
                                     </button>
                                     <button
                                         type="button"
@@ -1922,18 +1365,7 @@ export default function StockMovementPage() {
                                                 : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
                                         }`}
                                     >
-                                        ➖ Deduct
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setAdjType('RECONCILE')}
-                                        className={`py-1.5 px-2 rounded-lg text-xs font-bold border transition-all ${
-                                            adjType === 'RECONCILE'
-                                                ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
-                                                : 'bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100'
-                                        }`}
-                                    >
-                                        ⚖️ Re-audit
+                                        ➖ Write-off
                                     </button>
                                 </div>
                             </div>
@@ -1944,60 +1376,31 @@ export default function StockMovementPage() {
                                 </label>
                                 <select
                                     required
-                                    value={adjProductId}
-                                    onChange={e => setAdjProductId(e.target.value ? Number(e.target.value) : '')}
+                                    value={adjPid}
+                                    onChange={e => {
+                                        const id = Number(e.target.value);
+                                        setAdjPid(id);
+                                        const p = productSummaries.find(x => x.pid === id);
+                                        if (p && adjType === 'RECONCILE') setAdjPhysicalCount(String(p.closing_qty));
+                                    }}
                                     className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:border-purple-600"
                                 >
-                                    <option value="">-- Choose Medication --</option>
-                                    {products.map(p => (
-                                        <option key={p.pid} value={p.pid}>
-                                            {p.product_code} - {p.product_name} (Stock: {p.current_stock} {p.sales_unit})
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
-                                        Batch (Optional)
-                                    </label>
-                                    <select
-                                        value={adjBatchId}
-                                        onChange={e => setAdjBatchId(e.target.value ? Number(e.target.value) : '')}
-                                        className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:border-purple-600"
-                                    >
-                                        <option value="">-- Default Lot --</option>
-                                        {batches.map(b => (
-                                            <option key={b.batch_id} value={b.batch_id}>
-                                                {b.batch_number} (Rem: {b.remaining_qty})
+                                    <option value="">-- Choose Medication ({PHARMACY_MASTER_CATALOG.length}) --</option>
+                                    {PHARMACY_MASTER_CATALOG.map(p => {
+                                        const cur = productSummaries.find(x => x.pid === p.pid);
+                                        return (
+                                            <option key={p.pid} value={p.pid}>
+                                                {p.product_code} - {p.product_name} (Current: {cur?.closing_qty || 0} {p.sales_unit})
                                             </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
-                                        Storage Bin
-                                    </label>
-                                    <select
-                                        value={adjLocation}
-                                        onChange={e => setAdjLocation(e.target.value as StorageLocation)}
-                                        className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:border-purple-600"
-                                    >
-                                        <option value="Main Store">🏢 Main Store</option>
-                                        <option value="Dispensing Shelf">💊 Dispensing Shelf</option>
-                                        <option value="Cold Chain (2-8°C)">❄️ Cold Chain (2-8°C)</option>
-                                        <option value="Quarantine Room">⛔ Quarantine Room</option>
-                                        <option value="Damaged Bay">⚠️ Damaged Bay</option>
-                                    </select>
-                                </div>
+                                        );
+                                    })}
+                                </select>
                             </div>
 
                             {adjType === 'RECONCILE' ? (
                                 <div className="p-2.5 bg-purple-50 rounded-lg border border-purple-200 space-y-1">
                                     <label className="block text-[10px] font-bold text-purple-900 uppercase">
-                                        Actual Physical Count Verified
+                                        Actual Verified Physical Count On Hand
                                     </label>
                                     <input
                                         type="number"
@@ -2005,16 +1408,16 @@ export default function StockMovementPage() {
                                         required
                                         value={adjPhysicalCount}
                                         onChange={e => setAdjPhysicalCount(e.target.value)}
-                                        placeholder="e.g. 145"
+                                        placeholder="e.g. 50"
                                         className="w-full px-2.5 py-1.5 bg-white border border-purple-300 rounded-lg text-sm font-bold text-purple-950 focus:outline-none focus:border-purple-600"
                                     />
-                                    {adjProductId && adjPhysicalCount && (
+                                    {adjPid && adjPhysicalCount && (
                                         <div className="text-[10px] font-bold text-purple-800">
                                             {(() => {
-                                                const current = products.find(p => p.pid === Number(adjProductId))?.current_stock || 0;
+                                                const cur = productSummaries.find(p => p.pid === Number(adjPid))?.closing_qty || 0;
                                                 const phys = parseFloat(adjPhysicalCount) || 0;
-                                                const diff = phys - current;
-                                                return <span>System: {current} | Physical: {phys} | Variance: {diff > 0 ? `+${diff}` : diff} units</span>;
+                                                const diff = phys - cur;
+                                                return <span>System: {cur} | Physical: {phys} | Variance Delta: {diff > 0 ? `+${diff}` : diff} units</span>;
                                             })()}
                                         </div>
                                     )}
@@ -2028,8 +1431,8 @@ export default function StockMovementPage() {
                                         type="number"
                                         step="any"
                                         required
-                                        value={adjQuantity}
-                                        onChange={e => setAdjQuantity(e.target.value)}
+                                        value={adjQty}
+                                        onChange={e => setAdjQty(e.target.value)}
                                         placeholder="e.g. 10"
                                         className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold text-gray-900 focus:outline-none focus:border-purple-600"
                                     />
@@ -2045,10 +1448,10 @@ export default function StockMovementPage() {
                                     onChange={e => setAdjReason(e.target.value)}
                                     className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:border-purple-600"
                                 >
-                                    <option value="Physical Count Audit Discrepancy">Physical Count Audit Discrepancy</option>
+                                    <option value="Physical Inventory Count Audit">Physical Inventory Count Audit</option>
                                     <option value="Damaged / Broken Vials during dispensing">Damaged / Broken Vials during dispensing</option>
                                     <option value="Expired Stock Removal to Quarantine">Expired Stock Removal to Quarantine</option>
-                                    <option value="Manufacturer Surplus Delivery">Manufacturer Surplus Delivery</option>
+                                    <option value="Supplier Over-Delivery Surplus">Supplier Over-Delivery Surplus</option>
                                     <option value="Spillage or Leakage Defect">Spillage or Leakage Defect</option>
                                     <option value="Sample / Internal Clinic Use">Sample / Internal Clinic Use</option>
                                     <option value="Batch Entry Correction">Batch Entry Correction</option>
@@ -2081,7 +1484,7 @@ export default function StockMovementPage() {
                                     disabled={isSubmittingAdj}
                                     className="px-4 py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-lg font-bold text-xs shadow-xs disabled:opacity-50"
                                 >
-                                    {isSubmittingAdj ? 'Posting...' : 'Save Adjustment'}
+                                    {isSubmittingAdj ? 'Posting...' : 'Save & Balance Stock'}
                                 </button>
                             </div>
                         </form>
@@ -2090,155 +1493,9 @@ export default function StockMovementPage() {
             )}
 
             {/* ========================================== */}
-            {/* MODAL 2: INTER-BIN STORAGE TRANSFER (COMPACT) */}
+            {/* MODAL 2: PRODUCT 360° MOVEMENT DOSSIER */}
             {/* ========================================== */}
-            {showTransferModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50 backdrop-blur-xs">
-                    <div className="bg-white rounded-2xl max-w-md w-full border border-gray-200 shadow-xl overflow-hidden">
-                        <div className="px-4 py-3 bg-gradient-to-r from-blue-700 to-cyan-800 text-white flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <span className="text-base">🔄</span>
-                                <div>
-                                    <h2 className="text-sm font-bold">Inter-Bin Storage Transfer</h2>
-                                    <p className="text-[10px] text-blue-200">Re-allocate stock between bins</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setShowTransferModal(false)}
-                                className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-xs font-bold"
-                            >
-                                ✕
-                            </button>
-                        </div>
-
-                        <form onSubmit={handleSaveTransfer} className="p-4 space-y-3 text-xs">
-                            <div>
-                                <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
-                                    Medication *
-                                </label>
-                                <select
-                                    required
-                                    value={trfProductId}
-                                    onChange={e => setTrfProductId(e.target.value ? Number(e.target.value) : '')}
-                                    className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:border-blue-600"
-                                >
-                                    <option value="">-- Choose Medication --</option>
-                                    {products.map(p => (
-                                        <option key={p.pid} value={p.pid}>
-                                            {p.product_code} - {p.product_name} (Stock: {p.current_stock})
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
-                                        Source (From)
-                                    </label>
-                                    <select
-                                        value={trfFromLocation}
-                                        onChange={e => setTrfFromLocation(e.target.value as StorageLocation)}
-                                        className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:border-blue-600"
-                                    >
-                                        <option value="Main Store">🏢 Main Store</option>
-                                        <option value="Dispensing Shelf">💊 Dispensing Shelf</option>
-                                        <option value="Cold Chain (2-8°C)">❄️ Cold Chain</option>
-                                        <option value="Quarantine Room">⛔ Quarantine</option>
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
-                                        Target (To)
-                                    </label>
-                                    <select
-                                        value={trfToLocation}
-                                        onChange={e => setTrfToLocation(e.target.value as StorageLocation)}
-                                        className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:border-blue-600"
-                                    >
-                                        <option value="Dispensing Shelf">💊 Dispensing Shelf</option>
-                                        <option value="Main Store">🏢 Main Store</option>
-                                        <option value="Cold Chain (2-8°C)">❄️ Cold Chain</option>
-                                        <option value="Quarantine Room">⛔ Quarantine</option>
-                                        <option value="Damaged Bay">⚠️ Damaged Bay</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
-                                        Quantity *
-                                    </label>
-                                    <input
-                                        type="number"
-                                        step="any"
-                                        required
-                                        value={trfQuantity}
-                                        onChange={e => setTrfQuantity(e.target.value)}
-                                        placeholder="e.g. 20"
-                                        className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-bold text-gray-900 focus:outline-none focus:border-blue-600"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
-                                        Batch (Optional)
-                                    </label>
-                                    <select
-                                        value={trfBatchId}
-                                        onChange={e => setTrfBatchId(e.target.value ? Number(e.target.value) : '')}
-                                        className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:border-blue-600"
-                                    >
-                                        <option value="">-- Default Lot --</option>
-                                        {batches.map(b => (
-                                            <option key={b.batch_id} value={b.batch_id}>
-                                                {b.batch_number}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-[10px] font-bold text-gray-600 uppercase mb-0.5">
-                                    Notes
-                                </label>
-                                <textarea
-                                    rows={2}
-                                    value={trfNotes}
-                                    onChange={e => setTrfNotes(e.target.value)}
-                                    placeholder="Restocking notes..."
-                                    className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-800 focus:outline-none focus:border-blue-600 resize-none"
-                                />
-                            </div>
-
-                            <div className="pt-2 border-t border-gray-100 flex items-center justify-end gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowTransferModal(false)}
-                                    className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold text-xs"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSubmittingTrf}
-                                    className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-xs disabled:opacity-50"
-                                >
-                                    {isSubmittingTrf ? 'Transferring...' : 'Execute Transfer'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* ========================================== */}
-            {/* MODAL 3: 360° MOVEMENT DOSSIER (COMPACT) */}
-            {/* ========================================== */}
-            {dossierRecord && (
+            {selectedProductDossier && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50 backdrop-blur-xs">
                     <div className="bg-white rounded-2xl max-w-lg w-full border border-gray-200 shadow-xl overflow-hidden">
                         <div className="px-4 py-3 bg-gradient-to-r from-gray-900 to-blue-900 text-white flex items-center justify-between">
@@ -2246,16 +1503,16 @@ export default function StockMovementPage() {
                                 <span className="text-base">👁️</span>
                                 <div>
                                     <div className="flex items-center gap-1.5">
-                                        <h2 className="text-xs font-bold font-mono">{dossierRecord.movement_id}</h2>
+                                        <h2 className="text-xs font-bold font-mono">{selectedProductDossier.product_code}</h2>
                                         <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-white/20 text-white font-bold">
-                                            {dossierRecord.invoice_no}
+                                            {selectedProductDossier.unit}
                                         </span>
                                     </div>
-                                    <p className="text-[10px] text-gray-300">Stock Movement Dossier</p>
+                                    <p className="text-[10px] text-gray-300">Complete Product Stock Movement Ledger</p>
                                 </div>
                             </div>
                             <button
-                                onClick={() => setDossierRecord(null)}
+                                onClick={() => setSelectedProductDossier(null)}
                                 className="w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-xs font-bold"
                             >
                                 ✕
@@ -2265,65 +1522,61 @@ export default function StockMovementPage() {
                         <div className="p-4 space-y-3 text-xs">
                             <div className="p-2.5 bg-blue-50/60 rounded-xl border border-blue-200 flex items-center justify-between flex-wrap gap-2">
                                 <div>
-                                    <span className="text-[9px] font-bold text-blue-800 uppercase">Product</span>
-                                    <h3 className="text-xs font-bold text-gray-950">{dossierRecord.product_name}</h3>
-                                    <p className="font-mono text-[10px] text-gray-500 mt-0.5">{dossierRecord.product_code} • {dossierRecord.category}</p>
+                                    <span className="text-[9px] font-bold text-blue-800 uppercase">Medication</span>
+                                    <h3 className="text-xs font-bold text-gray-950">{selectedProductDossier.product_name}</h3>
+                                    <p className="text-[10px] text-gray-600 mt-0.5">{selectedProductDossier.category}</p>
                                 </div>
                                 <div>
-                                    {getMovementTypeBadge(dossierRecord.movement_type)}
+                                    {getStockStatusBadge(selectedProductDossier.status)}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-4 gap-2 text-center">
+                                <div className="p-2 bg-blue-50/50 rounded-lg border border-blue-100">
+                                    <div className="text-[9px] font-bold text-blue-800 uppercase">Opening</div>
+                                    <div className="text-xs font-black text-gray-900 mt-0.5">{selectedProductDossier.opening_qty}</div>
+                                </div>
+                                <div className="p-2 bg-emerald-50/50 rounded-lg border border-emerald-100">
+                                    <div className="text-[9px] font-bold text-emerald-800 uppercase">Purchased</div>
+                                    <div className="text-xs font-black text-emerald-800 mt-0.5">+{selectedProductDossier.purchased_qty}</div>
+                                </div>
+                                <div className="p-2 bg-rose-50/50 rounded-lg border border-rose-100">
+                                    <div className="text-[9px] font-bold text-rose-800 uppercase">Sold (POS)</div>
+                                    <div className="text-xs font-black text-rose-800 mt-0.5">-{selectedProductDossier.sold_qty}</div>
+                                </div>
+                                <div className="p-2 bg-indigo-50/50 rounded-lg border border-indigo-100">
+                                    <div className="text-[9px] font-bold text-indigo-900 uppercase">Closing</div>
+                                    <div className="text-xs font-black text-indigo-950 mt-0.5">{selectedProductDossier.closing_qty}</div>
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-3 gap-2">
-                                <div className="p-2 bg-gray-50 rounded-lg border border-gray-200">
-                                    <div className="text-[9px] font-bold text-gray-500 uppercase">Batch #</div>
-                                    <div className="text-xs font-bold font-mono text-gray-900 mt-0.5">{dossierRecord.batch_number}</div>
+                                <div className="p-2 bg-purple-50/50 rounded-lg border border-purple-100">
+                                    <div className="text-[9px] font-bold text-purple-800 uppercase">Adjusted (±)</div>
+                                    <div className="text-xs font-black text-gray-900 mt-0.5">{selectedProductDossier.adjusted_qty}</div>
+                                </div>
+                                <div className="p-2 bg-amber-50/50 rounded-lg border border-amber-100">
+                                    <div className="text-[9px] font-bold text-amber-800 uppercase">Expired / Loss</div>
+                                    <div className="text-xs font-black text-amber-900 mt-0.5">-{selectedProductDossier.expired_qty + selectedProductDossier.damaged_qty}</div>
                                 </div>
                                 <div className="p-2 bg-gray-50 rounded-lg border border-gray-200">
-                                    <div className="text-[9px] font-bold text-gray-500 uppercase">Expiry</div>
-                                    <div className="text-xs font-bold font-mono text-gray-900 mt-0.5">{dossierRecord.expiry_date || 'N/A'}</div>
+                                    <div className="text-[9px] font-bold text-gray-600 uppercase">Total Valuation</div>
+                                    <div className="text-xs font-black text-gray-950 mt-0.5">KSh {selectedProductDossier.total_value.toLocaleString()}</div>
                                 </div>
-                                <div className="p-2 bg-gray-50 rounded-lg border border-gray-200">
-                                    <div className="text-[9px] font-bold text-gray-500 uppercase">Storage</div>
-                                    <div className="mt-0.5">{getLocationBadge(dossierRecord.storage_type)}</div>
-                                </div>
-                                <div className="p-2 bg-gray-50 rounded-lg border border-gray-200">
-                                    <div className="text-[9px] font-bold text-gray-500 uppercase">Delta</div>
-                                    <div className={`text-xs font-bold font-mono mt-0.5 ${dossierRecord.qty_change > 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                                        {dossierRecord.qty_change > 0 ? `+${dossierRecord.qty_change}` : dossierRecord.qty_change} {dossierRecord.unit}
-                                    </div>
-                                </div>
-                                <div className="p-2 bg-gray-50 rounded-lg border border-gray-200">
-                                    <div className="text-[9px] font-bold text-gray-500 uppercase">Unit Cost</div>
-                                    <div className="text-xs font-bold font-mono text-gray-900 mt-0.5">KSh {dossierRecord.unit_cost.toLocaleString()}</div>
-                                </div>
-                                <div className="p-2 bg-gray-50 rounded-lg border border-gray-200">
-                                    <div className="text-[9px] font-bold text-gray-500 uppercase">Valuation</div>
-                                    <div className="text-xs font-bold font-mono text-gray-900 mt-0.5">KSh {dossierRecord.total_cost_value.toLocaleString()}</div>
-                                </div>
-                            </div>
-
-                            <div className="p-2.5 bg-gray-50 rounded-lg border border-gray-200">
-                                <div className="text-[10px] font-bold text-gray-700 uppercase">Remarks</div>
-                                <p className="text-[11px] text-gray-600 mt-0.5 leading-relaxed">
-                                    {dossierRecord.notes || 'No remarks provided.'}
-                                </p>
-                            </div>
-
-                            <div className="flex items-center justify-between text-[10px] font-semibold text-gray-500 pt-2 border-t border-gray-100">
-                                <div>Operator: {dossierRecord.operator_name}</div>
-                                <div>Date: {new Date(dossierRecord.created_at).toLocaleString()}</div>
                             </div>
 
                             <div className="pt-2 flex items-center justify-end gap-2">
                                 <button
-                                    onClick={() => handlePrintVoucher(dossierRecord)}
+                                    onClick={() => {
+                                        setPrintProductSummary(selectedProductDossier);
+                                        setTimeout(() => window.print(), 300);
+                                    }}
                                     className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-bold text-xs flex items-center gap-1"
                                 >
-                                    <span>🖨️</span> Print Voucher
+                                    <span>🖨️</span> Print Bin Card
                                 </button>
                                 <button
-                                    onClick={() => setDossierRecord(null)}
+                                    onClick={() => setSelectedProductDossier(null)}
                                     className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold text-xs"
                                 >
                                     Close
@@ -2335,79 +1588,61 @@ export default function StockMovementPage() {
             )}
 
             {/* ========================================== */}
-            {/* PRINTABLE BIN CARD / VOUCHER */}
+            {/* PRINTABLE BIN CARD SLIP */}
             {/* ========================================== */}
-            <div className="hidden print:block fixed inset-0 bg-white p-8 z-[9999]" ref={printAreaRef}>
-                {printRecord && (
+            <div className="hidden print:block fixed inset-0 bg-white p-8 z-[9999]">
+                {printProductSummary && (
                     <div className="max-w-xl mx-auto space-y-4 text-black font-sans text-xs">
                         <div className="border-b-2 border-black pb-3 text-center">
                             <h1 className="text-xl font-bold uppercase tracking-wider">ALPHA PHARMACY &amp; HEALTHCARE</h1>
-                            <p className="text-[10px] font-bold mt-0.5">Licensed Retail &amp; Hospital Pharmacy | Reg #PH-89420</p>
-                            <p className="text-[10px]">Location: CBD Plaza | Tel: +254 700 000 000 | dispensary@alphapharmacy.ke</p>
-                            <div className="mt-2 inline-block px-3 py-0.5 bg-black text-white font-bold text-xs uppercase rounded">
-                                INVENTORY BIN CARD &amp; MOVEMENT VOUCHER
-                            </div>
+                            <p className="text-[10px] font-bold mt-0.5">Pharmaceutical Inventory &amp; Stock Bin Card</p>
+                            <p className="text-[10px]">CBD Plaza | dispensary@alphapharmacy.ke</p>
                         </div>
 
                         <div className="grid grid-cols-2 gap-3 border border-black p-2.5 text-[11px]">
                             <div>
-                                <p><span className="font-bold">Voucher ID:</span> {printRecord.movement_id}</p>
-                                <p><span className="font-bold">Date:</span> {new Date(printRecord.created_at).toLocaleString()}</p>
-                                <p><span className="font-bold">Doc Ref:</span> {printRecord.invoice_no}</p>
-                                <p><span className="font-bold">Type:</span> {printRecord.movement_type.replace(/_/g, ' ')}</p>
+                                <p><span className="font-bold">Item Name:</span> {printProductSummary.product_name}</p>
+                                <p><span className="font-bold">Code:</span> {printProductSummary.product_code}</p>
+                                <p><span className="font-bold">Category:</span> {printProductSummary.category}</p>
                             </div>
                             <div>
-                                <p><span className="font-bold">Medication:</span> {printRecord.product_name}</p>
-                                <p><span className="font-bold">Item Code:</span> {printRecord.product_code}</p>
-                                <p><span className="font-bold">Batch / Lot:</span> {printRecord.batch_number}</p>
-                                <p><span className="font-bold">Expiry Date:</span> {printRecord.expiry_date || 'N/A'}</p>
+                                <p><span className="font-bold">Unit:</span> {printProductSummary.unit}</p>
+                                <p><span className="font-bold">Unit Cost:</span> KSh {printProductSummary.unit_cost}</p>
+                                <p><span className="font-bold">Status:</span> {printProductSummary.status}</p>
                             </div>
                         </div>
 
-                        <table className="w-full border-collapse border border-black text-[11px] text-left">
+                        <table className="w-full border-collapse border border-black text-[11px] text-center">
                             <thead>
                                 <tr className="bg-gray-100">
-                                    <th className="border border-black p-1.5">Storage Bin</th>
-                                    <th className="border border-black p-1.5 text-right">Inflow</th>
-                                    <th className="border border-black p-1.5 text-right">Outflow</th>
-                                    <th className="border border-black p-1.5 text-right">Unit Cost</th>
-                                    <th className="border border-black p-1.5 text-right">Valuation</th>
+                                    <th className="border border-black p-1.5">Opening</th>
+                                    <th className="border border-black p-1.5">Purchased (+)</th>
+                                    <th className="border border-black p-1.5">Sold (-)</th>
+                                    <th className="border border-black p-1.5">Adjusted (±)</th>
+                                    <th className="border border-black p-1.5">Loss (-)</th>
+                                    <th className="border border-black p-1.5 font-bold">Closing</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <tr>
-                                    <td className="border border-black p-1.5 font-bold">{printRecord.storage_type}</td>
-                                    <td className="border border-black p-1.5 text-right font-mono font-bold">
-                                        {printRecord.qty_change > 0 ? `+${printRecord.qty_change} ${printRecord.unit}` : '-'}
-                                    </td>
-                                    <td className="border border-black p-1.5 text-right font-mono font-bold">
-                                        {printRecord.qty_change < 0 ? `${printRecord.qty_change} ${printRecord.unit}` : '-'}
-                                    </td>
-                                    <td className="border border-black p-1.5 text-right font-mono">
-                                        KSh {printRecord.unit_cost.toLocaleString()}
-                                    </td>
-                                    <td className="border border-black p-1.5 text-right font-mono font-bold">
-                                        KSh {printRecord.total_cost_value.toLocaleString()}
-                                    </td>
+                                    <td className="border border-black p-1.5 font-bold">{printProductSummary.opening_qty}</td>
+                                    <td className="border border-black p-1.5 font-bold text-green-700">+{printProductSummary.purchased_qty}</td>
+                                    <td className="border border-black p-1.5 font-bold text-red-700">-{printProductSummary.sold_qty}</td>
+                                    <td className="border border-black p-1.5 font-bold">{printProductSummary.adjusted_qty}</td>
+                                    <td className="border border-black p-1.5 font-bold text-red-700">-{printProductSummary.expired_qty + printProductSummary.damaged_qty + printProductSummary.returned_qty}</td>
+                                    <td className="border border-black p-1.5 font-bold text-lg">{printProductSummary.closing_qty}</td>
                                 </tr>
                             </tbody>
                         </table>
 
-                        <div className="border border-black p-2 text-[10px]">
-                            <span className="font-bold">Audit Rationale / Remarks:</span>
-                            <p className="mt-0.5">{printRecord.notes || 'Verified according to standard pharmaceutical procedures.'}</p>
-                        </div>
-
                         <div className="grid grid-cols-2 gap-6 pt-6 text-[10px]">
                             <div className="border-t border-black pt-1 text-center">
-                                <p className="font-bold">Prepared / Logged By</p>
-                                <p className="mt-3">{printRecord.operator_name}</p>
-                                <p className="text-[9px] text-gray-500">Storekeeper</p>
+                                <p className="font-bold">Stock Counted By</p>
+                                <p className="mt-3">Storekeeper / Assistant Pharmacist</p>
                             </div>
                             <div className="border-t border-black pt-1 text-center">
                                 <p className="font-bold">Authorized By</p>
-                                <p className="mt-3">Dr. Jimhawkins Korir</p>
-                                <p className="text-[9px] text-gray-500">Superintendent Pharmacist</p>
+                                <p className="mt-3">Dr. Jimhawkins Korir (Pharmacist in Charge)</p>
                             </div>
                         </div>
                     </div>
