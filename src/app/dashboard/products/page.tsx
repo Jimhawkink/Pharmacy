@@ -11,7 +11,7 @@ import {
     FiFilter, FiTrendingUp, FiPrinter, FiZap, FiClock,
     FiSliders, FiEye, FiChevronsLeft, FiChevronsRight, FiFileText,
     FiShield, FiCalendar, FiBox, FiAlertCircle, FiArrowUpRight,
-    FiMaximize2, FiMinimize2, FiInfo, FiCopy, FiCheckCircle,
+    FiMaximize2, FiMinimize2, FiMinus, FiInfo, FiCopy, FiCheckCircle,
     FiCheckSquare, FiSquare, FiActivity, FiChevronDown, FiChevronUp
 } from 'react-icons/fi';
 
@@ -174,7 +174,7 @@ const DEFAULT_UNITS: Unit[] = [
 ];
 
 const COLOR_PRESETS = [
-    { name: 'Teal Emerald', gradient: 'from-emerald-500 to-teal-600', hex: '#10B981' },
+    { name: 'Electric Sky', gradient: 'from-sky-500 to-blue-600', hex: '#0284C7' },
     { name: 'Electric Cyan', gradient: 'from-cyan-500 to-blue-600', hex: '#06B6D4' },
     { name: 'Royal Indigo', gradient: 'from-blue-500 to-indigo-600', hex: '#3B82F6' },
     { name: 'Violet Purple', gradient: 'from-purple-500 to-purple-600', hex: '#A855F7' },
@@ -200,7 +200,7 @@ const getExpiryBadge = (days: number) => {
     if (days <= 90) {
         return <span className="px-2 py-0.5 bg-amber-100/90 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold shadow-xs">{days}d</span>;
     }
-    return <span className="px-2 py-0.5 bg-emerald-100/90 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-bold shadow-xs">{days}d ✓</span>;
+    return <span className="px-2 py-0.5 bg-sky-100/90 text-sky-700 border border-sky-200 rounded-full text-[10px] font-bold shadow-xs">{days}d ✓</span>;
 };
 
 // Default blank product form
@@ -228,7 +228,7 @@ const defaultForm: Omit<Product, 'pid' | 'product_code'> = {
     margin_per: 0,
     show_in_pos: true,
     active: true,
-    button_ui_color: 'from-emerald-500 to-teal-600',
+    button_ui_color: 'from-blue-600 to-indigo-600',
     photo: '',
     hscode: '',
     batch_no: '',
@@ -614,7 +614,7 @@ export default function ProductsPage() {
             margin_per: p.margin_per || 0,
             show_in_pos: p.show_in_pos !== false,
             active: p.active !== false,
-            button_ui_color: p.button_ui_color || 'from-emerald-500 to-teal-600',
+            button_ui_color: p.button_ui_color || 'from-blue-600 to-indigo-600',
             photo: p.photo || '',
             hscode: p.hscode || '',
             batch_no: p.batch_no || '',
@@ -683,7 +683,7 @@ export default function ProductsPage() {
                 margin_per: computedMargin,
                 show_in_pos: formData.show_in_pos !== false,
                 active: formData.active !== false,
-                button_ui_color: formData.button_ui_color || 'from-emerald-500 to-teal-600',
+                button_ui_color: formData.button_ui_color || 'from-blue-600 to-indigo-600',
                 photo: formData.photo?.trim() || null,
                 hscode: formData.hscode?.trim() || null,
                 batch_no: formData.batch_no?.trim() || null,
@@ -1383,7 +1383,7 @@ export default function ProductsPage() {
   </Style>
   <Style ss:ID="TitleHeader">
    <Font ss:FontName="Segoe UI" ss:Size="16" ss:Bold="1" ss:Color="#FFFFFF"/>
-   <Interior ss:Color="#00C853" ss:Pattern="Solid"/>
+   <Interior ss:Color="#2563EB" ss:Pattern="Solid"/>
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
   </Style>
   <Style ss:ID="SubHeader">
@@ -1396,7 +1396,7 @@ export default function ProductsPage() {
    <Interior ss:Color="#1E293B" ss:Pattern="Solid"/>
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
    <Borders>
-    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#00C853"/>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#2563EB"/>
    </Borders>
   </Style>
   <Style ss:ID="StandardCell">
@@ -1423,10 +1423,10 @@ export default function ProductsPage() {
    <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/></Borders>
   </Style>
   <Style ss:ID="SafeCell">
-   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Bold="1" ss:Color="#00796B"/>
-   <Interior ss:Color="#E8F5E9" ss:Pattern="Solid"/>
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Bold="1" ss:Color="#0369A1"/>
+   <Interior ss:Color="#E0F2FE" ss:Pattern="Solid"/>
    <Alignment ss:Horizontal="Center"/>
-   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#C8E6C9"/></Borders>
+   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BAE6FD"/></Borders>
   </Style>
   <Style ss:ID="AmberCell">
    <Font ss:FontName="Segoe UI" ss:Size="10" ss:Bold="1" ss:Color="#E65100"/>
@@ -1689,74 +1689,77 @@ export default function ProductsPage() {
     return (
         <div className={`space-y-4 ${autoFitScreen ? 'max-w-full' : 'max-w-[1700px]'} mx-auto`} style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
 
-            {/* ━━━ GLASS TOP BAR: HEADER & MASTER CONTROLS ━━━ */}
-            <div className="glass-card p-4 md:p-5 shadow-lg shadow-slate-200/40 border border-white/80 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-                <div className="flex items-center gap-3.5">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30 flex-shrink-0">
-                        <FiPackage size={24} />
+            {/* ━━━ COMPACT SLEEK TOP BAR (LOW HEIGHT, MAX VISIBILITY) ━━━ */}
+            <div className="glass-card px-4 py-2.5 shadow-sm border border-white/80 flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-sm flex-shrink-0">
+                        <FiPackage size={16} />
                     </div>
-                    <div>
-                        <div className="flex items-center gap-2.5">
-                            <h1 className="text-2xl font-black text-slate-800 tracking-tight">Products & Pharmaceutical Formulary</h1>
-                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100/80 border border-emerald-200 text-emerald-800 text-xs font-black">
-                                {products.length} Drugs
-                            </span>
-                        </div>
-                        <p className="text-slate-500 text-xs mt-0.5">
-                            Formulary master catalog, direct batch allocations, live margin engine & POS touch controls
-                        </p>
+                    <div className="flex items-center gap-2">
+                        <h1 className="text-base sm:text-lg font-black text-slate-800 tracking-tight">Products Formulary</h1>
+                        <span className="px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-[11px] font-black">
+                            {products.length} Drugs
+                        </span>
                     </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     <button
                         onClick={() => { loadProducts(); loadStockData(); toast.success('Formulary refreshed'); }}
-                        className="p-2.5 rounded-xl bg-white/90 border border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-300 transition shadow-xs"
+                        className="p-1.5 rounded-lg bg-white/90 border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 transition shadow-2xs"
                         title="Refresh Catalog"
                     >
-                        <FiRefreshCw size={15} />
+                        <FiRefreshCw size={13} />
                     </button>
 
                     <button
                         onClick={() => setShowAnalyticsCards(!showAnalyticsCards)}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition shadow-xs ${
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition shadow-2xs ${
                             showAnalyticsCards
                                 ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
                                 : 'bg-white/90 border-slate-200 text-slate-600 hover:bg-slate-50'
                         }`}
-                        title="Toggle Metric Cards Visibility (Brings Table To Top)"
+                        title="Toggle Metric Cards"
                     >
-                        <FiActivity size={14} className="text-indigo-600" />
-                        <span>{showAnalyticsCards ? 'Collapse Cards' : 'Expand Cards'}</span>
-                        {showAnalyticsCards ? <FiChevronUp size={12} /> : <FiChevronDown size={12} />}
+                        <FiActivity size={12} className="text-indigo-600" />
+                        <span>{showAnalyticsCards ? 'Hide Cards' : 'Show Cards'}</span>
+                        {showAnalyticsCards ? <FiChevronUp size={11} /> : <FiChevronDown size={11} />}
                     </button>
 
                     <button
                         onClick={() => setAutoFitScreen(!autoFitScreen)}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition shadow-xs ${
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition shadow-2xs ${
                             autoFitScreen
-                                ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                                ? 'bg-blue-50 border-blue-300 text-blue-700'
                                 : 'bg-white/90 border-slate-200 text-slate-600 hover:bg-slate-50'
                         }`}
-                        title="Toggle Auto-Fit Screen Layout"
+                        title="Toggle Screen Fit"
                     >
-                        {autoFitScreen ? <FiMinimize2 size={13} /> : <FiMaximize2 size={13} />}
-                        <span>{autoFitScreen ? 'Auto-Fit' : 'Expanded'}</span>
+                        {autoFitScreen ? <FiMinimize2 size={12} /> : <FiMaximize2 size={12} />}
+                        <span>{autoFitScreen ? 'Auto-Fit' : 'Wide'}</span>
                     </button>
 
                     <button
-                        onClick={() => { setShowLabelModal(true); setLabelProducts([]); setLabelQty({}); }}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/90 border border-slate-200 text-slate-700 hover:text-purple-600 hover:border-purple-300 transition text-xs font-bold shadow-xs"
+                        onClick={() => {
+                            setShowLabelModal(true);
+                            setLabelProducts(paginatedProducts.slice(0, 10).map(p => p.pid));
+                            const qMap: Record<number, number> = {};
+                            paginatedProducts.slice(0, 10).forEach(p => qMap[p.pid] = 1);
+                            setLabelQty(qMap);
+                        }}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-50 border border-purple-200 text-purple-700 hover:bg-purple-100 transition text-xs font-bold shadow-2xs"
+                        title="Print Barcode Labels"
                     >
-                        <FiPrinter size={14} className="text-purple-600" />
+                        <FiPrinter size={13} />
                         <span>Labels</span>
                     </button>
 
                     <button
                         onClick={() => { setShowLookupModal(true); setLookupQuery(''); setLookupResult(null); }}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/90 border border-slate-200 text-slate-700 hover:text-cyan-600 hover:border-cyan-300 transition text-xs font-bold shadow-xs"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 transition text-xs font-bold shadow-2xs"
+                        title="Scan Barcode / Fast Lookup"
                     >
-                        <FiEye size={14} className="text-cyan-600" />
+                        <FiEye size={13} />
                         <span>Scan / Lookup</span>
                     </button>
 
@@ -1769,35 +1772,115 @@ export default function ProductsPage() {
                             setImportErrors([]);
                             setConfirmOverwrite(false);
                         }}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 transition text-xs font-bold shadow-md shadow-blue-500/20"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition text-xs font-bold shadow-2xs"
+                        title="Advanced Import"
                     >
-                        <FiUpload size={14} />
-                        <span>Advanced Import</span>
+                        <FiUpload size={13} />
+                        <span>Import</span>
                     </button>
 
                     <button
                         onClick={exportBrightExcel}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 font-bold text-xs shadow-2xs transition"
                         title="Download Vivid Color Excel Spreadsheet"
                     >
-                        <FiDownload size={14} />
-                        <span>Super Excel</span>
+                        <FiDownload size={13} />
+                        <span>Excel</span>
                     </button>
 
                     <button
                         onClick={printCatalogReport}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-xs transition"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-2xs transition"
+                        title="Print Catalog PDF"
                     >
-                        <FiPrinter size={14} />
-                        <span>Print PDF</span>
+                        <FiPrinter size={13} />
+                        <span>PDF</span>
                     </button>
 
                     <button
                         onClick={openAddModal}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm shadow-lg shadow-emerald-500/30 transition transform hover:-translate-y-0.5 active:translate-y-0"
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs shadow-md shadow-blue-500/20 transition transform hover:-translate-y-0.5 active:translate-y-0"
                     >
-                        <FiPlus size={16} strokeWidth={3} />
-                        <span>Add Product</span>
+                        <FiPlus size={14} strokeWidth={2.5} />
+                        <span>+ Add Drug</span>
+                    </button>
+                </div>
+            </div>
+
+            {/* ━━━ HIGH-VISIBILITY BRIGHT QUICK ACTIONS TOOLBAR ━━━ */}
+            <div className="glass-card px-3.5 py-2 border border-white/80 shadow-xs flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-1">Quick Actions:</span>
+                    <button
+                        onClick={openAddModal}
+                        className="px-2.5 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-xs font-bold shadow-xs transition flex items-center gap-1"
+                    >
+                        <FiPlus size={12} /> New Drug
+                    </button>
+                    <button
+                        onClick={() => { setShowLookupModal(true); setLookupQuery(''); setLookupResult(null); }}
+                        className="px-2.5 py-1 rounded-lg bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 text-xs font-bold transition flex items-center gap-1"
+                    >
+                        <FiEye size={12} /> Barcode Scanner
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (paginatedProducts.length > 0) openStockAdjust(paginatedProducts[0]);
+                            else toast('No products available to adjust');
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 text-xs font-bold transition flex items-center gap-1"
+                    >
+                        <FiSliders size={12} /> Fast Adjust
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (paginatedProducts.length > 0) openStockHistory(paginatedProducts[0]);
+                            else toast('No products available');
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 text-xs font-bold transition flex items-center gap-1"
+                    >
+                        <FiClock size={12} /> Stock Ledger
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (paginatedProducts.length > 0) openPriceHistory(paginatedProducts[0]);
+                            else toast('No products available');
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 text-xs font-bold transition flex items-center gap-1"
+                    >
+                        <FiTrendingUp size={12} /> Price History
+                    </button>
+                    <button
+                        onClick={() => {
+                            setShowLabelModal(true);
+                            setLabelProducts(paginatedProducts.slice(0, 8).map(p => p.pid));
+                            const qMap: Record<number, number> = {};
+                            paginatedProducts.slice(0, 8).forEach(p => qMap[p.pid] = 1);
+                            setLabelQty(qMap);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 text-xs font-bold transition flex items-center gap-1"
+                    >
+                        <FiPrinter size={12} /> Barcode Labels
+                    </button>
+                    <button
+                        onClick={() => setShowImportModal(true)}
+                        className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 text-xs font-bold transition flex items-center gap-1"
+                    >
+                        <FiUpload size={12} /> Bulk Import
+                    </button>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs">
+                    <button
+                        onClick={exportBrightExcel}
+                        className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-bold transition flex items-center gap-1"
+                    >
+                        <FiDownload size={12} /> Excel
+                    </button>
+                    <button
+                        onClick={printCatalogReport}
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 text-white hover:bg-slate-900 font-bold transition flex items-center gap-1"
+                    >
+                        <FiPrinter size={12} /> Print
                     </button>
                 </div>
             </div>
@@ -1816,17 +1899,17 @@ export default function ProductsPage() {
                         </div>
                         <p className="text-2xl font-black text-slate-800 mt-1.5 tracking-tight">{kpiData.totalProducts}</p>
                         <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500 font-semibold">
-                            <span>Active: <b className="text-emerald-600">{kpiData.activeSkus}</b></span>
+                            <span>Active: <b className="text-blue-600">{kpiData.activeSkus}</b></span>
                             <span>Disabled: <b className="text-slate-400">{kpiData.totalProducts - kpiData.activeSkus}</b></span>
                         </div>
                     </div>
 
                     {/* Card 2: Units in Stock */}
                     <div className="glass-card p-3.5 border border-white/80 shadow-md shadow-slate-200/30 hover:shadow-xl hover:-translate-y-0.5 transition-all relative overflow-hidden group">
-                        <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400/20 to-teal-400/10 blur-xl group-hover:scale-150 transition-transform" />
+                        <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br from-cyan-400/20 to-blue-400/10 blur-xl group-hover:scale-150 transition-transform" />
                         <div className="relative flex items-center justify-between">
-                            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600">Stock on Shelf</span>
-                            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-cyan-600">Stock on Shelf</span>
+                            <div className="w-8 h-8 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center shadow-xs">
                                 <FiBox size={16} />
                             </div>
                         </div>
@@ -1851,17 +1934,17 @@ export default function ProductsPage() {
 
                     {/* Card 4: Retail Sales Value */}
                     <div className="glass-card p-3.5 border border-white/80 shadow-md shadow-slate-200/30 hover:shadow-xl hover:-translate-y-0.5 transition-all relative overflow-hidden group">
-                        <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br from-teal-400/20 to-emerald-400/10 blur-xl group-hover:scale-150 transition-transform" />
+                        <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br from-violet-400/20 to-purple-400/10 blur-xl group-hover:scale-150 transition-transform" />
                         <div className="relative flex items-center justify-between">
-                            <span className="text-[10px] font-black uppercase tracking-wider text-teal-600">Retail Worth</span>
-                            <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shadow-xs">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-violet-600">Retail Worth</span>
+                            <div className="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shadow-xs">
                                 <FiTrendingUp size={16} />
                             </div>
                         </div>
-                        <p className="text-2xl font-black text-teal-800 mt-1.5 tracking-tight">
+                        <p className="text-2xl font-black text-violet-800 mt-1.5 tracking-tight">
                             KES {Math.round(kpiData.totalValSales).toLocaleString()}
                         </p>
-                        <p className="text-[11px] text-teal-700 mt-1 font-bold">
+                        <p className="text-[11px] text-violet-700 mt-1 font-bold">
                             Avg Margin: {kpiData.portfolioMargin.toFixed(1)}%
                         </p>
                     </div>
@@ -1908,13 +1991,13 @@ export default function ProductsPage() {
             <div className="glass-card p-4 shadow-md shadow-slate-200/30 border border-white/80 space-y-3">
                 {/* 1. Generous, Prominent, Wide Search Bar */}
                 <div className="relative w-full">
-                    <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600" size={20} />
+                    <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-600" size={20} />
                     <input
                         type="text"
                         value={searchQuery}
                         onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
                         placeholder="Search products by brand name, generic (INN), DRG code, barcode, or manufacturer..."
-                        className="w-full pl-12 pr-12 py-3.5 bg-white/95 backdrop-blur-md border border-slate-200 hover:border-emerald-400 focus:border-emerald-500 rounded-2xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-emerald-500/15 shadow-sm transition"
+                        className="w-full pl-12 pr-12 py-3.5 bg-white/95 backdrop-blur-md border border-slate-200 hover:border-blue-400 focus:border-blue-500 rounded-2xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/15 shadow-sm transition"
                         autoComplete="off"
                     />
                     {searchQuery ? (
@@ -1939,7 +2022,7 @@ export default function ProductsPage() {
                         <select
                             value={filterCategory}
                             onChange={e => { setFilterCategory(e.target.value); setPage(1); }}
-                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs"
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
                         >
                             <option value="All">All Categories</option>
                             {categories.map(c => (
@@ -1951,7 +2034,7 @@ export default function ProductsPage() {
                         <select
                             value={filterDrugType}
                             onChange={e => { setFilterDrugType(e.target.value); setPage(1); }}
-                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs"
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
                         >
                             <option value="All">All Forms</option>
                             {DRUG_TYPES.map(t => (
@@ -1963,7 +2046,7 @@ export default function ProductsPage() {
                         <select
                             value={filterPrescription}
                             onChange={e => { setFilterPrescription(e.target.value); setPage(1); }}
-                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs"
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
                         >
                             <option value="All">All Regulations</option>
                             <option value="rx">℞ Prescription (POM)</option>
@@ -1975,7 +2058,7 @@ export default function ProductsPage() {
                         <select
                             value={filterStockStatus}
                             onChange={e => { setFilterStockStatus(e.target.value); setPage(1); }}
-                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs"
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
                         >
                             <option value="All">All Stock Levels</option>
                             <option value="in_stock">In Stock (&gt; Min)</option>
@@ -1988,7 +2071,7 @@ export default function ProductsPage() {
                         <select
                             value={filterExpiryRisk}
                             onChange={e => { setFilterExpiryRisk(e.target.value); setPage(1); }}
-                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs"
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
                         >
                             <option value="All">All Expiry States</option>
                             <option value="has_batches">Has Batches</option>
@@ -2001,7 +2084,7 @@ export default function ProductsPage() {
                         <select
                             value={sortBy}
                             onChange={e => setSortBy(e.target.value as any)}
-                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs"
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
                         >
                             <option value="name_asc">Name: A → Z</option>
                             <option value="name_desc">Name: Z → A</option>
@@ -2016,14 +2099,14 @@ export default function ProductsPage() {
                     <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-white/90 shadow-xs">
                         <button
                             onClick={() => setViewMode('list')}
-                            className={`p-2 transition ${viewMode === 'list' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`p-2 transition ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
                             title="Table View"
                         >
                             <FiList size={16} />
                         </button>
                         <button
                             onClick={() => setViewMode('grid')}
-                            className={`p-2 transition ${viewMode === 'grid' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            className={`p-2 transition ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
                             title="Grid View"
                         >
                             <FiGrid size={16} />
@@ -2048,7 +2131,7 @@ export default function ProductsPage() {
                                 onClick={() => { setActiveFastFilter(f.id as any); setPage(1); }}
                                 className={`px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs ${
                                     activeFastFilter === f.id
-                                        ? 'bg-emerald-600 text-white shadow-emerald-500/20'
+                                        ? 'bg-blue-600 text-white shadow-blue-500/20'
                                         : 'bg-white/80 text-slate-600 border border-slate-200 hover:bg-slate-100'
                                 }`}
                             >
@@ -2086,9 +2169,9 @@ export default function ProductsPage() {
 
                 {/* Bulk Actions Toolbar */}
                 {selectedPids.size > 0 && (
-                    <div className="flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800 animate-fadeIn">
+                    <div className="flex items-center justify-between p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs font-bold text-blue-900 animate-fadeIn">
                         <div className="flex items-center gap-2">
-                            <FiCheckCircle size={15} className="text-emerald-600" />
+                            <FiCheckCircle size={15} className="text-blue-600" />
                             <span>{selectedPids.size} product(s) selected</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -2100,7 +2183,7 @@ export default function ProductsPage() {
                                     setLabelQty(qMap);
                                     setShowLabelModal(true);
                                 }}
-                                className="px-3 py-1 bg-white border border-emerald-300 rounded-lg text-emerald-700 hover:bg-emerald-100 transition"
+                                className="px-3 py-1 bg-white border border-blue-300 rounded-lg text-blue-700 hover:bg-blue-100 transition"
                             >
                                 Print Labels for Selected
                             </button>
@@ -2118,7 +2201,7 @@ export default function ProductsPage() {
             {/* ━━━ PRODUCTS DATAGRID / CARD GRID (IMMEDIATELY VISIBLE & ACCESSIBLE) ━━━ */}
             {isLoading ? (
                 <div className="glass-card p-16 flex flex-col items-center justify-center border border-white/80">
-                    <div className="w-12 h-12 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin" />
+                    <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
                     <p className="mt-4 text-sm font-bold text-slate-700">Loading Pharmaceutical Formulary...</p>
                     <p className="text-xs text-slate-400 mt-1">Connecting to live inventory balances and batch records</p>
                 </div>
@@ -2133,7 +2216,7 @@ export default function ProductsPage() {
                     </p>
                     <button
                         onClick={openAddModal}
-                        className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition"
+                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition"
                     >
                         + Add New Drug
                     </button>
@@ -2151,7 +2234,7 @@ export default function ProductsPage() {
                             <div
                                 key={p.pid}
                                 className={`glass-card transition-all duration-200 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-0.5 flex flex-col justify-between border ${
-                                    isSelected ? 'border-emerald-500 ring-2 ring-emerald-400/20' : 'border-white/80'
+                                    isSelected ? 'border-blue-500 ring-2 ring-blue-400/20' : 'border-white/80'
                                 }`}
                             >
                                 <div className="p-3.5">
@@ -2161,7 +2244,7 @@ export default function ProductsPage() {
                                                 type="checkbox"
                                                 checked={isSelected}
                                                 onChange={() => toggleSelectPid(p.pid)}
-                                                className="w-4 h-4 rounded accent-emerald-600 cursor-pointer"
+                                                className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
                                             />
                                             <span className="font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
                                                 {p.product_code}
@@ -2174,7 +2257,7 @@ export default function ProductsPage() {
                                                 </span>
                                             )}
                                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                                                p.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'
+                                                p.active ? 'bg-sky-50 text-sky-700 border border-sky-200' : 'bg-slate-100 text-slate-400'
                                             }`}>
                                                 {p.active ? 'Active' : 'Off'}
                                             </span>
@@ -2208,7 +2291,7 @@ export default function ProductsPage() {
                                         </div>
                                         <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60 font-bold">
                                             <span className="text-slate-500">Margin:</span>
-                                            <span className={(p.margin_per || 0) >= 20 ? 'text-emerald-600' : 'text-amber-600'}>
+                                            <span className={(p.margin_per || 0) >= 20 ? 'text-sky-700' : 'text-amber-600'}>
                                                 {(p.margin_per || 0).toFixed(1)}%
                                             </span>
                                         </div>
@@ -2217,7 +2300,7 @@ export default function ProductsPage() {
                                     <div className="mt-3 flex items-center justify-between">
                                         <div className="flex items-center gap-1.5">
                                             <span className={`w-2.5 h-2.5 rounded-full ${
-                                                stk <= 0 ? 'bg-red-500 animate-pulse' : stk <= (p.reorder_point || 10) ? 'bg-amber-500' : 'bg-emerald-500'
+                                                stk <= 0 ? 'bg-red-500 animate-pulse' : stk <= (p.reorder_point || 10) ? 'bg-amber-500' : 'bg-sky-500'
                                             }`} />
                                             <span className="text-xs font-black text-slate-800">
                                                 {stk} {p.sales_unit || 'Pcs'}
@@ -2230,7 +2313,7 @@ export default function ProductsPage() {
                                 <div className="p-2.5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-1">
                                     <button
                                         onClick={() => openEditModal(p)}
-                                        className="p-1.5 text-slate-600 hover:text-emerald-600 hover:bg-white rounded-lg transition"
+                                        className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-white rounded-lg transition"
                                         title="Edit Product"
                                     >
                                         <FiEdit2 size={13} />
@@ -2273,7 +2356,7 @@ export default function ProductsPage() {
                                             type="checkbox"
                                             checked={selectedPids.size === paginatedProducts.length && paginatedProducts.length > 0}
                                             onChange={toggleSelectAll}
-                                            className="w-4 h-4 rounded accent-emerald-600 cursor-pointer"
+                                            className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
                                         />
                                     </th>
                                     <th className="py-3 px-3.5">Drug / Pharmaceutical</th>
@@ -2301,8 +2384,8 @@ export default function ProductsPage() {
                                         <>
                                             <tr
                                                 key={p.pid}
-                                                className={`transition-colors hover:bg-emerald-50/40 ${
-                                                    isSelected ? 'bg-emerald-50/50' : idx % 2 === 0 ? 'bg-white/60' : 'bg-slate-50/30'
+                                                className={`transition-colors hover:bg-blue-50/30 ${
+                                                    isSelected ? 'bg-blue-50/50' : idx % 2 === 0 ? 'bg-white/60' : 'bg-slate-50/30'
                                                 }`}
                                             >
                                                 {/* Checkbox */}
@@ -2311,7 +2394,7 @@ export default function ProductsPage() {
                                                         type="checkbox"
                                                         checked={isSelected}
                                                         onChange={() => toggleSelectPid(p.pid)}
-                                                        className="w-4 h-4 rounded accent-emerald-600 cursor-pointer"
+                                                        className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
                                                     />
                                                 </td>
 
@@ -2332,7 +2415,7 @@ export default function ProductsPage() {
                                                         </div>
                                                         <div>
                                                             <div className="flex items-center gap-2">
-                                                                <span className="font-bold text-slate-900 hover:text-emerald-700 cursor-pointer" onClick={() => openEditModal(p)}>
+                                                                <span className="font-bold text-slate-900 hover:text-blue-700 cursor-pointer" onClick={() => openEditModal(p)}>
                                                                     {p.product_name}
                                                                 </span>
                                                                 {p.requires_prescription && (
@@ -2342,7 +2425,7 @@ export default function ProductsPage() {
                                                                 )}
                                                             </div>
                                                             <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400">
-                                                                <span className="font-mono text-emerald-600 font-bold">{p.product_code}</span>
+                                                                <span className="font-mono text-blue-600 font-bold">{p.product_code}</span>
                                                                 {p.generic_name && (
                                                                     <>
                                                                         <span>•</span>
@@ -2390,7 +2473,7 @@ export default function ProductsPage() {
                                                 <td className="py-3 px-3.5 text-center">
                                                     <span className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-black ${
                                                         (p.margin_per || 0) >= 30
-                                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                            ? 'bg-sky-50 text-sky-700 border border-sky-200'
                                                             : (p.margin_per || 0) >= 15
                                                             ? 'bg-amber-50 text-amber-700 border border-amber-200'
                                                             : 'bg-red-50 text-red-700 border border-red-200'
@@ -2407,7 +2490,7 @@ export default function ProductsPage() {
                                                                 ? 'bg-red-100 text-red-700 border border-red-200'
                                                                 : stk <= (p.reorder_point || 10)
                                                                 ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                                                : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                                                : 'bg-sky-50 text-sky-800 border border-sky-200'
                                                         }`}>
                                                             {stk} {p.sales_unit || 'Pcs'}
                                                         </span>
@@ -2442,10 +2525,10 @@ export default function ProductsPage() {
                                                 <td className="py-3 px-3.5 text-center">
                                                     <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                                                         p.active
-                                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                            ? 'bg-sky-50 text-sky-700 border border-sky-200'
                                                             : 'bg-slate-100 text-slate-500'
                                                     }`}>
-                                                        <span className={`w-1.5 h-1.5 rounded-full ${p.active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                                                        <span className={`w-1.5 h-1.5 rounded-full ${p.active ? 'bg-sky-500' : 'bg-slate-400'}`} />
                                                         {p.active ? 'Active' : 'Disabled'}
                                                     </span>
                                                 </td>
@@ -2455,7 +2538,7 @@ export default function ProductsPage() {
                                                     <div className="flex items-center justify-center gap-1">
                                                         <button
                                                             onClick={() => openEditModal(p)}
-                                                            className="p-1.5 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                                                            className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                                                             title="Edit Details"
                                                         >
                                                             <FiEdit2 size={13} />
@@ -2499,7 +2582,7 @@ export default function ProductsPage() {
                                                         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
                                                             <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 text-xs font-bold text-slate-700 flex items-center justify-between">
                                                                 <span className="flex items-center gap-2">
-                                                                    <FiBox size={14} className="text-emerald-600" />
+                                                                    <FiBox size={14} className="text-blue-600" />
                                                                     Batch Registry for {p.product_name}
                                                                 </span>
                                                                 <span className="text-[11px] text-slate-500 font-normal">
@@ -2622,7 +2705,7 @@ export default function ProductsPage() {
                     {/* Modal container: REDUCED WIDTH TO max-w-3xl to ensure clean, balanced proportions without being too long */}
                     <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden animate-scaleUp">
                         {/* Modal Header */}
-                        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 px-5 py-4 text-white flex items-center justify-between flex-shrink-0">
+                        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-5 py-4 text-white flex items-center justify-between flex-shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center text-white text-base">
                                     💊
@@ -2668,11 +2751,11 @@ export default function ProductsPage() {
                                         onClick={() => setModalTab(tab.id as any)}
                                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                                             isActive
-                                                ? 'bg-white text-emerald-700 shadow-xs border border-slate-200'
+                                                ? 'bg-white text-blue-700 shadow-xs border border-slate-200'
                                                 : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                                         }`}
                                     >
-                                        <Icon size={13} className={isActive ? 'text-emerald-600' : 'text-slate-400'} />
+                                        <Icon size={13} className={isActive ? 'text-blue-600' : 'text-slate-400'} />
                                         <span>{tab.label}</span>
                                     </button>
                                 );
@@ -2695,7 +2778,7 @@ export default function ProductsPage() {
                                                 value={formData.product_name}
                                                 onChange={e => setFormData({ ...formData, product_name: e.target.value })}
                                                 placeholder="e.g. Panadol Extra 500mg"
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:bg-white focus:border-blue-500 focus:outline-none transition"
                                             />
                                         </div>
 
@@ -2708,7 +2791,7 @@ export default function ProductsPage() {
                                                 value={formData.generic_name || ''}
                                                 onChange={e => setFormData({ ...formData, generic_name: e.target.value })}
                                                 placeholder="e.g. Paracetamol + Caffeine"
-                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:border-blue-500 focus:outline-none transition"
                                             />
                                         </div>
 
@@ -2722,7 +2805,7 @@ export default function ProductsPage() {
                                                         setFormData(prev => ({ ...prev, barcode: bc }));
                                                         toast.success(`Generated: ${bc}`);
                                                     }}
-                                                    className="text-[10px] text-emerald-600 hover:underline font-bold"
+                                                    className="text-[10px] text-blue-600 hover:underline font-bold"
                                                 >
                                                     ⚡ Generate
                                                 </button>
@@ -2732,7 +2815,7 @@ export default function ProductsPage() {
                                                 value={formData.barcode || ''}
                                                 onChange={e => setFormData({ ...formData, barcode: e.target.value })}
                                                 placeholder="Barcode code"
-                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:bg-white focus:border-blue-500 focus:outline-none transition"
                                             />
                                         </div>
 
@@ -2743,7 +2826,7 @@ export default function ProductsPage() {
                                             <select
                                                 value={formData.category || ''}
                                                 onChange={e => setFormData({ ...formData, category: e.target.value })}
-                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none cursor-pointer"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:border-blue-500 focus:outline-none cursor-pointer"
                                             >
                                                 <option value="">Select Category</option>
                                                 {categories.map(c => (
@@ -2761,7 +2844,7 @@ export default function ProductsPage() {
                                                 value={formData.manufacturer || ''}
                                                 onChange={e => setFormData({ ...formData, manufacturer: e.target.value })}
                                                 placeholder="e.g. GlaxoSmithKline"
-                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-blue-500 focus:outline-none transition"
                                             />
                                         </div>
 
@@ -2774,7 +2857,7 @@ export default function ProductsPage() {
                                                 value={formData.shelf_location || ''}
                                                 onChange={e => setFormData({ ...formData, shelf_location: e.target.value })}
                                                 placeholder="e.g. Aisle 2 - Shelf B"
-                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-blue-500 focus:outline-none transition"
                                             />
                                         </div>
 
@@ -2785,7 +2868,7 @@ export default function ProductsPage() {
                                             <select
                                                 value={formData.supplier_name || ''}
                                                 onChange={e => setFormData({ ...formData, supplier_name: e.target.value })}
-                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none cursor-pointer"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:border-blue-500 focus:outline-none cursor-pointer"
                                             >
                                                 <option value="">Direct Wholesale / Warehouse</option>
                                                 {suppliers.map(s => (
@@ -2849,7 +2932,7 @@ export default function ProductsPage() {
                                                         onClick={() => setFormData({ ...formData, storage_conditions: preset })}
                                                         className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
                                                             formData.storage_conditions === preset
-                                                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                                                ? 'bg-blue-600 text-white border-blue-600'
                                                                 : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                                                         }`}
                                                     >
@@ -2893,16 +2976,16 @@ export default function ProductsPage() {
                                         </label>
 
                                         <label className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition ${
-                                            formData.show_in_pos ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 hover:bg-slate-50'
+                                            formData.show_in_pos ? 'border-blue-400 bg-sky-50/50' : 'border-slate-200 hover:bg-slate-50'
                                         }`}>
                                             <input
                                                 type="checkbox"
                                                 checked={formData.show_in_pos}
                                                 onChange={e => setFormData({ ...formData, show_in_pos: e.target.checked })}
-                                                className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+                                                className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
                                             />
                                             <div>
-                                                <p className="text-xs font-black text-emerald-700">Display on POS Cashier Screen</p>
+                                                <p className="text-xs font-black text-sky-700">Display on POS Cashier Screen</p>
                                                 <p className="text-[10px] text-slate-500">Quick-sell button enabled in cashier register</p>
                                             </div>
                                         </label>
@@ -2981,7 +3064,7 @@ export default function ProductsPage() {
                                                 step={0.01}
                                                 value={formData.sales_cost}
                                                 onChange={e => setFormData({ ...formData, sales_cost: Math.max(0, parseFloat(e.target.value) || 0) })}
-                                                className="w-full px-2.5 py-2 bg-emerald-50 border border-emerald-300 rounded-xl text-xs font-black text-emerald-800"
+                                                className="w-full px-2.5 py-2 bg-sky-50 border border-sky-300 rounded-xl text-xs font-black text-blue-900"
                                             />
                                         </div>
 
@@ -3005,7 +3088,7 @@ export default function ProductsPage() {
                                         <div className="px-3 py-2 bg-slate-100 border-b border-slate-200 flex items-center justify-between text-xs">
                                             <span className="font-bold text-slate-800">Financial Calculations</span>
                                             <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
-                                                computedMetrics.marginPerPiece >= 20 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                                                computedMetrics.marginPerPiece >= 20 ? 'bg-sky-100 text-sky-800' : 'bg-amber-100 text-amber-800'
                                             }`}>
                                                 {computedMetrics.marginPerPiece.toFixed(1)}% Gross Margin
                                             </span>
@@ -3025,15 +3108,15 @@ export default function ProductsPage() {
                                                     <td className="py-2 px-3 font-bold text-slate-800">Per {formData.purchase_unit}</td>
                                                     <td className="py-2 px-3 text-right font-mono">KES {computedMetrics.costPerPkg.toLocaleString()}</td>
                                                     <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">KES {computedMetrics.sellPerPkg.toLocaleString()}</td>
-                                                    <td className="py-2 px-3 text-right font-mono font-bold text-emerald-700">KES {computedMetrics.profitPerPkg.toLocaleString()}</td>
+                                                    <td className="py-2 px-3 text-right font-mono font-bold text-sky-700">KES {computedMetrics.profitPerPkg.toLocaleString()}</td>
                                                     <td className="py-2 px-3 text-right text-slate-600">{computedMetrics.markupPerPiece.toFixed(1)}%</td>
                                                 </tr>
                                                 {computedMetrics.isDiffUnit && (
-                                                    <tr className="bg-emerald-50/30">
-                                                        <td className="py-2 px-3 font-bold text-emerald-800">Per {formData.sales_unit}</td>
+                                                    <tr className="bg-sky-50/30">
+                                                        <td className="py-2 px-3 font-bold text-blue-900">Per {formData.sales_unit}</td>
                                                         <td className="py-2 px-3 text-right font-mono">KES {computedMetrics.costPerPiece.toFixed(2)}</td>
-                                                        <td className="py-2 px-3 text-right font-mono font-bold text-emerald-800">KES {computedMetrics.sellPerPiece.toLocaleString()}</td>
-                                                        <td className="py-2 px-3 text-right font-mono font-bold text-emerald-700">KES {computedMetrics.profitPerPiece.toFixed(2)}</td>
+                                                        <td className="py-2 px-3 text-right font-mono font-bold text-blue-900">KES {computedMetrics.sellPerPiece.toLocaleString()}</td>
+                                                        <td className="py-2 px-3 text-right font-mono font-bold text-sky-700">KES {computedMetrics.profitPerPiece.toFixed(2)}</td>
                                                         <td className="py-2 px-3 text-right text-slate-600">{computedMetrics.markupPerPiece.toFixed(1)}%</td>
                                                     </tr>
                                                 )}
@@ -3203,9 +3286,9 @@ export default function ProductsPage() {
                         {/* Modal Sticky Footer */}
                         <div className="bg-slate-50 px-5 py-3.5 border-t border-slate-200 flex items-center justify-between flex-shrink-0">
                             <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
-                                <span>Profit/Pc: <b className="text-emerald-700 font-mono">KES {computedMetrics.profitPerPiece.toFixed(2)}</b></span>
+                                <span>Profit/Pc: <b className="text-blue-700 font-mono">KES {computedMetrics.profitPerPiece.toFixed(2)}</b></span>
                                 <span className="text-slate-300">|</span>
-                                <span>Margin: <b className="text-emerald-700 font-mono">{computedMetrics.marginPerPiece.toFixed(1)}%</b></span>
+                                <span>Margin: <b className="text-blue-700 font-mono">{computedMetrics.marginPerPiece.toFixed(1)}%</b></span>
                             </div>
 
                             <div className="flex items-center gap-2">
@@ -3220,7 +3303,7 @@ export default function ProductsPage() {
                                     type="button"
                                     onClick={handleSaveProduct}
                                     disabled={isSaving}
-                                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs shadow-md shadow-emerald-500/20 transition flex items-center gap-1.5 disabled:opacity-50"
+                                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs shadow-md shadow-blue-500/20 transition flex items-center gap-1.5 disabled:opacity-50"
                                 >
                                     {isSaving ? (
                                         <>
@@ -3247,7 +3330,7 @@ export default function ProductsPage() {
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 md:p-6 overflow-y-auto">
                     <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-5xl max-h-[94vh] flex flex-col overflow-hidden animate-scaleUp">
                         {/* Header */}
-                        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-teal-600 px-6 py-4.5 text-white flex items-center justify-between flex-shrink-0">
+                        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-6 py-4.5 text-white flex items-center justify-between flex-shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white text-lg">
                                     <FiUpload size={20} />
@@ -3273,7 +3356,7 @@ export default function ProductsPage() {
                             {/* ─── STATUS: SUCCESS AUDIT ─── */}
                             {importStatus === 'success' && (
                                 <div className="text-center py-6 space-y-4">
-                                    <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-md">
+                                    <div className="w-16 h-16 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center mx-auto shadow-md">
                                         <FiCheck size={32} />
                                     </div>
                                     <div>
@@ -3283,9 +3366,9 @@ export default function ProductsPage() {
 
                                     {/* Summary Stats Grid */}
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mx-auto pt-2">
-                                        <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-2xl">
-                                            <p className="text-[10px] font-bold text-emerald-600 uppercase">New Items Created</p>
-                                            <p className="text-2xl font-black text-emerald-800 mt-1">{importSuccessCount}</p>
+                                        <div className="bg-sky-50 border border-sky-200 p-3 rounded-2xl">
+                                            <p className="text-[10px] font-bold text-sky-700 uppercase">New Items Created</p>
+                                            <p className="text-2xl font-black text-sky-900 mt-1">{importSuccessCount}</p>
                                         </div>
                                         <div className="bg-blue-50 border border-blue-200 p-3 rounded-2xl">
                                             <p className="text-[10px] font-bold text-blue-600 uppercase">Existing Updated</p>
@@ -3320,7 +3403,7 @@ export default function ProductsPage() {
                                     <div className="pt-4">
                                         <button
                                             onClick={() => setShowImportModal(false)}
-                                            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition"
+                                            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition"
                                         >
                                             Done & View Updated Formulary
                                         </button>
@@ -3340,7 +3423,7 @@ export default function ProductsPage() {
                                     </div>
                                     <div className="max-w-md mx-auto bg-slate-100 rounded-full h-3 overflow-hidden">
                                         <div
-                                            className="bg-gradient-to-r from-blue-600 to-emerald-500 h-full transition-all duration-200"
+                                            className="bg-gradient-to-r from-blue-600 to-indigo-500 h-full transition-all duration-200"
                                             style={{ width: `${importTotal > 0 ? (importProgress / importTotal) * 100 : 0}%` }}
                                         />
                                     </div>
@@ -3408,7 +3491,7 @@ export default function ProductsPage() {
                                         {/* 2. Stock Quantity Option */}
                                         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
                                             <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                                                <FiBox size={13} className="text-emerald-600" /> 2. Quantity Handling
+                                                <FiBox size={13} className="text-blue-600" /> 2. Quantity Handling
                                             </span>
                                             <div className="space-y-1.5 text-xs">
                                                 {[
@@ -3416,7 +3499,7 @@ export default function ProductsPage() {
                                                     { id: 'zero_qty', label: 'Import as 0 Stock (Catalog Only)', desc: 'Formulary master only, recount later' }
                                                 ].map(q => (
                                                     <label key={q.id} className={`flex items-start gap-2 p-2 rounded-xl border cursor-pointer transition ${
-                                                        importQtyHandling === q.id ? 'bg-white border-emerald-400 shadow-xs' : 'border-transparent hover:bg-slate-100'
+                                                        importQtyHandling === q.id ? 'bg-white border-blue-400 shadow-xs' : 'border-transparent hover:bg-slate-100'
                                                     }`}>
                                                         <input
                                                             type="radio"
@@ -3424,7 +3507,7 @@ export default function ProductsPage() {
                                                             value={q.id}
                                                             checked={importQtyHandling === q.id}
                                                             onChange={() => setImportQtyHandling(q.id as any)}
-                                                            className="mt-0.5 accent-emerald-600"
+                                                            className="mt-0.5 accent-blue-600"
                                                         />
                                                         <div>
                                                             <p className="font-bold text-slate-800">{q.label}</p>
@@ -3467,17 +3550,17 @@ export default function ProductsPage() {
                                     </div>
 
                                     {/* Template Downloader Bar */}
-                                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                                    <div className="bg-sky-50 border border-sky-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
                                         <div className="flex items-center gap-2.5">
-                                            <FiFileText size={20} className="text-emerald-600 flex-shrink-0" />
+                                            <FiFileText size={20} className="text-sky-600 flex-shrink-0" />
                                             <div>
-                                                <p className="text-xs font-black text-emerald-900">Need the Standard Pharmacy CSV Template?</p>
-                                                <p className="text-[11px] text-emerald-700">Pre-populated with 8 real drug examples, batches, expiries & units</p>
+                                                <p className="text-xs font-black text-sky-900">Need the Standard Pharmacy CSV Template?</p>
+                                                <p className="text-[11px] text-sky-700">Pre-populated with 8 real drug examples, batches, expiries & units</p>
                                             </div>
                                         </div>
                                         <button
                                             onClick={downloadPharmacyCSVTemplate}
-                                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition whitespace-nowrap"
+                                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-xs transition whitespace-nowrap"
                                         >
                                             Download Master Template
                                         </button>
@@ -3496,11 +3579,11 @@ export default function ProductsPage() {
                                             </span>
                                             <span className="text-slate-300">|</span>
                                             <span className="font-bold text-slate-700">
-                                                Selected: <b className="text-emerald-700">{selectedImportCount}</b>
+                                                Selected: <b className="text-sky-700">{selectedImportCount}</b>
                                             </span>
                                             <span className="text-slate-300">|</span>
                                             <span className="font-bold text-slate-700">
-                                                Valid: <b className="text-emerald-600">{importParsedRows.filter(r => r.valid).length}</b>
+                                                Valid: <b className="text-sky-600">{importParsedRows.filter(r => r.valid).length}</b>
                                             </span>
                                             {importParsedRows.some(r => !r.valid) && (
                                                 <span className="font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
@@ -3530,7 +3613,7 @@ export default function ProductsPage() {
                                                 onClick={() => {
                                                     setImportParsedRows(prev => prev.map(r => ({ ...r, selected: r.valid })));
                                                 }}
-                                                className="px-2.5 py-1 bg-white border border-emerald-300 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-50"
+                                                className="px-2.5 py-1 bg-white border border-sky-300 text-sky-700 rounded-lg text-xs font-bold hover:bg-sky-50"
                                             >
                                                 Valid Only
                                             </button>
@@ -3562,7 +3645,7 @@ export default function ProductsPage() {
                                                                 const allSel = selectedImportCount === importParsedRows.length;
                                                                 setImportParsedRows(prev => prev.map(r => ({ ...r, selected: !allSel })));
                                                             }}
-                                                            className="w-4 h-4 rounded accent-emerald-600"
+                                                            className="w-4 h-4 rounded accent-blue-600"
                                                         />
                                                     </th>
                                                     <th className="py-2.5 px-3">Status</th>
@@ -3580,7 +3663,7 @@ export default function ProductsPage() {
                                                     <tr
                                                         key={r._id}
                                                         className={`hover:bg-slate-50 ${
-                                                            r.selected ? 'bg-emerald-50/20' : !r.valid ? 'bg-red-50/20' : ''
+                                                            r.selected ? 'bg-sky-50/20' : !r.valid ? 'bg-red-50/20' : ''
                                                         }`}
                                                     >
                                                         <td className="py-2 px-3 text-center">
@@ -3594,12 +3677,12 @@ export default function ProductsPage() {
                                                                         )
                                                                     );
                                                                 }}
-                                                                className="w-4 h-4 rounded accent-emerald-600 cursor-pointer"
+                                                                className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
                                                             />
                                                         </td>
                                                         <td className="py-2 px-3">
                                                             {r.valid ? (
-                                                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                                                <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200">
                                                                     Ready ✓
                                                                 </span>
                                                             ) : (
@@ -3613,7 +3696,7 @@ export default function ProductsPage() {
                                                         <td className="py-2 px-3 text-slate-600">{r.category || 'General'}</td>
                                                         <td className="py-2 px-3 text-right text-slate-700 font-mono">KES {r.purchase_cost}</td>
                                                         <td className="py-2 px-3 text-right font-bold text-slate-900 font-mono">KES {r.sales_cost}</td>
-                                                        <td className="py-2 px-3 text-right font-bold text-emerald-700">{r.quantity} {r.sales_unit}</td>
+                                                        <td className="py-2 px-3 text-right font-bold text-sky-700">{r.quantity} {r.sales_unit}</td>
                                                         <td className="py-2 px-3 text-slate-500 font-mono text-[11px]">
                                                             {r.batch_number || 'Auto'} {r.expiry_date ? `(${r.expiry_date})` : ''}
                                                         </td>
@@ -3662,7 +3745,7 @@ export default function ProductsPage() {
                                         <button
                                             onClick={() => executeImport(importParsedRows.filter(r => r.selected))}
                                             disabled={selectedImportCount === 0 || (importMode === 'overwrite_all' && !confirmOverwrite)}
-                                            className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs rounded-xl shadow-md hover:from-emerald-700 hover:to-teal-700 transition disabled:opacity-40"
+                                            className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-xs rounded-xl shadow-md hover:from-blue-700 hover:to-indigo-700 transition disabled:opacity-40"
                                         >
                                             Import Selected ({selectedImportCount})
                                         </button>
@@ -3693,6 +3776,590 @@ export default function ProductsPage() {
                                     Close Window
                                 </button>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+
+            {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                1. STOCK MOVEMENT LEDGER MODAL (QUICK ACTION)
+               ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+            {showStockHistoryModal && stockHistoryProduct && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 md:p-6 animate-fadeIn">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[88vh] flex flex-col overflow-hidden animate-scaleUp">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-6 py-4 text-white flex items-center justify-between flex-shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center">
+                                    <FiClock size={18} />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black tracking-tight">{stockHistoryProduct.product_name}</h3>
+                                    <p className="text-xs text-blue-100 font-mono">Stock Movement Ledger • Code: {stockHistoryProduct.product_code}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowStockHistoryModal(false)}
+                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition"
+                            >
+                                <FiX size={18} />
+                            </button>
+                        </div>
+
+                        {/* Quick KPI Stats Bar */}
+                        <div className="bg-slate-50 px-6 py-3 border-b border-slate-200 grid grid-cols-3 gap-3 flex-shrink-0">
+                            <div className="bg-white p-2.5 rounded-xl border border-slate-200 text-center shadow-2xs">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">Total Inflow (+)</p>
+                                <p className="text-sm font-black text-blue-600 mt-0.5">
+                                    +{stockHistory.reduce((acc, r) => acc + (r.qty_in || 0), 0)} {stockHistoryProduct.sales_unit || 'Pcs'}
+                                </p>
+                            </div>
+                            <div className="bg-white p-2.5 rounded-xl border border-slate-200 text-center shadow-2xs">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">Total Dispensed (-)</p>
+                                <p className="text-sm font-black text-rose-600 mt-0.5">
+                                    -{stockHistory.reduce((acc, r) => acc + (r.qty_out || 0), 0)} {stockHistoryProduct.sales_unit || 'Pcs'}
+                                </p>
+                            </div>
+                            <div className="bg-white p-2.5 rounded-xl border border-slate-200 text-center shadow-2xs">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase">Current Balance</p>
+                                <p className="text-sm font-black text-sky-700 mt-0.5">
+                                    {stockData[stockHistoryProduct.pid] || 0} {stockHistoryProduct.sales_unit || 'Pcs'}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Table */}
+                        <div className="p-4 overflow-y-auto flex-1">
+                            {stockHistory.length === 0 ? (
+                                <div className="text-center py-12 text-slate-400 text-xs">
+                                    <FiClock size={28} className="mx-auto mb-2 text-slate-300" />
+                                    No recorded stock transactions found for this drug yet.
+                                </div>
+                            ) : (
+                                <table className="w-full text-xs">
+                                    <thead>
+                                        <tr className="bg-slate-100 text-slate-600 font-bold uppercase text-[10px]">
+                                            <th className="py-2.5 px-3 text-left">Date</th>
+                                            <th className="py-2.5 px-3 text-left">Ref / Invoice</th>
+                                            <th className="py-2.5 px-3 text-left">Movement Type</th>
+                                            <th className="py-2.5 px-3 text-right">In (+)</th>
+                                            <th className="py-2.5 px-3 text-right">Out (-)</th>
+                                            <th className="py-2.5 px-3 text-right font-black">Balance</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {stockHistory.map(r => (
+                                            <tr key={r.id} className="hover:bg-slate-50 transition">
+                                                <td className="py-2.5 px-3 text-slate-600 font-medium">{r.date}</td>
+                                                <td className="py-2.5 px-3 font-mono font-bold text-slate-800">{r.ref}</td>
+                                                <td className="py-2.5 px-3">
+                                                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                                        r.type.includes('In')
+                                                            ? 'bg-sky-50 text-sky-700 border border-sky-200'
+                                                            : r.type.includes('Sale')
+                                                            ? 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+                                                            : 'bg-amber-50 text-amber-700 border border-amber-200'
+                                                    }`}>
+                                                        {r.type}
+                                                    </span>
+                                                </td>
+                                                <td className="py-2.5 px-3 text-right font-bold text-sky-700">{r.qty_in > 0 ? `+${r.qty_in}` : '-'}</td>
+                                                <td className="py-2.5 px-3 text-right font-bold text-rose-600">{r.qty_out > 0 ? `-${r.qty_out}` : '-'}</td>
+                                                <td className="py-2.5 px-3 text-right font-black text-slate-900">{r.balance}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-end flex-shrink-0">
+                            <button
+                                onClick={() => setShowStockHistoryModal(false)}
+                                className="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-900 transition"
+                            >
+                                Close Ledger
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                2. PRICE HISTORY AUDIT MODAL (QUICK ACTION)
+               ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+            {showPriceHistoryModal && priceHistoryProduct && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 md:p-6 animate-fadeIn">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-scaleUp">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 px-6 py-4 text-white flex items-center justify-between flex-shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center">
+                                    <FiTrendingUp size={18} />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black tracking-tight">{priceHistoryProduct.product_name}</h3>
+                                    <p className="text-xs text-purple-100 font-mono">Price Audit Trail • Code: {priceHistoryProduct.product_code}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowPriceHistoryModal(false)}
+                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition"
+                            >
+                                <FiX size={18} />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-5 overflow-y-auto flex-1">
+                            {priceHistory.length === 0 ? (
+                                <div className="text-center py-12 text-slate-400 text-xs">
+                                    <FiTrendingUp size={28} className="mx-auto mb-2 text-slate-300" />
+                                    No historical price changes recorded for this drug.
+                                </div>
+                            ) : (
+                                <table className="w-full text-xs">
+                                    <thead>
+                                        <tr className="bg-slate-100 text-slate-600 font-bold uppercase text-[10px]">
+                                            <th className="py-2.5 px-3 text-left">Date & Time</th>
+                                            <th className="py-2.5 px-3 text-right">Old Buy</th>
+                                            <th className="py-2.5 px-3 text-right text-blue-600 font-bold">New Buy</th>
+                                            <th className="py-2.5 px-3 text-right">Old Sell</th>
+                                            <th className="py-2.5 px-3 text-right text-purple-600 font-bold">New Sell</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {priceHistory.map(r => (
+                                            <tr key={r.id} className="hover:bg-slate-50 transition">
+                                                <td className="py-2.5 px-3 text-slate-600 font-medium">{r.date}</td>
+                                                <td className="py-2.5 px-3 text-right text-slate-400 font-mono">KES {r.old_buy}</td>
+                                                <td className="py-2.5 px-3 text-right font-black text-blue-600 font-mono">KES {r.new_buy}</td>
+                                                <td className="py-2.5 px-3 text-right text-slate-400 font-mono">KES {r.old_sell}</td>
+                                                <td className="py-2.5 px-3 text-right font-black text-purple-600 font-mono">KES {r.new_sell}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-end flex-shrink-0">
+                            <button
+                                onClick={() => setShowPriceHistoryModal(false)}
+                                className="px-4 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold hover:bg-slate-900 transition"
+                            >
+                                Close Audit
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                3. STOCK ADJUSTMENT MODAL (QUICK ACTION)
+               ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+            {showStockAdjustModal && adjustProduct && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 md:p-6 animate-fadeIn">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-lg w-full flex flex-col overflow-hidden animate-scaleUp">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 px-6 py-4 text-white flex items-center justify-between flex-shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center">
+                                    <FiSliders size={18} />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black tracking-tight">Stock Adjustment</h3>
+                                    <p className="text-xs text-blue-100">{adjustProduct.product_name}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowStockAdjustModal(false)}
+                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition"
+                            >
+                                <FiX size={18} />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="p-5 space-y-4">
+                            <div className="flex items-center justify-between p-3 bg-blue-50/70 border border-blue-200/60 rounded-2xl">
+                                <span className="text-xs font-bold text-slate-600">Current Shelf Stock:</span>
+                                <span className="text-sm font-black text-blue-700">
+                                    {stockData[adjustProduct.pid] || 0} {adjustProduct.sales_unit || 'Pcs'}
+                                </span>
+                            </div>
+
+                            {/* Adjustment Action */}
+                            <div>
+                                <label className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wider">Adjustment Action</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setAdjustType('add')}
+                                        className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border ${
+                                            adjustType === 'add'
+                                                ? 'bg-sky-600 text-white border-sky-600 shadow-md shadow-sky-500/20'
+                                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <FiPlus size={14} /> Add Stock (+)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAdjustType('remove')}
+                                        className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 border ${
+                                            adjustType === 'remove'
+                                                ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-500/20'
+                                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <FiMinus size={14} /> Deduct / Loss (-)
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Quantities */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                                        {adjustProduct.purchase_unit || 'Boxes'} Qty
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={adjustBags || ''}
+                                        onChange={e => setAdjustBags(parseInt(e.target.value) || 0)}
+                                        placeholder="0"
+                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-700 mb-1">
+                                        {adjustProduct.sales_unit || 'Pieces'} Qty
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={adjustPieces || ''}
+                                        onChange={e => setAdjustPieces(parseInt(e.target.value) || 0)}
+                                        placeholder="0"
+                                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:border-blue-500"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Reason */}
+                            <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-1">Adjustment Reason / Notes</label>
+                                <select
+                                    onChange={e => setAdjustReason(e.target.value)}
+                                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 mb-2 cursor-pointer"
+                                >
+                                    <option value="">Select Pre-Set Reason...</option>
+                                    <option value="Physical Inventory Count Reconciliation">Physical Inventory Count Reconciliation</option>
+                                    <option value="Damaged / Broken in Shelf">Damaged / Broken in Shelf</option>
+                                    <option value="Expired Stock Quarantine">Expired Stock Quarantine</option>
+                                    <option value="Supplier Free Sample / Bonus">Supplier Free Sample / Bonus</option>
+                                    <option value="Clinical Dispense Correction">Clinical Dispense Correction</option>
+                                </select>
+                                <input
+                                    type="text"
+                                    value={adjustReason}
+                                    onChange={e => setAdjustReason(e.target.value)}
+                                    placeholder="Or enter custom reason notes..."
+                                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-blue-500"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="bg-slate-50 px-6 py-3.5 border-t border-slate-200 flex items-center justify-between flex-shrink-0">
+                            <button
+                                onClick={() => setShowStockAdjustModal(false)}
+                                className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-white"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={submitStockAdjust}
+                                className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black shadow-md shadow-blue-500/20"
+                            >
+                                Apply Adjustment
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                4. BARCODE & SHELF LABEL GENERATOR MODAL (QUICK ACTION)
+               ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+            {showLabelModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 md:p-6 animate-fadeIn">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-scaleUp">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 px-6 py-4 text-white flex items-center justify-between flex-shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center">
+                                    <FiPrinter size={18} />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black tracking-tight">Barcode & Shelf Label Generator</h3>
+                                    <p className="text-xs text-purple-100">Thermal sticker printing & regulatory shelf price tags</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowLabelModal(false)}
+                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition"
+                            >
+                                <FiX size={18} />
+                            </button>
+                        </div>
+
+                        {/* Controls Bar */}
+                        <div className="bg-slate-50 px-6 py-3 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    value={labelSearch}
+                                    onChange={e => setLabelSearch(e.target.value)}
+                                    placeholder="Filter drugs..."
+                                    className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:border-purple-500 w-48"
+                                />
+                                <select
+                                    value={labelSize}
+                                    onChange={e => setLabelSize(e.target.value as any)}
+                                    className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none cursor-pointer"
+                                >
+                                    <option value="small">Small (38 x 25 mm Thermal)</option>
+                                    <option value="medium">Medium (50 x 25 mm Shelf)</option>
+                                    <option value="large">Large (A4 40-Up Sheet)</option>
+                                </select>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => {
+                                        setLabelProducts(paginatedProducts.map(p => p.pid));
+                                        const qMap: Record<number, number> = {};
+                                        paginatedProducts.forEach(p => qMap[p.pid] = 1);
+                                        setLabelQty(qMap);
+                                    }}
+                                    className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-100"
+                                >
+                                    + Add Current Page
+                                </button>
+                                <button
+                                    onClick={() => { setLabelProducts([]); setLabelQty({}); }}
+                                    className="px-2.5 py-1.5 text-xs text-rose-600 hover:text-rose-800 font-bold"
+                                >
+                                    Clear All
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Label Preview Grid */}
+                        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+                            {labelProducts.length === 0 ? (
+                                <div className="text-center py-12 text-slate-400 text-xs">
+                                    <FiPrinter size={32} className="mx-auto mb-2 text-slate-300" />
+                                    No drugs selected for printing. Click &quot;+ Add Current Page&quot; or select drugs from the catalog table.
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 print:grid-cols-3">
+                                    {labelProducts.map(pid => {
+                                        const p = products.find(x => x.pid === pid);
+                                        if (!p) return null;
+                                        const qty = labelQty[pid] || 1;
+                                        const batches = productBatches[p.pid] || [];
+                                        const nearestExp = batches.length > 0 ? batches[0].expiry_date : null;
+
+                                        return (
+                                            <div key={pid} className="border-2 border-dashed border-slate-300 rounded-2xl p-3 bg-white flex flex-col justify-between text-center relative group shadow-2xs">
+                                                <button
+                                                    onClick={() => {
+                                                        setLabelProducts(labelProducts.filter(id => id !== pid));
+                                                    }}
+                                                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-500 text-white text-xs font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-sm"
+                                                >
+                                                    ×
+                                                </button>
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Alpha Pharmacy</p>
+                                                    <h4 className="text-xs font-black text-slate-900 line-clamp-2 mt-0.5 leading-snug">{p.product_name}</h4>
+                                                    <p className="text-[10px] text-slate-500 italic mt-0.5">{p.dosage || p.drug_type || 'Standard'}</p>
+                                                </div>
+                                                <div className="my-2 py-1 px-2 bg-slate-50 rounded-lg">
+                                                    <div className="font-mono text-xs tracking-widest font-black text-slate-800">
+                                                        ||||||||||||||||||||
+                                                    </div>
+                                                    <p className="font-mono text-[9px] text-slate-500">{p.barcode || p.product_code}</p>
+                                                </div>
+                                                <div className="flex items-center justify-between text-[11px] pt-1 border-t border-slate-100">
+                                                    <span className="font-black text-blue-700">KES {p.sales_cost}</span>
+                                                    <span className="text-[9px] text-slate-400">{nearestExp ? `Exp: ${nearestExp}` : 'Rx Only'}</span>
+                                                </div>
+                                                <div className="mt-2 flex items-center justify-center gap-1.5 print:hidden">
+                                                    <span className="text-[10px] text-slate-400 font-bold">Qty:</span>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        max="500"
+                                                        value={qty}
+                                                        onChange={e => setLabelQty({ ...labelQty, [pid]: parseInt(e.target.value) || 1 })}
+                                                        className="w-12 text-center text-xs font-bold border border-slate-200 rounded-md py-0.5"
+                                                    />
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="bg-slate-50 px-6 py-3.5 border-t border-slate-200 flex items-center justify-between flex-shrink-0">
+                            <button
+                                onClick={() => setShowLabelModal(false)}
+                                className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-white"
+                            >
+                                Close
+                            </button>
+                            <button
+                                onClick={() => window.print()}
+                                disabled={labelProducts.length === 0}
+                                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 text-white rounded-xl text-xs font-black shadow-md hover:opacity-95 transition disabled:opacity-40"
+                            >
+                                <FiPrinter size={15} />
+                                <span>Print Labels ({labelProducts.reduce((acc, pid) => acc + (labelQty[pid] || 1), 0)} pcs)</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                5. FAST BARCODE SCANNER & FORMULARY LOOKUP MODAL (QUICK ACTION)
+               ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+            {showLookupModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 md:p-6 animate-fadeIn">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-xl w-full flex flex-col overflow-hidden animate-scaleUp">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 px-6 py-4 text-white flex items-center justify-between flex-shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center">
+                                    <FiEye size={18} />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-black tracking-tight">Fast Drug Scanner & Lookup</h3>
+                                    <p className="text-xs text-blue-100">Scan barcode gun or type DRG code / name</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowLookupModal(false)}
+                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition"
+                            >
+                                <FiX size={18} />
+                            </button>
+                        </div>
+
+                        {/* Input Bar */}
+                        <div className="p-6 space-y-4">
+                            <div className="flex items-center gap-2">
+                                <div className="relative flex-1">
+                                    <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-blue-600" size={18} />
+                                    <input
+                                        type="text"
+                                        autoFocus
+                                        value={lookupQuery}
+                                        onChange={e => setLookupQuery(e.target.value)}
+                                        onKeyDown={e => { if (e.key === 'Enter') doLookup(); }}
+                                        placeholder="Scan barcode or type drug name / code..."
+                                        className="w-full pl-10 pr-4 py-3 bg-white border-2 border-blue-400 focus:border-blue-600 rounded-2xl text-sm font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/15"
+                                    />
+                                </div>
+                                <button
+                                    onClick={doLookup}
+                                    className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-2xl shadow-md transition"
+                                >
+                                    Lookup
+                                </button>
+                            </div>
+
+                            {/* Result Card */}
+                            {lookupResult ? (
+                                <div className="bg-gradient-to-br from-slate-50 to-blue-50/40 border border-blue-200/80 rounded-2xl p-4 space-y-3 shadow-2xs">
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <span className="font-mono text-xs font-bold text-blue-600 bg-blue-100/60 px-2 py-0.5 rounded-md">
+                                                {lookupResult.product_code}
+                                            </span>
+                                            <h4 className="text-base font-black text-slate-900 mt-1">{lookupResult.product_name}</h4>
+                                            <p className="text-xs text-slate-500 italic">{lookupResult.generic_name || 'No generic INN specified'}</p>
+                                        </div>
+                                        <span className="px-2.5 py-1 rounded-xl bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold">
+                                            {lookupResult.category || 'General'}
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 text-center">
+                                        <div className="bg-white p-2 rounded-xl border border-slate-200">
+                                            <span className="text-[10px] text-slate-400 uppercase font-bold">Retail Price</span>
+                                            <p className="text-sm font-black text-slate-900 mt-0.5">KES {lookupResult.sales_cost}</p>
+                                        </div>
+                                        <div className="bg-white p-2 rounded-xl border border-slate-200">
+                                            <span className="text-[10px] text-slate-400 uppercase font-bold">Cost Outlay</span>
+                                            <p className="text-sm font-medium text-slate-600 mt-0.5">KES {lookupResult.purchase_cost}</p>
+                                        </div>
+                                        <div className="bg-white p-2 rounded-xl border border-slate-200">
+                                            <span className="text-[10px] text-slate-400 uppercase font-bold">Available Stock</span>
+                                            <p className="text-sm font-black text-sky-700 mt-0.5">
+                                                {stockData[lookupResult.pid] || 0} {lookupResult.sales_unit || 'Pcs'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs text-slate-600 bg-white/80 p-2.5 rounded-xl border border-slate-200">
+                                        <span>Shelf Location: <b>{lookupResult.shelf_location || 'Not Assigned'}</b></span>
+                                        <span>Storage: <b>{lookupResult.storage_conditions || 'Room Temp'}</b></span>
+                                    </div>
+                                    {/* Action Shortcuts */}
+                                    <div className="flex items-center gap-2 pt-1">
+                                        <button
+                                            onClick={() => { setShowLookupModal(false); openEditModal(lookupResult); }}
+                                            className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+                                        >
+                                            <FiEdit2 size={13} /> Edit
+                                        </button>
+                                        <button
+                                            onClick={() => { setShowLookupModal(false); openStockAdjust(lookupResult); }}
+                                            className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+                                        >
+                                            <FiSliders size={13} /> Adjust Stock
+                                        </button>
+                                        <button
+                                            onClick={() => { setShowLookupModal(false); openStockHistory(lookupResult); }}
+                                            className="flex-1 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5"
+                                        >
+                                            <FiClock size={13} /> History
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center py-8 text-slate-400 text-xs">
+                                    Scan a barcode or enter search query above to view drug details.
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-end flex-shrink-0">
+                            <button
+                                onClick={() => setShowLookupModal(false)}
+                                className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-white"
+                            >
+                                Close Scanner
+                            </button>
                         </div>
                     </div>
                 </div>
