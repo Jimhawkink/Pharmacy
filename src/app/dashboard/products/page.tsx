@@ -1,118 +1,293 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
-import { logActivity } from '@/lib/supabase';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { supabase, logActivity } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
-import { FiPackage, FiPlus, FiEdit2, FiTrash2, FiShoppingCart, FiDownload, FiRefreshCw, FiSearch, FiGrid, FiList, FiChevronLeft, FiChevronRight, FiX, FiUpload, FiCheck, FiAlertTriangle, FiTag, FiDollarSign, FiLayers, FiFilter, FiTrendingUp, FiImage, FiPrinter, FiZap, FiClock, FiSliders, FiEye, FiChevronsLeft, FiChevronsRight, FiFileText } from 'react-icons/fi';
+import {
+    FiPackage, FiPlus, FiEdit2, FiTrash2, FiDownload, FiRefreshCw,
+    FiSearch, FiGrid, FiList, FiChevronLeft, FiChevronRight, FiX,
+    FiUpload, FiCheck, FiAlertTriangle, FiTag, FiDollarSign, FiLayers,
+    FiFilter, FiTrendingUp, FiPrinter, FiZap, FiClock,
+    FiSliders, FiEye, FiChevronsLeft, FiChevronsRight, FiFileText,
+    FiShield, FiCalendar, FiBox, FiAlertCircle, FiArrowUpRight,
+    FiMaximize2, FiMinimize2, FiInfo, FiCopy, FiCheckCircle,
+    FiCheckSquare, FiSquare, FiActivity
+} from 'react-icons/fi';
 
+// ─── TYPES & INTERFACES ───
 interface Product {
-    pid: number; product_code: string; product_name: string; alias: string;
-    vat_commodity: string; description: string; barcode: string; category: string;
-    purchase_unit: string; sales_unit: string; purchase_cost: number; sales_cost: number;
-    wholesale_price: number; reorder_point: number; margin_per: number; show_ps: boolean; button_ui_color: string;
-    photo: string; hscode: string; batch_no: string; supplier_name: string; active: boolean;
-    pieces_per_package: number;
+    pid: number;
+    product_code: string;
+    product_name: string;
+    alias?: string;
+    vat_commodity?: string;
+    description?: string;
+    barcode?: string;
+    category?: string;
+    purchase_unit?: string;
+    sales_unit?: string;
+    purchase_cost: number;
+    sales_cost: number;
+    wholesale_price?: number;
+    reorder_point?: number;
+    margin_per?: number;
+    show_in_pos?: boolean;
+    button_ui_color?: string;
+    photo?: string;
+    hscode?: string;
+    batch_no?: string;
+    supplier_name?: string;
+    active: boolean;
+    pieces_per_package?: number;
+    generic_name?: string;
+    manufacturer?: string;
+    drug_type?: string;
+    dosage?: string;
+    requires_prescription?: boolean;
+    storage_conditions?: string;
+    controlled_substance?: boolean;
+    shelf_location?: string;
+    outlet_id?: number;
+    created_at?: string;
+    updated_at?: string;
 }
-interface StockHistoryRow { id: number; date: string; ref: string; type: string; qty_in: number; qty_out: number; balance: number; }
-interface PriceHistoryRow { id: number; date: string; old_buy: number; new_buy: number; old_sell: number; new_sell: number; }
-interface Category { category_id: number; category_name: string; icon: string; color: string; }
-interface Supplier { supplier_id: number; supplier_code: string; supplier_name: string; is_kitchen?: boolean; }
-interface Unit { unit_id: number; unit_name: string; abbreviation: string; }
+
 interface Batch {
-    batch_id?: number; batch_number: string; expiry_date: string;
-    manufacture_date: string; quantity: number; remaining_qty?: number;
-    purchase_cost: number; selling_price: number; status?: string;
+    batch_id?: number;
+    product_id?: number;
+    batch_number: string;
+    expiry_date: string;
+    manufacture_date?: string;
+    quantity: number;
+    remaining_qty?: number;
+    purchase_cost?: number;
+    selling_price?: number;
+    status?: string;
+    supplier_id?: number;
+    supplier_name?: string;
+    purchase_invoice?: string;
 }
 
-const DRUG_TYPES = ['Tablet','Capsule','Syrup','Suspension','Injection','Cream','Ointment','Drops','Inhaler','Suppository','Powder','Gel','Spray','Patch','Sachet','Other'];
-const getDaysUntilExpiry = (d: string) => { if (!d) return 999; return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000); };
-const getExpiryBadge = (days: number) => {
-    if (days < 0) return <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-bold">EXPIRED</span>;
-    if (days <= 7) return <span className="px-2 py-0.5 bg-red-100 text-red-600 rounded-full text-xs font-bold">{days}d ⚠️</span>;
-    if (days <= 30) return <span className="px-2 py-0.5 bg-orange-100 text-orange-600 rounded-full text-xs font-bold">{days}d</span>;
-    if (days <= 90) return <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-bold">{days}d</span>;
-    return <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-bold">{days}d ✓</span>;
+interface Category {
+    category_id: number;
+    category_name: string;
+    icon?: string;
+    color?: string;
+}
+
+interface Supplier {
+    supplier_id: number;
+    supplier_code?: string;
+    supplier_name: string;
+}
+
+interface Unit {
+    unit_id: number;
+    unit_name: string;
+    abbreviation: string;
+}
+
+interface StockHistoryRow {
+    id: number;
+    date: string;
+    ref: string;
+    type: string;
+    qty_in: number;
+    qty_out: number;
+    balance: number;
+}
+
+interface PriceHistoryRow {
+    id: number;
+    date: string;
+    old_buy: number;
+    new_buy: number;
+    old_sell: number;
+    new_sell: number;
+}
+
+// ─── CONSTANTS ───
+const DRUG_TYPES = [
+    'Tablet', 'Capsule', 'Syrup', 'Suspension', 'Injection', 'Cream', 'Ointment',
+    'Drops', 'Inhaler', 'Suppository', 'Powder', 'Gel', 'Spray', 'Patch', 'Sachet',
+    'Infusion / IV Fluid', 'Vial', 'Ampoule', 'Elixir', 'Lotion', 'Shampoo', 'Other'
+];
+
+const STORAGE_PRESETS = [
+    'Room Temperature (15°C – 25°C)',
+    'Cool Place (8°C – 15°C)',
+    'Refrigerate (2°C – 8°C)',
+    'Do Not Freeze',
+    'Protect from Direct Light',
+    'Store in Dry & Sealed Container',
+    'Deep Freeze (-20°C)'
+];
+
+const DEFAULT_UNITS: Unit[] = [
+    { unit_id: 1, unit_name: 'Piece', abbreviation: 'Pc' },
+    { unit_id: 2, unit_name: 'Tablet', abbreviation: 'Tab' },
+    { unit_id: 3, unit_name: 'Capsule', abbreviation: 'Cap' },
+    { unit_id: 4, unit_name: 'Strip', abbreviation: 'Str' },
+    { unit_id: 5, unit_name: 'Box', abbreviation: 'Box' },
+    { unit_id: 6, unit_name: 'Pack', abbreviation: 'Pk' },
+    { unit_id: 7, unit_name: 'Bottle', abbreviation: 'Btl' },
+    { unit_id: 8, unit_name: 'Tube', abbreviation: 'Tube' },
+    { unit_id: 9, unit_name: 'Sachet', abbreviation: 'Sachet' },
+    { unit_id: 10, unit_name: 'Vial', abbreviation: 'Vial' },
+    { unit_id: 11, unit_name: 'Ampoule', abbreviation: 'Amp' },
+    { unit_id: 12, unit_name: 'Carton', abbreviation: 'Ctn' },
+    { unit_id: 13, unit_name: 'Kilogram', abbreviation: 'Kg' },
+    { unit_id: 14, unit_name: 'Gram', abbreviation: 'g' },
+    { unit_id: 15, unit_name: 'Liter', abbreviation: 'L' },
+    { unit_id: 16, unit_name: 'Milliliter', abbreviation: 'ml' },
+    { unit_id: 17, unit_name: 'Dozen', abbreviation: 'Dz' }
+];
+
+const COLOR_PRESETS = [
+    { name: 'Teal Emerald', gradient: 'from-emerald-500 to-teal-600', hex: '#10B981' },
+    { name: 'Electric Cyan', gradient: 'from-cyan-500 to-blue-600', hex: '#06B6D4' },
+    { name: 'Royal Indigo', gradient: 'from-blue-500 to-indigo-600', hex: '#3B82F6' },
+    { name: 'Violet Purple', gradient: 'from-purple-500 to-purple-600', hex: '#A855F7' },
+    { name: 'Crimson Rose', gradient: 'from-rose-500 to-red-600', hex: '#F43F5E' },
+    { name: 'Amber Sunset', gradient: 'from-amber-400 to-orange-500', hex: '#F59E0B' },
+    { name: 'Slate Steel', gradient: 'from-slate-600 to-slate-800', hex: '#475569' }
+];
+
+const VAT_OPTIONS = ['Standard (16%)', 'Zero Rated (0%)', 'Exempt', 'Inclusive'];
+
+const getDaysUntilExpiry = (d?: string) => {
+    if (!d) return 999;
+    return Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
 };
 
-const defaultProduct: Omit<Product, 'pid' | 'product_code'> = {
-    product_name: '', alias: '', vat_commodity: 'Standard', description: '', barcode: '',
-    category: '', purchase_unit: 'Piece', sales_unit: 'Piece', purchase_cost: 0, sales_cost: 0,
-    wholesale_price: 0, reorder_point: 10, margin_per: 0, show_ps: true, button_ui_color: 'from-blue-400 to-blue-600',
-    photo: '', hscode: '', batch_no: '', supplier_name: '', active: true, pieces_per_package: 1,
+const getExpiryBadge = (days: number) => {
+    if (days < 0) {
+        return <span className="px-2 py-0.5 bg-red-100 text-red-700 border border-red-200 rounded-full text-[10px] font-black">EXPIRED</span>;
+    }
+    if (days <= 30) {
+        return <span className="px-2 py-0.5 bg-orange-100 text-orange-700 border border-orange-200 rounded-full text-[10px] font-black">{days}d ⚠️</span>;
+    }
+    if (days <= 90) {
+        return <span className="px-2 py-0.5 bg-amber-100 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold">{days}d</span>;
+    }
+    return <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-bold">{days}d ✓</span>;
 };
-const UNIT_CONVERSIONS: Record<string, Record<string, number>> = {
-    'Box': { 'Piece': 1, 'Box': 1 }, 'Pack': { 'Piece': 1, 'Pack': 1 },
-    'Dozen': { 'Piece': 12, 'Dozen': 1 }, 'Kilogram': { 'Gram': 1000, 'Kilogram': 1 },
-    'Liter': { 'Milliliter': 1000, 'Liter': 1 },
+
+// Default blank product form
+const defaultForm: Omit<Product, 'pid' | 'product_code'> = {
+    product_name: '',
+    generic_name: '',
+    alias: '',
+    barcode: '',
+    category: '',
+    drug_type: 'Tablet',
+    dosage: '',
+    manufacturer: '',
+    storage_conditions: 'Room Temperature (15°C – 25°C)',
+    shelf_location: '',
+    requires_prescription: false,
+    controlled_substance: false,
+    purchase_unit: 'Box',
+    sales_unit: 'Piece',
+    pieces_per_package: 1,
+    purchase_cost: 0,
+    sales_cost: 0,
+    wholesale_price: 0,
+    vat_commodity: 'Standard (16%)',
+    reorder_point: 10,
+    margin_per: 0,
+    show_in_pos: true,
+    active: true,
+    button_ui_color: 'from-emerald-500 to-teal-600',
+    photo: '',
+    hscode: '',
+    batch_no: '',
+    supplier_name: '',
+    description: ''
 };
-const vatOptions = ['Standard', 'Zero Rated', 'Exempt', 'Inclusive'];
-const colorPresets = [
-    { name: 'Orange', gradient: 'from-orange-400 to-orange-600', hex: '#F97316' },
-    { name: 'Red', gradient: 'from-red-400 to-red-600', hex: '#EF4444' },
-    { name: 'Yellow Orange', gradient: 'from-yellow-500 to-orange-500', hex: '#F59E0B' },
-    { name: 'Pink', gradient: 'from-red-500 to-pink-600', hex: '#EC4899' },
-    { name: 'Rose', gradient: 'from-rose-500 to-red-600', hex: '#F43F5E' },
-    { name: 'Green', gradient: 'from-green-400 to-emerald-600', hex: '#10B981' },
-    { name: 'Yellow', gradient: 'from-yellow-400 to-yellow-600', hex: '#EAB308' },
-    { name: 'Amber', gradient: 'from-amber-400 to-amber-600', hex: '#F59E0B' },
-    { name: 'Blue', gradient: 'from-blue-400 to-blue-600', hex: '#3B82F6' },
-    { name: 'Cyan', gradient: 'from-cyan-400 to-cyan-600', hex: '#06B6D4' },
-    { name: 'Teal', gradient: 'from-teal-400 to-teal-600', hex: '#14B8A6' },
-    { name: 'Purple', gradient: 'from-purple-400 to-purple-600', hex: '#A855F7' },
-    { name: 'Brown', gradient: 'from-amber-600 to-amber-800', hex: '#92400E' },
-    { name: 'Red Dark', gradient: 'from-red-600 to-red-800', hex: '#DC2626' },
-];
-const defUnits: Unit[] = [
-    { unit_id: 1, unit_name: 'Piece', abbreviation: 'Pc' }, { unit_id: 2, unit_name: 'Kilogram', abbreviation: 'Kg' },
-    { unit_id: 3, unit_name: 'Gram', abbreviation: 'g' }, { unit_id: 4, unit_name: 'Liter', abbreviation: 'L' },
-    { unit_id: 5, unit_name: 'Milliliter', abbreviation: 'ml' }, { unit_id: 6, unit_name: 'Box', abbreviation: 'Box' },
-    { unit_id: 7, unit_name: 'Pack', abbreviation: 'Pk' }, { unit_id: 8, unit_name: 'Dozen', abbreviation: 'Dz' },
-    { unit_id: 9, unit_name: 'Bottle', abbreviation: 'Btl' }, { unit_id: 10, unit_name: 'Plate', abbreviation: 'Plt' },
-];
 
 export default function ProductsPage() {
     const { activeOutlet } = useOutlet();
     const outletId = activeOutlet?.outlet_id || 1;
+
+    // ─── CORE STATE ───
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-    const [units, setUnits] = useState<Unit[]>(defUnits);
-    const [companyName, setCompanyName] = useState('');
+    const [units, setUnits] = useState<Unit[]>(DEFAULT_UNITS);
+    const [companyName, setCompanyName] = useState('Alpha Pharmacy');
     const [isLoading, setIsLoading] = useState(true);
-    const [showModal, setShowModal] = useState(false);
-    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-    const [formData, setFormData] = useState(defaultProduct);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filterCategory, setFilterCategory] = useState('All');
-    const [isSaving, setIsSaving] = useState(false);
-    const [openingBags, setOpeningBags] = useState(0);
-    const [openingPieces, setOpeningPieces] = useState(0);
+
+    // Stock & Batches mappings
     const [stockData, setStockData] = useState<Record<number, number>>({});
     const [bagStockData, setBagStockData] = useState<Record<number, number>>({});
     const [pieceStockData, setPieceStockData] = useState<Record<number, number>>({});
-    const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+    const [productBatches, setProductBatches] = useState<Record<number, Batch[]>>({});
+
+    // ─── FILTER & DISPLAY STATE ───
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterCategory, setFilterCategory] = useState('All');
+    const [filterDrugType, setFilterDrugType] = useState('All');
+    const [filterPrescription, setFilterPrescription] = useState('All');
+    const [filterStockStatus, setFilterStockStatus] = useState('All');
+    const [filterExpiryRisk, setFilterExpiryRisk] = useState('All');
+    const [filterMarginTier, setFilterMarginTier] = useState('All');
+    const [sortBy, setSortBy] = useState<'name_asc' | 'name_desc' | 'stock_desc' | 'stock_asc' | 'price_desc' | 'price_asc' | 'margin_desc'>('name_asc');
+    const [activeFastFilter, setActiveFastFilter] = useState<'all' | 'low_stock' | 'expiring' | 'rx_only' | 'out_of_stock' | 'high_margin'>('all');
+
+    // Layout & Pagination
+    const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+    const [autoFitScreen, setAutoFitScreen] = useState(true);
     const [showValuation, setShowValuation] = useState(true);
     const [page, setPage] = useState(1);
-    const [perPage, setPerPage] = useState(20);
+    const [perPage, setPerPage] = useState(25);
+    const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
-    // New modal states
+    // Selection & Bulk
+    const [selectedPids, setSelectedPids] = useState<Set<number>>(new Set());
+
+    // ─── SUPER ULTRA MODAL STATE ───
+    const [showModal, setShowModal] = useState(false);
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [modalTab, setModalTab] = useState<'general' | 'clinical' | 'pricing' | 'batches' | 'media'>('general');
+    const [formData, setFormData] = useState<Omit<Product, 'pid' | 'product_code'>>(defaultForm);
+    const [modalBatches, setModalBatches] = useState<Batch[]>([]);
+    const [newBatchRow, setNewBatchRow] = useState<Batch>({
+        batch_number: '',
+        expiry_date: '',
+        manufacture_date: '',
+        quantity: 0,
+        purchase_cost: 0,
+        selling_price: 0,
+        purchase_invoice: ''
+    });
+    const [isSaving, setIsSaving] = useState(false);
+
+    // ─── OTHER MODALS ───
+    // Label Generator
     const [showLabelModal, setShowLabelModal] = useState(false);
     const [labelProducts, setLabelProducts] = useState<number[]>([]);
     const [labelQty, setLabelQty] = useState<Record<number, number>>({});
     const [labelSearch, setLabelSearch] = useState('');
     const [labelSize, setLabelSize] = useState<'small' | 'medium' | 'large'>('medium');
-    const [showLabelPreview, setShowLabelPreview] = useState(false);
+
+    // Item Fast Lookup
     const [showLookupModal, setShowLookupModal] = useState(false);
     const [lookupQuery, setLookupQuery] = useState('');
     const [lookupResult, setLookupResult] = useState<Product | null>(null);
+
+    // Stock History / Ledger
     const [showStockHistoryModal, setShowStockHistoryModal] = useState(false);
     const [stockHistoryProduct, setStockHistoryProduct] = useState<Product | null>(null);
     const [stockHistory, setStockHistory] = useState<StockHistoryRow[]>([]);
+
+    // Price History
     const [showPriceHistoryModal, setShowPriceHistoryModal] = useState(false);
     const [priceHistoryProduct, setPriceHistoryProduct] = useState<Product | null>(null);
     const [priceHistory, setPriceHistory] = useState<PriceHistoryRow[]>([]);
+
+    // Stock Adjustment
     const [showStockAdjustModal, setShowStockAdjustModal] = useState(false);
     const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
     const [adjustBags, setAdjustBags] = useState(0);
@@ -120,10 +295,10 @@ export default function ProductsPage() {
     const [adjustType, setAdjustType] = useState<'add' | 'remove'>('add');
     const [adjustReason, setAdjustReason] = useState('');
 
-    // Import states
+    // CSV Import
     const [showImportModal, setShowImportModal] = useState(false);
     const [importFile, setImportFile] = useState<File | null>(null);
-    const [importMode, setImportMode] = useState<'overwrite' | 'update' | 'add_new'>('add_new');
+    const [importMode, setImportMode] = useState<'add_new' | 'update' | 'overwrite'>('add_new');
     const [importProgress, setImportProgress] = useState(0);
     const [importTotal, setImportTotal] = useState(0);
     const [importCurrentItem, setImportCurrentItem] = useState('');
@@ -131,53 +306,68 @@ export default function ProductsPage() {
     const [importErrors, setImportErrors] = useState<string[]>([]);
     const [importSuccessCount, setImportSuccessCount] = useState(0);
 
-    // Pharmacy-specific states
-    const [productBatches, setProductBatches] = useState<Record<number, Batch[]>>({});
-    const [batches, setBatches] = useState<Batch[]>([]);
-    const [newBatch, setNewBatch] = useState<Batch>({ batch_number: '', expiry_date: '', manufacture_date: '', quantity: 0, purchase_cost: 0, selling_price: 0 });
-    const [pharmForm, setPharmForm] = useState({ generic_name: '', manufacturer: '', drug_type: 'Tablet', dosage: '', requires_prescription: false, storage_conditions: '' });
-    const [editProduct, setEditProduct] = useState<Product | null>(null);
-    const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
-
-    // ─── DATA LOADING ───
+    // ─── DATA FETCHING ───
     const loadProducts = useCallback(async () => {
-        if (!activeOutlet) return; // Wait for outlet context to load on refresh
         setIsLoading(true);
         try {
-            // Try with outlet_id filter first
-            let { data, error } = await supabase.from('pharmacy_products').select('*').eq('outlet_id', outletId).order('pid', { ascending: false });
-            // Fallback if outlet_id column doesn't exist
-            if (error) {
+            let { data, error } = await supabase
+                .from('pharmacy_products')
+                .select('*')
+                .eq('outlet_id', outletId)
+                .order('pid', { ascending: false });
+
+            if (error || !data || data.length === 0) {
                 const fb = await supabase.from('pharmacy_products').select('*').order('pid', { ascending: false });
-                data = fb.data; error = fb.error;
+                data = fb.data;
+                error = fb.error;
             }
+
             if (error) throw error;
             setProducts(data || []);
-            // Load batches for all products
+
+            // Load active batches for all products
             if (data && data.length > 0) {
-                const pids = data.map((p: any) => p.pid);
-                const { data: allBatches } = await supabase.from('pharmacy_batches').select('*').in('product_id', pids).eq('status', 'Active').order('expiry_date', { ascending: true });
+                const pids = data.map((p: Product) => p.pid);
+                const { data: allBatches } = await supabase
+                    .from('pharmacy_batches')
+                    .select('*')
+                    .in('product_id', pids)
+                    .neq('status', 'Deleted')
+                    .order('expiry_date', { ascending: true });
+
                 const batchMap: Record<number, Batch[]> = {};
-                (allBatches || []).forEach((b: any) => { if (!batchMap[b.product_id]) batchMap[b.product_id] = []; batchMap[b.product_id].push(b); });
+                (allBatches || []).forEach((b: Batch) => {
+                    if (b.product_id) {
+                        if (!batchMap[b.product_id]) batchMap[b.product_id] = [];
+                        batchMap[b.product_id].push(b);
+                    }
+                });
                 setProductBatches(batchMap);
             }
+        } catch {
+            toast.error('Failed to load pharmacy product catalog');
+        } finally {
+            setIsLoading(false);
         }
-        catch { toast.error('Failed to load products'); }
-        setIsLoading(false);
-    }, [activeOutlet, outletId]);
+    }, [outletId]);
 
     const loadStockData = useCallback(async () => {
-        if (!activeOutlet) return;
         try {
-            let { data, error } = await supabase.from('pharmacy_stock').select('pid, qty, storage_type').eq('outlet_id', outletId);
-            if (error) {
+            let { data, error } = await supabase
+                .from('pharmacy_stock')
+                .select('pid, qty, storage_type')
+                .eq('outlet_id', outletId);
+
+            if (error || !data) {
                 const fb = await supabase.from('pharmacy_stock').select('pid, qty, storage_type');
                 data = fb.data;
             }
+
             const total: Record<number, number> = {};
             const bags: Record<number, number> = {};
             const pcs: Record<number, number> = {};
-            (data || []).forEach((s: any) => {
+
+            (data || []).forEach((s: { pid: number; qty?: number; storage_type?: string }) => {
                 const q = s.qty || 0;
                 if (s.storage_type === 'Bags') {
                     bags[s.pid] = (bags[s.pid] || 0) + q;
@@ -186,708 +376,1950 @@ export default function ProductsPage() {
                 }
                 total[s.pid] = (total[s.pid] || 0) + q;
             });
-            setStockData(total); setBagStockData(bags); setPieceStockData(pcs);
-        } catch { /* silent */ }
-    }, [activeOutlet, outletId]);
+
+            setStockData(total);
+            setBagStockData(bags);
+            setPieceStockData(pcs);
+        } catch {
+            // silent catch
+        }
+    }, [outletId]);
 
     const loadCategories = useCallback(async () => {
-        if (!activeOutlet) return;
         try {
-            let { data, error } = await supabase.from('pharmacy_categories').select('*').eq('active', true).eq('outlet_id', outletId).order('category_name');
-            // Fallback: if outlet_id filter fails or returns empty, load ALL categories
+            let { data, error } = await supabase
+                .from('pharmacy_categories')
+                .select('*')
+                .eq('active', true)
+                .order('category_name');
+
             if (error || !data || data.length === 0) {
-                const fb = await supabase.from('pharmacy_categories').select('*').eq('active', true).order('category_name');
+                const fb = await supabase.from('product_categories').select('*').order('category_name');
                 data = fb.data;
             }
             setCategories(data || []);
+        } catch {
+            // silent catch
         }
-        catch { /* silent */ }
-    }, [activeOutlet, outletId]);
+    }, []);
 
     const loadSuppliers = useCallback(async () => {
-        try { const { data, error } = await supabase.from('pharmacy_suppliers').select('supplier_id, supplier_code, supplier_name').eq('active', true).order('supplier_name'); if (error) throw error; setSuppliers(data || []); }
-        catch { /* silent */ }
+        try {
+            const { data } = await supabase
+                .from('pharmacy_suppliers')
+                .select('supplier_id, supplier_code, supplier_name')
+                .eq('active', true)
+                .order('supplier_name');
+            setSuppliers(data || []);
+        } catch {
+            // silent catch
+        }
     }, []);
 
     const loadUnits = useCallback(async () => {
-        try { const { data, error } = await supabase.from('product_units').select('unit_id, unit_name, abbreviation').eq('active', true).order('unit_name'); if (error) throw error; setUnits(data || []); }
-        catch { setUnits(defUnits); }
+        try {
+            const { data } = await supabase
+                .from('product_units')
+                .select('unit_id, unit_name, abbreviation')
+                .eq('active', true)
+                .order('unit_name');
+            if (data && data.length > 0) setUnits(data);
+        } catch {
+            setUnits(DEFAULT_UNITS);
+        }
     }, []);
 
     const loadCompanyName = useCallback(async () => {
         try {
-            const { data } = await supabase.from('organisation_settings').select('setting_value').eq('setting_key', 'company_name').single();
+            const { data } = await supabase
+                .from('organisation_settings')
+                .select('setting_value')
+                .eq('setting_key', 'company_name')
+                .single();
             if (data?.setting_value) setCompanyName(data.setting_value.trim());
-        } catch { setCompanyName('Alpha Pharmacy'); }
+        } catch {
+            setCompanyName('Alpha Pharmacy');
+        }
     }, []);
 
-    useEffect(() => { loadProducts(); loadStockData(); loadCategories(); loadSuppliers(); loadUnits(); loadCompanyName(); },
-        [loadProducts, loadStockData, loadCategories, loadSuppliers, loadUnits, loadCompanyName]);
+    useEffect(() => {
+        loadProducts();
+        loadStockData();
+        loadCategories();
+        loadSuppliers();
+        loadUnits();
+        loadCompanyName();
+    }, [loadProducts, loadStockData, loadCategories, loadSuppliers, loadUnits, loadCompanyName]);
 
-    const getKitchenSupplier = () => companyName || 'Kitchen';
-
+    // ─── BARCODE & CODE GENERATORS ───
     const generateBarcode = async (): Promise<string> => {
         try {
-            const { data } = await supabase.from('pharmacy_products').select('barcode').eq('outlet_id', outletId).like('barcode', '1%').order('barcode', { ascending: false }).limit(1);
-            if (data?.length && data[0].barcode) return String((parseInt(data[0].barcode) || 100) + 1); return '101';
-        } catch { return '101'; }
+            const { data } = await supabase
+                .from('pharmacy_products')
+                .select('barcode')
+                .like('barcode', '1%')
+                .order('barcode', { ascending: false })
+                .limit(1);
+            if (data?.length && data[0].barcode) {
+                return String((parseInt(data[0].barcode) || 100) + 1);
+            }
+            return '101';
+        } catch {
+            return String(Math.floor(100000 + Math.random() * 900000));
+        }
     };
 
     const generateProductCode = async (): Promise<string> => {
         try {
-            // Use max pid to generate a unique product code
-            const { data } = await supabase.from('pharmacy_products').select('pid').eq('outlet_id', outletId).order('pid', { ascending: false }).limit(1);
-            const maxPid = data?.[0]?.pid || 0;
+            const { data } = await supabase
+                .from('pharmacy_products')
+                .select('pid')
+                .order('pid', { ascending: false })
+                .limit(1);
+            const maxPid = data?.[0]?.pid || products.length;
             const nextNum = maxPid + 1;
             return `DRG-${String(nextNum).padStart(4, '0')}`;
         } catch {
-            // Fallback: use timestamp to guarantee uniqueness
-            return `DRG-${Date.now().toString().slice(-6)}`;
+            return `DRG-${Date.now().toString().slice(-4)}`;
         }
     };
 
-    const calcMargin = (costPerUnit: number, sellPrice: number) => sellPrice <= 0 ? 0 : Math.round(((sellPrice - costPerUnit) / sellPrice) * 10000) / 100;
+    const generateBatchNumber = () => {
+        const now = new Date();
+        const yy = String(now.getFullYear()).slice(-2);
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const rnd = Math.floor(1000 + Math.random() * 9000);
+        return `BAT-${yy}${mm}-${rnd}`;
+    };
 
+    const setQuickExpiry = (months: number) => {
+        const d = new Date();
+        d.setMonth(d.getMonth() + months);
+        setNewBatchRow(prev => ({ ...prev, expiry_date: d.toISOString().split('T')[0] }));
+    };
+
+    // ─── MARGIN & FINANCIAL CALCULATIONS ───
+    const computedMetrics = useMemo(() => {
+        const ppp = formData.pieces_per_package || 1;
+        const costPerPkg = formData.purchase_cost || 0;
+        const sellPerPiece = formData.sales_cost || 0;
+        const isDiffUnit = formData.purchase_unit !== formData.sales_unit && ppp > 1;
+
+        const costPerPiece = isDiffUnit ? costPerPkg / ppp : costPerPkg;
+        const sellPerPkg = isDiffUnit ? sellPerPiece * ppp : sellPerPiece;
+
+        const profitPerPiece = sellPerPiece - costPerPiece;
+        const profitPerPkg = sellPerPkg - costPerPkg;
+
+        const marginPerPiece = sellPerPiece > 0 ? (profitPerPiece / sellPerPiece) * 100 : 0;
+        const markupPerPiece = costPerPiece > 0 ? (profitPerPiece / costPerPiece) * 100 : 0;
+
+        return {
+            isDiffUnit,
+            costPerPkg,
+            sellPerPkg,
+            profitPerPkg,
+            costPerPiece,
+            sellPerPiece,
+            profitPerPiece,
+            marginPerPiece,
+            markupPerPiece
+        };
+    }, [formData.purchase_cost, formData.sales_cost, formData.pieces_per_package, formData.purchase_unit, formData.sales_unit]);
+
+    // ─── MODAL OPENERS ───
     const openAddModal = async () => {
-        setEditingProduct(null); const bc = await generateBarcode();
-        setFormData({ ...defaultProduct, barcode: bc, supplier_name: getKitchenSupplier() });
-        setPharmForm({ generic_name: '', manufacturer: '', drug_type: 'Tablet', dosage: '', requires_prescription: false, storage_conditions: '' });
-        setBatches([]); setNewBatch({ batch_number: '', expiry_date: '', manufacture_date: '', quantity: 0, purchase_cost: 0, selling_price: 0 });
-        setOpeningBags(0); setOpeningPieces(0); setShowModal(true);
+        setEditingProduct(null);
+        setModalTab('general');
+        const bc = await generateBarcode();
+        setFormData({
+            ...defaultForm,
+            barcode: bc,
+            supplier_name: suppliers[0]?.supplier_name || 'Direct Wholesale'
+        });
+        setModalBatches([]);
+        setNewBatchRow({
+            batch_number: generateBatchNumber(),
+            expiry_date: '',
+            manufacture_date: '',
+            quantity: 0,
+            purchase_cost: 0,
+            selling_price: 0,
+            purchase_invoice: ''
+        });
+        setShowModal(true);
     };
 
     const openEditModal = async (p: Product) => {
         setEditingProduct(p);
+        setModalTab('general');
         setFormData({
-            product_name: p.product_name, alias: p.alias || '', vat_commodity: p.vat_commodity || 'Standard',
-            description: p.description || '', barcode: p.barcode || '', category: p.category || '',
-            purchase_unit: p.purchase_unit || 'Piece', sales_unit: p.sales_unit || 'Piece',
-            purchase_cost: p.purchase_cost || 0, sales_cost: p.sales_cost || 0, wholesale_price: (p as any).wholesale_price || 0, reorder_point: p.reorder_point || 10,
-            margin_per: p.margin_per || 0, show_ps: p.show_ps !== false, button_ui_color: p.button_ui_color || 'from-blue-400 to-blue-600',
-            photo: p.photo || '', hscode: p.hscode || '', batch_no: p.batch_no || '', supplier_name: p.supplier_name || '', active: p.active !== false,
+            product_name: p.product_name,
+            generic_name: p.generic_name || '',
+            alias: p.alias || '',
+            barcode: p.barcode || '',
+            category: p.category || '',
+            drug_type: p.drug_type || 'Tablet',
+            dosage: p.dosage || '',
+            manufacturer: p.manufacturer || '',
+            storage_conditions: p.storage_conditions || 'Room Temperature (15°C – 25°C)',
+            shelf_location: p.shelf_location || '',
+            requires_prescription: !!p.requires_prescription,
+            controlled_substance: !!p.controlled_substance,
+            purchase_unit: p.purchase_unit || 'Box',
+            sales_unit: p.sales_unit || 'Piece',
             pieces_per_package: p.pieces_per_package || 1,
+            purchase_cost: p.purchase_cost || 0,
+            sales_cost: p.sales_cost || 0,
+            wholesale_price: p.wholesale_price || 0,
+            vat_commodity: p.vat_commodity || 'Standard (16%)',
+            reorder_point: p.reorder_point ?? 10,
+            margin_per: p.margin_per || 0,
+            show_in_pos: p.show_in_pos !== false,
+            active: p.active !== false,
+            button_ui_color: p.button_ui_color || 'from-emerald-500 to-teal-600',
+            photo: p.photo || '',
+            hscode: p.hscode || '',
+            batch_no: p.batch_no || '',
+            supplier_name: p.supplier_name || '',
+            description: p.description || ''
         });
-        setPharmForm({
-            generic_name: (p as any).generic_name || '', manufacturer: (p as any).manufacturer || '',
-            drug_type: (p as any).drug_type || 'Tablet', dosage: (p as any).dosage || '',
-            requires_prescription: (p as any).requires_prescription || false, storage_conditions: (p as any).storage_conditions || '',
-        });
+
         // Load existing batches for editing
-        const { data } = await supabase.from('pharmacy_batches').select('*').eq('product_id', p.pid).eq('status', 'Active').order('expiry_date');
-        setBatches((data || []).map((b: any) => ({
-            batch_id: b.batch_id, batch_number: b.batch_number, expiry_date: b.expiry_date,
-            manufacture_date: b.manufacture_date || '', quantity: b.quantity, remaining_qty: b.remaining_qty,
-            purchase_cost: b.purchase_cost, selling_price: b.selling_price, status: b.status,
-        })));
+        const { data } = await supabase
+            .from('pharmacy_batches')
+            .select('*')
+            .eq('product_id', p.pid)
+            .neq('status', 'Deleted')
+            .order('expiry_date', { ascending: true });
+
+        setModalBatches(data || []);
+        setNewBatchRow({
+            batch_number: generateBatchNumber(),
+            expiry_date: '',
+            manufacture_date: '',
+            quantity: 0,
+            purchase_cost: p.purchase_cost || 0,
+            selling_price: p.sales_cost || 0,
+            purchase_invoice: ''
+        });
         setShowModal(true);
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault(); if (!formData.product_name.trim()) { toast.error('Product name required!'); return; }
+    // ─── SAVE PRODUCT ───
+    const handleSaveProduct = async () => {
+        if (!formData.product_name.trim()) {
+            toast.error('Product trade name is required');
+            setModalTab('general');
+            return;
+        }
+
         setIsSaving(true);
         try {
-            const costPerPiece = formData.purchase_cost / (formData.pieces_per_package || 1);
-            const margin = calcMargin(costPerPiece, formData.wholesale_price || formData.sales_cost);
-            const d = {
-                product_name: formData.product_name, alias: formData.alias || null, description: formData.description || null,
-                barcode: formData.barcode || null, category: formData.category || null, purchase_unit: formData.purchase_unit,
-                sales_unit: formData.sales_unit, purchase_cost: formData.purchase_cost || 0, sales_cost: formData.sales_cost || 0,
-                wholesale_price: formData.wholesale_price || 0, reorder_point: formData.reorder_point || 10, margin_per: margin, show_in_pos: formData.show_ps !== false,
-                button_ui_color: formData.button_ui_color, photo: formData.photo || null, batch_no: formData.batch_no || null,
-                supplier_name: formData.supplier_name || null, active: formData.active !== false,
-                pieces_per_package: formData.pieces_per_package || 1,
+            const ppp = formData.pieces_per_package || 1;
+            const costPerPiece = formData.purchase_cost / ppp;
+            const computedMargin = formData.sales_cost > 0
+                ? Math.round(((formData.sales_cost - costPerPiece) / formData.sales_cost) * 10000) / 100
+                : 0;
+
+            const payload = {
+                product_name: formData.product_name.trim(),
+                generic_name: formData.generic_name?.trim() || null,
+                alias: formData.alias?.trim() || null,
+                barcode: formData.barcode?.trim() || null,
+                category: formData.category || null,
+                drug_type: formData.drug_type || 'Tablet',
+                dosage: formData.dosage?.trim() || null,
+                manufacturer: formData.manufacturer?.trim() || null,
+                storage_conditions: formData.storage_conditions || null,
+                shelf_location: formData.shelf_location?.trim() || null,
+                requires_prescription: formData.requires_prescription || false,
+                controlled_substance: formData.controlled_substance || false,
+                purchase_unit: formData.purchase_unit || 'Box',
+                sales_unit: formData.sales_unit || 'Piece',
+                pieces_per_package: ppp,
+                purchase_cost: formData.purchase_cost || 0,
+                sales_cost: formData.sales_cost || 0,
+                wholesale_price: formData.wholesale_price || 0,
+                vat_commodity: formData.vat_commodity || 'Standard (16%)',
+                reorder_point: formData.reorder_point ?? 10,
+                margin_per: computedMargin,
+                show_in_pos: formData.show_in_pos !== false,
+                active: formData.active !== false,
+                button_ui_color: formData.button_ui_color || 'from-emerald-500 to-teal-600',
+                photo: formData.photo?.trim() || null,
+                hscode: formData.hscode?.trim() || null,
+                batch_no: formData.batch_no?.trim() || null,
+                supplier_name: formData.supplier_name?.trim() || null,
+                description: formData.description?.trim() || null,
+                outlet_id: outletId
             };
+
+            let targetPid: number;
+
             if (editingProduct) {
-                // Log price change if prices changed
-                if (editingProduct.purchase_cost !== formData.purchase_cost || editingProduct.sales_cost !== formData.sales_cost) {
+                // Log price changes if buy/sell prices changed
+                if (
+                    editingProduct.purchase_cost !== formData.purchase_cost ||
+                    editingProduct.sales_cost !== formData.sales_cost
+                ) {
                     try {
                         await supabase.from('pharmacy_price_history').insert({
-                            pid: editingProduct.pid, product_name: editingProduct.product_name,
-                            old_buy: editingProduct.purchase_cost, new_buy: formData.purchase_cost,
-                            old_sell: editingProduct.sales_cost, new_sell: formData.sales_cost,
-                            changed_at: new Date().toISOString(),
+                            pid: editingProduct.pid,
+                            product_name: editingProduct.product_name,
+                            old_buy: editingProduct.purchase_cost,
+                            new_buy: formData.purchase_cost,
+                            old_sell: editingProduct.sales_cost,
+                            new_sell: formData.sales_cost,
+                            changed_at: new Date().toISOString()
                         });
-                    } catch { /* silent if table doesn't exist */ }
+                    } catch {
+                        // ignore if table not present
+                    }
                 }
-                const { error } = await supabase.from('pharmacy_products').update({ ...d, updated_at: new Date().toISOString() }).eq('pid', editingProduct.pid);
-                if (error) throw new Error(error.message); toast.success('Product updated!');
-                logActivity('Update', `Updated product: ${formData.product_name}`, `PID: ${editingProduct.pid}, Buy: ${formData.purchase_cost}, Sell: ${formData.sales_cost}`);
+
+                const { error } = await supabase
+                    .from('pharmacy_products')
+                    .update({ ...payload, updated_at: new Date().toISOString() })
+                    .eq('pid', editingProduct.pid);
+
+                if (error) throw error;
+                targetPid = editingProduct.pid;
+                toast.success(`Updated "${formData.product_name}"`);
+                logActivity('Update', `Updated product: ${formData.product_name}`, `PID: ${targetPid}`);
             } else {
                 const code = await generateProductCode();
-                const { data: np, error } = await supabase.from('pharmacy_products').insert({ ...d, product_code: code, outlet_id: outletId, created_at: new Date().toISOString() }).select().single();
-                if (error) throw new Error(error.message);
-                if (np) {
-                    const stockRecords: any[] = [];
-                    if (openingBags > 0) stockRecords.push({ pid: np.pid, invoice_no: 'OPENING', qty: openingBags, storage_type: 'Bags', outlet_id: outletId });
-                    if (openingPieces > 0) stockRecords.push({ pid: np.pid, invoice_no: 'OPENING', qty: openingPieces, storage_type: 'Pieces', outlet_id: outletId });
-                    if (stockRecords.length > 0) await supabase.from('pharmacy_stock').insert(stockRecords);
-                }
-                toast.success(`Product ${code} created!`);
-                logActivity('Create', `Created product: ${formData.product_name}`, `Code: ${code}, Buy: ${formData.purchase_cost}, Sell: ${formData.sales_cost}`);
+                const { data: created, error } = await supabase
+                    .from('pharmacy_products')
+                    .insert({
+                        ...payload,
+                        product_code: code,
+                        created_at: new Date().toISOString()
+                    })
+                    .select()
+                    .single();
+
+                if (error) throw error;
+                targetPid = created.pid;
+
+                // Ensure initial base stock row
+                await supabase.from('pharmacy_stock').insert({
+                    pid: targetPid,
+                    qty: 0,
+                    outlet_id: outletId,
+                    storage_type: 'Store'
+                });
+
+                toast.success(`Created product ${code}`);
+                logActivity('Create', `Created product: ${formData.product_name}`, `Code: ${code}`);
             }
-            setShowModal(false); loadProducts(); loadStockData();
-        } catch (err: unknown) { toast.error(`Failed: ${err instanceof Error ? err.message : 'Unknown'}`); }
-        setIsSaving(false);
+
+            // Save any newly added batches in the modal
+            for (const b of modalBatches) {
+                if (!b.batch_id) {
+                    const { data: savedBatch } = await supabase
+                        .from('pharmacy_batches')
+                        .insert({
+                            product_id: targetPid,
+                            batch_number: b.batch_number,
+                            expiry_date: b.expiry_date,
+                            manufacture_date: b.manufacture_date || null,
+                            quantity: b.quantity,
+                            remaining_qty: b.quantity,
+                            purchase_cost: b.purchase_cost || formData.purchase_cost,
+                            selling_price: b.selling_price || formData.sales_cost,
+                            supplier_name: b.supplier_name || formData.supplier_name || null,
+                            purchase_invoice: b.purchase_invoice || null,
+                            outlet_id: outletId,
+                            status: 'Active'
+                        })
+                        .select()
+                        .single();
+
+                    if (savedBatch && b.quantity > 0) {
+                        // Sync quantity into pharmacy_stock
+                        await supabase.from('pharmacy_stock').insert({
+                            pid: targetPid,
+                            batch_id: savedBatch.batch_id,
+                            invoice_no: b.purchase_invoice || 'INITIAL',
+                            qty: b.quantity,
+                            storage_type: 'Pieces',
+                            expiry_date: b.expiry_date,
+                            outlet_id: outletId
+                        });
+                    }
+                }
+            }
+
+            setShowModal(false);
+            loadProducts();
+            loadStockData();
+        } catch (err: unknown) {
+            toast.error(err instanceof Error ? err.message : 'Failed to save product');
+        } finally {
+            setIsSaving(false);
+        }
     };
 
+    // ─── DELETE PRODUCT ───
     const deleteProduct = async (p: Product) => {
-        if (!confirm(`Delete "${p.product_name}"?`)) return;
-        try { const { error } = await supabase.from('pharmacy_products').delete().eq('pid', p.pid); if (error) throw error; toast.success('Deleted'); logActivity('Delete', `Deleted product: ${p.product_name}`, `PID: ${p.pid}, Code: ${p.product_code}`); loadProducts(); }
-        catch { toast.error('Failed'); }
+        if (!confirm(`Are you sure you want to permanently delete "${p.product_name}" (${p.product_code})?`)) return;
+        try {
+            const { error } = await supabase.from('pharmacy_products').delete().eq('pid', p.pid);
+            if (error) throw error;
+            toast.success(`Deleted ${p.product_name}`);
+            logActivity('Delete', `Deleted product: ${p.product_name}`, `PID: ${p.pid}`);
+            loadProducts();
+            loadStockData();
+        } catch {
+            toast.error('Failed to delete product');
+        }
     };
 
-    const exportCSV = () => {
-        const csv = [['Code', 'Name', 'Category', 'Buy', 'Sell', 'Wholesale', 'Stock', 'Margin%', 'Status'].join(','),
-        ...filtered.map(p => [p.product_code, `"${p.product_name}"`, p.category || '', p.purchase_cost, p.sales_cost, (p as any).wholesale_price || 0, stockData[p.pid] || 0, p.margin_per?.toFixed(1), p.active ? 'Active' : 'Off'].join(','))].join('\n');
-        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'products.csv'; a.click();
-        toast.success('Exported!');
-    };
-
-    // ─── STOCK HISTORY ───
+    // ─── STOCK HISTORY MODAL ───
     const openStockHistory = async (p: Product) => {
-        setStockHistoryProduct(p); setShowStockHistoryModal(true);
+        setStockHistoryProduct(p);
+        setShowStockHistoryModal(true);
         try {
             const rows: StockHistoryRow[] = [];
-            const { data: stockRows } = await supabase.from('pharmacy_stock').select('*').eq('pid', p.pid).order('created_at', { ascending: true });
-            (stockRows || []).forEach((r: any, i: number) => rows.push({ id: i, date: new Date(r.created_at).toLocaleDateString('en-GB'), ref: r.invoice_no || 'N/A', type: 'Purchase/Opening', qty_in: r.qty || 0, qty_out: 0, balance: 0 }));
-            const { data: saleRows } = await supabase.from('pharmacy_sales_items').select('*, pharmacy_sales!inner(sale_datetime, receipt_no)').eq('product_id', p.pid).order('pharmacy_sales(sale_datetime)', { ascending: true });
-            (saleRows || []).forEach((r: any, i: number) => rows.push({ id: 1000 + i, date: new Date(r.pharmacy_sales?.sale_datetime).toLocaleDateString('en-GB'), ref: r.pharmacy_sales?.receipt_no || 'N/A', type: 'Sale', qty_in: 0, qty_out: r.quantity || 0, balance: 0 }));
+            const { data: stockRows } = await supabase
+                .from('pharmacy_stock')
+                .select('*')
+                .eq('pid', p.pid)
+                .order('created_at', { ascending: true });
+
+            (stockRows || []).forEach((r: { created_at: string; invoice_no?: string; qty?: number }, i: number) => {
+                rows.push({
+                    id: i,
+                    date: new Date(r.created_at).toLocaleDateString('en-GB'),
+                    ref: r.invoice_no || 'N/A',
+                    type: (r.qty || 0) >= 0 ? 'Stock In / Purchase' : 'Stock Adjustment',
+                    qty_in: Math.max(0, r.qty || 0),
+                    qty_out: Math.abs(Math.min(0, r.qty || 0)),
+                    balance: 0
+                });
+            });
+
+            const { data: saleRows } = await supabase
+                .from('pharmacy_sales_items')
+                .select('*, pharmacy_sales!inner(sale_datetime, receipt_no)')
+                .eq('product_id', p.pid)
+                .order('pharmacy_sales(sale_datetime)', { ascending: true });
+
+            (saleRows || []).forEach((r: { pharmacy_sales?: { sale_datetime?: string; receipt_no?: string }; quantity?: number }, i: number) => {
+                rows.push({
+                    id: 1000 + i,
+                    date: r.pharmacy_sales?.sale_datetime
+                        ? new Date(r.pharmacy_sales.sale_datetime).toLocaleDateString('en-GB')
+                        : 'N/A',
+                    ref: r.pharmacy_sales?.receipt_no || 'POS Sale',
+                    type: 'Dispensed Sale',
+                    qty_in: 0,
+                    qty_out: r.quantity || 0,
+                    balance: 0
+                });
+            });
+
             rows.sort((a, b) => a.date.localeCompare(b.date));
-            let bal = 0; rows.forEach(r => { bal += r.qty_in - r.qty_out; r.balance = bal; });
+            let runningBal = 0;
+            rows.forEach(r => {
+                runningBal += r.qty_in - r.qty_out;
+                r.balance = runningBal;
+            });
             setStockHistory(rows);
-        } catch { setStockHistory([]); }
+        } catch {
+            setStockHistory([]);
+        }
     };
 
-    // ─── PRICE HISTORY ───
+    // ─── PRICE HISTORY MODAL ───
     const openPriceHistory = async (p: Product) => {
-        setPriceHistoryProduct(p); setShowPriceHistoryModal(true);
+        setPriceHistoryProduct(p);
+        setShowPriceHistoryModal(true);
         try {
-            const { data } = await supabase.from('pharmacy_price_history').select('*').eq('pid', p.pid).order('changed_at', { ascending: false });
-            setPriceHistory((data || []).map((r: any, i: number) => ({ id: i, date: new Date(r.changed_at).toLocaleString('en-GB'), old_buy: r.old_buy, new_buy: r.new_buy, old_sell: r.old_sell, new_sell: r.new_sell })));
-        } catch { setPriceHistory([]); }
+            const { data } = await supabase
+                .from('pharmacy_price_history')
+                .select('*')
+                .eq('pid', p.pid)
+                .order('changed_at', { ascending: false });
+
+            setPriceHistory(
+                (data || []).map((r: { changed_at: string; old_buy: number; new_buy: number; old_sell: number; new_sell: number }, i: number) => ({
+                    id: i,
+                    date: new Date(r.changed_at).toLocaleString('en-GB'),
+                    old_buy: r.old_buy,
+                    new_buy: r.new_buy,
+                    old_sell: r.old_sell,
+                    new_sell: r.new_sell
+                }))
+            );
+        } catch {
+            setPriceHistory([]);
+        }
     };
 
     // ─── STOCK ADJUSTMENT ───
     const openStockAdjust = (p: Product) => {
-        setAdjustProduct(p); setAdjustBags(0); setAdjustPieces(0); setAdjustType('add'); setAdjustReason(''); setShowStockAdjustModal(true);
+        setAdjustProduct(p);
+        setAdjustBags(0);
+        setAdjustPieces(0);
+        setAdjustType('add');
+        setAdjustReason('');
+        setShowStockAdjustModal(true);
     };
+
     const submitStockAdjust = async () => {
-        if (!adjustProduct || (adjustBags <= 0 && adjustPieces <= 0)) { toast.error('Enter valid quantity'); return; }
+        if (!adjustProduct || (adjustBags <= 0 && adjustPieces <= 0)) {
+            toast.error('Enter a valid adjustment quantity');
+            return;
+        }
+
         try {
             const ref = `ADJ-${Date.now().toString(36).toUpperCase()}`;
-            const stockRecords: any[] = [];
+            const records: { pid: number; invoice_no: string; qty: number; storage_type: string; notes: string; outlet_id: number }[] = [];
+
             if (adjustBags > 0) {
-                stockRecords.push({ pid: adjustProduct.pid, invoice_no: ref, qty: adjustType === 'add' ? adjustBags : -adjustBags, storage_type: 'Bags', notes: adjustReason || 'Stock Adjustment', outlet_id: outletId });
+                records.push({
+                    pid: adjustProduct.pid,
+                    invoice_no: ref,
+                    qty: adjustType === 'add' ? adjustBags : -adjustBags,
+                    storage_type: 'Bags',
+                    notes: adjustReason || 'Physical Stock Reconciliation',
+                    outlet_id: outletId
+                });
             }
+
             if (adjustPieces > 0) {
-                stockRecords.push({ pid: adjustProduct.pid, invoice_no: ref, qty: adjustType === 'add' ? adjustPieces : -adjustPieces, storage_type: 'Pieces', notes: adjustReason || 'Stock Adjustment', outlet_id: outletId });
+                records.push({
+                    pid: adjustProduct.pid,
+                    invoice_no: ref,
+                    qty: adjustType === 'add' ? adjustPieces : -adjustPieces,
+                    storage_type: 'Pieces',
+                    notes: adjustReason || 'Physical Stock Reconciliation',
+                    outlet_id: outletId
+                });
             }
-            if (stockRecords.length > 0) await supabase.from('pharmacy_stock').insert(stockRecords);
-            const parts: string[] = [];
-            if (adjustBags > 0) parts.push(`${adjustBags} ${adjustProduct.purchase_unit}(s)`);
-            if (adjustPieces > 0) parts.push(`${adjustPieces} ${adjustProduct.sales_unit}(s)`);
-            toast.success(`Stock ${adjustType === 'add' ? 'added' : 'removed'}: ${parts.join(' + ')}`);
-            setShowStockAdjustModal(false); loadStockData();
-        } catch { toast.error('Adjustment failed'); }
+
+            if (records.length > 0) {
+                await supabase.from('pharmacy_stock').insert(records);
+            }
+
+            toast.success(`Stock adjusted successfully (${adjustType === 'add' ? '+' : '-'}${adjustBags || adjustPieces})`);
+            setShowStockAdjustModal(false);
+            loadStockData();
+        } catch {
+            toast.error('Adjustment failed');
+        }
     };
 
     // ─── LABEL GENERATOR ───
-    const labelSizes = { small: { w: '38mm', h: '25mm', name: 11, barcode: 14, price: 13, code: 8 }, medium: { w: '50mm', h: '30mm', name: 13, barcode: 18, price: 16, code: 9 }, large: { w: '62mm', h: '35mm', name: 15, barcode: 22, price: 20, code: 10 } };
+    const labelSizes = {
+        small: { w: '38mm', h: '25mm', name: 11, barcode: 14, price: 13, code: 8 },
+        medium: { w: '50mm', h: '30mm', name: 13, barcode: 18, price: 16, code: 9 },
+        large: { w: '62mm', h: '35mm', name: 15, barcode: 22, price: 20, code: 10 }
+    };
+
     const getLabelHTML = () => {
         const selectedProds = products.filter(p => labelProducts.includes(p.pid));
         if (selectedProds.length === 0) return '';
         const labels = selectedProds.flatMap(p => Array.from({ length: labelQty[p.pid] || 1 }, () => p));
         const s = labelSizes[labelSize];
+
         return `<!DOCTYPE html><html><head><style>
             @page{margin:3mm;}*{box-sizing:border-box;margin:0;padding:0;}
-            body{font-family:'Arial',sans-serif;display:flex;flex-wrap:wrap;gap:2mm;padding:0;}
-            .label{width:${s.w};height:${s.h};border:1.5px solid #222;border-radius:3px;padding:2mm;display:flex;flex-direction:column;justify-content:space-between;page-break-inside:avoid;overflow:hidden;}
-            .company{font-size:${s.code}px;text-align:center;color:#888;text-transform:uppercase;letter-spacing:1px;}
-            .name{font-size:${s.name}px;font-weight:bold;text-transform:uppercase;text-align:center;line-height:1.1;overflow:hidden;max-height:${s.name * 2.2}px;}
+            body{font-family:'Inter','Arial',sans-serif;display:flex;flex-wrap:wrap;gap:2mm;padding:0;background:#fff;}
+            .label{width:${s.w};height:${s.h};border:1.5px solid #111;border-radius:3px;padding:2mm;display:flex;flex-direction:column;justify-content:space-between;page-break-inside:avoid;overflow:hidden;}
+            .company{font-size:${s.code}px;text-align:center;color:#666;text-transform:uppercase;letter-spacing:1px;font-weight:bold;}
+            .name{font-size:${s.name}px;font-weight:900;text-transform:uppercase;text-align:center;line-height:1.1;overflow:hidden;max-height:${s.name * 2.2}px;}
             .barcode{font-size:${s.barcode}px;text-align:center;font-weight:900;letter-spacing:3px;font-family:'Courier New',monospace;}
-            .price{font-size:${s.price}px;font-weight:900;text-align:center;background:#000;color:#fff;border-radius:2px;padding:1mm 0;}
-            .code{font-size:${s.code}px;text-align:center;color:#555;}
-        </style></head><body>${labels.map(p => `<div class='label'><div class='company'>${companyName || 'Alpha Pharmacy'}</div><div class='name'>${p.product_name}</div><div class='barcode'>${p.barcode || p.product_code}</div><div class='price'>Ksh ${(p.sales_cost || 0).toLocaleString()}</div><div class='code'>${p.product_code} • ${p.sales_unit || 'Pc'}</div></div>`).join('')}</body></html>`;
+            .price{font-size:${s.price}px;font-weight:900;text-align:center;background:#000;color:#fff;border-radius:3px;padding:1mm 0;}
+            .code{font-size:${s.code}px;text-align:center;color:#333;font-weight:600;}
+        </style></head><body>${labels
+            .map(
+                p => `<div class='label'>
+                <div class='company'>${companyName || 'Alpha Pharmacy'}</div>
+                <div class='name'>${p.product_name}</div>
+                <div class='barcode'>${p.barcode || p.product_code}</div>
+                <div class='price'>KES ${(p.sales_cost || 0).toLocaleString()}</div>
+                <div class='code'>${p.product_code} • ${p.sales_unit || 'Pc'}</div>
+            </div>`
+            )
+            .join('')}</body></html>`;
     };
+
     const printLabels = () => {
         const html = getLabelHTML();
-        if (!html) { toast.error('Select at least one product'); return; }
-        const iframe = document.createElement('iframe'); iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;';
-        document.body.appendChild(iframe); const doc = iframe.contentWindow?.document;
-        if (doc) { doc.open(); doc.write(html); doc.close(); setTimeout(() => { iframe.contentWindow?.print(); setTimeout(() => document.body.removeChild(iframe), 2000); }, 500); }
+        if (!html) {
+            toast.error('Select at least one product');
+            return;
+        }
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;';
+        document.body.appendChild(iframe);
+        const doc = iframe.contentWindow?.document;
+        if (doc) {
+            doc.open();
+            doc.write(html);
+            doc.close();
+            setTimeout(() => {
+                iframe.contentWindow?.print();
+                setTimeout(() => document.body.removeChild(iframe), 2000);
+            }, 500);
+        }
     };
+
     const filteredLabelProducts = products.filter(p => {
         if (!p.active) return false;
         if (!labelSearch.trim()) return true;
         const q = labelSearch.toLowerCase();
-        return p.product_name.toLowerCase().includes(q) || p.product_code.toLowerCase().includes(q) || (p.barcode && p.barcode.includes(labelSearch));
+        return (
+            p.product_name.toLowerCase().includes(q) ||
+            p.product_code.toLowerCase().includes(q) ||
+            (p.barcode && p.barcode.includes(labelSearch))
+        );
     });
 
-    // ─── IMPORT PRODUCTS ───
+    // ─── FAST SCANNER / LOOKUP ───
+    const doLookup = () => {
+        const q = lookupQuery.toLowerCase().trim();
+        const found = products.find(
+            p =>
+                p.barcode === lookupQuery.trim() ||
+                p.product_code.toLowerCase() === q ||
+                p.product_name.toLowerCase().includes(q) ||
+                (p.generic_name && p.generic_name.toLowerCase().includes(q))
+        );
+        setLookupResult(found || null);
+        if (!found) toast.error('No matching drug found in catalog');
+    };
+
+    // ─── CSV IMPORT ENGINE ───
     const parseCSV = (text: string): Record<string, string>[] => {
         const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
         if (lines.length < 2) return [];
-        const headers = lines[0].split(',').map(h => h.trim().replace(/^"(.*)"$/, '$1').toLowerCase().replace(/\s+/g, '_'));
+        const headers = lines[0]
+            .split(',')
+            .map(h => h.trim().replace(/^"(.*)"$/, '$1').toLowerCase().replace(/\s+/g, '_'));
         return lines.slice(1).map(line => {
-            const vals: string[] = []; let current = ''; let inQuotes = false;
+            const vals: string[] = [];
+            let current = '';
+            let inQuotes = false;
             for (const ch of line) {
-                if (ch === '"') { inQuotes = !inQuotes; } else if (ch === ',' && !inQuotes) { vals.push(current.trim()); current = ''; } else { current += ch; }
+                if (ch === '"') {
+                    inQuotes = !inQuotes;
+                } else if (ch === ',' && !inQuotes) {
+                    vals.push(current.trim());
+                    current = '';
+                } else {
+                    current += ch;
+                }
             }
             vals.push(current.trim());
             const row: Record<string, string> = {};
-            headers.forEach((h, i) => { row[h] = (vals[i] || '').replace(/^"(.*)"$/, '$1'); });
+            headers.forEach((h, i) => {
+                row[h] = (vals[i] || '').replace(/^"(.*)"$/, '$1');
+            });
             return row;
         });
     };
 
     const importProducts = async () => {
-        if (!importFile) { toast.error('Please select a CSV file'); return; }
-        setImportStatus('parsing'); setImportErrors([]); setImportSuccessCount(0); setImportProgress(0);
+        if (!importFile) {
+            toast.error('Select a CSV file to import');
+            return;
+        }
+        setImportStatus('parsing');
+        setImportErrors([]);
+        setImportSuccessCount(0);
+        setImportProgress(0);
+
         try {
             const text = await importFile.text();
             const rows = parseCSV(text);
-            if (rows.length === 0) { toast.error('No data found in file'); setImportStatus('error'); return; }
-            setImportTotal(rows.length); setImportStatus('importing');
+            if (rows.length === 0) {
+                toast.error('No rows found in file');
+                setImportStatus('error');
+                return;
+            }
+            setImportTotal(rows.length);
+            setImportStatus('importing');
 
             if (importMode === 'overwrite') {
                 setImportCurrentItem('Clearing existing products...');
                 await supabase.from('pharmacy_stock').delete().eq('outlet_id', outletId);
                 await supabase.from('pharmacy_products').delete().eq('outlet_id', outletId);
-                setImportProgress(0);
             }
 
-            let success = 0; const errors: string[] = [];
+            let success = 0;
+            const errs: string[] = [];
+
             for (let i = 0; i < rows.length; i++) {
                 const r = rows[i];
                 const name = r.product_name || r.name || r.item_name || r.item || '';
-                if (!name) { errors.push(`Row ${i + 2}: Missing product name`); setImportProgress(i + 1); continue; }
+                if (!name) {
+                    errs.push(`Row ${i + 2}: Missing product name`);
+                    setImportProgress(i + 1);
+                    continue;
+                }
                 setImportCurrentItem(name);
+
                 const prodData = {
                     product_name: name,
-                    alias: r.alias || r.short_name || '',
-                    barcode: r.barcode || r.bar_code || r.upc || '',
-                    category: r.category || r.group || r.type || '',
-                    purchase_unit: r.purchase_unit || r.buy_unit || 'Piece',
-                    sales_unit: r.sales_unit || r.sell_unit || r.unit || 'Piece',
-                    purchase_cost: parseFloat(r.purchase_cost || r.buy_price || r.cost_price || r.cost || '0') || 0,
-                    sales_cost: parseFloat(r.sales_cost || r.sell_price || r.selling_price || r.price || '0') || 0,
-                    reorder_point: parseInt(r.reorder_point || r.reorder || r.min_stock || '10') || 10,
-                    vat_commodity: r.vat_commodity || r.vat || r.tax || 'Standard',
-                    supplier_name: r.supplier_name || r.supplier || '',
-                    hscode: r.hscode || r.hs_code || '',
-                    batch_no: r.batch_no || r.batch || '',
-                    description: r.description || r.desc || '',
+                    generic_name: r.generic_name || r.generic || null,
+                    alias: r.alias || r.short_name || null,
+                    barcode: r.barcode || r.bar_code || r.upc || null,
+                    category: r.category || r.group || null,
+                    purchase_unit: r.purchase_unit || r.buy_unit || 'Box',
+                    sales_unit: r.sales_unit || r.sell_unit || 'Piece',
+                    purchase_cost: parseFloat(r.purchase_cost || r.buy_price || r.cost || '0') || 0,
+                    sales_cost: parseFloat(r.sales_cost || r.sell_price || r.price || '0') || 0,
+                    wholesale_price: parseFloat(r.wholesale_price || r.wholesale || '0') || 0,
+                    reorder_point: parseInt(r.reorder_point || r.min_stock || '10') || 10,
+                    vat_commodity: r.vat_commodity || 'Standard (16%)',
+                    supplier_name: r.supplier_name || r.supplier || null,
+                    hscode: r.hscode || null,
+                    batch_no: r.batch_no || null,
+                    description: r.description || null,
                     active: (r.active || r.status || 'true').toLowerCase() !== 'false',
                     pieces_per_package: parseInt(r.pieces_per_package || r.pcs_per_pack || '1') || 1,
-                    wholesale_price: parseFloat(r.wholesale_price || r.wholesale || r.ws_price || '0') || 0,
                     margin_per: 0,
+                    outlet_id: outletId
                 };
+
                 if (prodData.purchase_cost > 0) {
                     const cpp = prodData.purchase_cost / (prodData.pieces_per_package || 1);
-                    const sp = prodData.wholesale_price || prodData.sales_cost;
+                    const sp = prodData.sales_cost;
                     prodData.margin_per = sp > 0 ? Math.round(((sp - cpp) / sp) * 10000) / 100 : 0;
                 }
 
                 try {
                     if (importMode === 'update') {
-                        const existing = products.find(ep => ep.product_name.toLowerCase() === name.toLowerCase() || (ep.barcode && ep.barcode === prodData.barcode));
+                        const existing = products.find(
+                            ep =>
+                                ep.product_name.toLowerCase() === name.toLowerCase() ||
+                                (ep.barcode && ep.barcode === prodData.barcode)
+                        );
                         if (existing) {
                             await supabase.from('pharmacy_products').update(prodData).eq('pid', existing.pid);
                         } else {
-                            const code = `DRG-${String(products.length + i + 1).padStart(2, '0')}`;
+                            const code = `DRG-${String(products.length + i + 1).padStart(4, '0')}`;
                             await supabase.from('pharmacy_products').insert({ ...prodData, product_code: code });
                         }
                     } else {
-                        const code = `DRG-${String(i + 1).padStart(3, '0')}`;
+                        const code = `DRG-${String(products.length + i + 1).padStart(4, '0')}`;
                         await supabase.from('pharmacy_products').insert({ ...prodData, product_code: code });
                     }
-                    const qty = parseFloat(r.quantity || r.stock || r.qty || r.opening_stock || '0');
-                    if (qty > 0) {
-                        const { data: newP } = await supabase.from('pharmacy_products').select('pid').eq('product_name', name).eq('outlet_id', outletId).order('pid', { ascending: false }).limit(1);
-                        if (newP?.[0]) await supabase.from('pharmacy_stock').insert({ pid: newP[0].pid, invoice_no: 'IMPORT', qty, storage_type: 'Store', outlet_id: outletId });
-                    }
                     success++;
-                } catch (err: any) { errors.push(`Row ${i + 2} (${name}): ${err.message || 'DB error'}`); }
+                } catch (err: unknown) {
+                    errs.push(`Row ${i + 2} (${name}): ${err instanceof Error ? err.message : 'Database error'}`);
+                }
                 setImportProgress(i + 1);
-                await new Promise(r => setTimeout(r, 50));
             }
-            setImportSuccessCount(success); setImportErrors(errors);
-            setImportStatus(errors.length > 0 && success === 0 ? 'error' : 'success');
-            loadProducts(); loadStockData();
-        } catch (err: any) { setImportStatus('error'); setImportErrors([err.message || 'Failed to parse file']); }
+
+            setImportSuccessCount(success);
+            setImportErrors(errs);
+            setImportStatus(errs.length > 0 && success === 0 ? 'error' : 'success');
+            loadProducts();
+            loadStockData();
+        } catch (err: unknown) {
+            setImportStatus('error');
+            setImportErrors([err instanceof Error ? err.message : 'Failed to parse file']);
+        }
     };
 
-    // ─── ITEM LOOKUP ───
-    const doLookup = () => {
-        const q = lookupQuery.toLowerCase().trim();
-        const found = products.find(p => p.barcode === lookupQuery || p.product_code.toLowerCase() === q || p.product_name.toLowerCase().includes(q));
-        setLookupResult(found || null);
-        if (!found) toast.error('Product not found');
+    // ─── SUPER VIVID BRIGHT COLORS EXCEL EXPORT (SpreadsheetML) ───
+    const exportBrightExcel = () => {
+        try {
+            const rowsXml = filteredProducts
+                .map(p => {
+                    const stk = stockData[p.pid] || 0;
+                    const ppp = p.pieces_per_package || 1;
+                    const costVal = (p.purchase_cost / ppp) * stk;
+                    const sellVal = p.sales_cost * stk;
+                    const profitVal = sellVal - costVal;
+                    const margin = p.margin_per || 0;
+
+                    let marginStyle = 'StandardCell';
+                    if (margin >= 30) marginStyle = 'SafeCell';
+                    else if (margin >= 15) marginStyle = 'AmberCell';
+                    else if (margin < 0) marginStyle = 'RedCell';
+
+                    let stockStyle = 'StandardCell';
+                    if (stk <= 0) stockStyle = 'RedCell';
+                    else if (stk <= (p.reorder_point || 10)) stockStyle = 'AmberCell';
+
+                    return `
+                <Row ss:Height="22">
+                    <Cell ss:StyleID="CodeCell"><Data ss:Type="String">${p.product_code}</Data></Cell>
+                    <Cell ss:StyleID="BoldCell"><Data ss:Type="String">${(p.product_name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</Data></Cell>
+                    <Cell ss:StyleID="StandardCell"><Data ss:Type="String">${(p.generic_name || '-').replace(/&/g, '&amp;')}</Data></Cell>
+                    <Cell ss:StyleID="CategoryCell"><Data ss:Type="String">${p.category || 'General'}</Data></Cell>
+                    <Cell ss:StyleID="StandardCell"><Data ss:Type="String">${p.drug_type || 'Tablet'}</Data></Cell>
+                    <Cell ss:StyleID="StandardCell"><Data ss:Type="String">${p.sales_unit || 'Piece'}</Data></Cell>
+                    <Cell ss:StyleID="CurrencyCell"><Data ss:Type="Number">${p.purchase_cost || 0}</Data></Cell>
+                    <Cell ss:StyleID="CurrencyCell"><Data ss:Type="Number">${p.sales_cost || 0}</Data></Cell>
+                    <Cell ss:StyleID="${marginStyle}"><Data ss:Type="Number">${margin.toFixed(1)}</Data></Cell>
+                    <Cell ss:StyleID="${stockStyle}"><Data ss:Type="Number">${stk}</Data></Cell>
+                    <Cell ss:StyleID="CurrencyCell"><Data ss:Type="Number">${costVal.toFixed(2)}</Data></Cell>
+                    <Cell ss:StyleID="CurrencyCell"><Data ss:Type="Number">${sellVal.toFixed(2)}</Data></Cell>
+                    <Cell ss:StyleID="CurrencyCell"><Data ss:Type="Number">${profitVal.toFixed(2)}</Data></Cell>
+                    <Cell ss:StyleID="StandardCell"><Data ss:Type="String">${p.requires_prescription ? 'YES (Rx)' : 'OTC'}</Data></Cell>
+                    <Cell ss:StyleID="StandardCell"><Data ss:Type="String">${p.shelf_location || '-'}</Data></Cell>
+                    <Cell ss:StyleID="StandardCell"><Data ss:Type="String">${p.active ? 'ACTIVE' : 'INACTIVE'}</Data></Cell>
+                </Row>`;
+                })
+                .join('');
+
+            const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+  <Title>${companyName} - Pharmacy Product Catalog</Title>
+  <Created>${new Date().toISOString()}</Created>
+ </DocumentProperties>
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Alignment ss:Vertical="Center"/>
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#1E293B"/>
+  </Style>
+  <Style ss:ID="TitleHeader">
+   <Font ss:FontName="Segoe UI" ss:Size="16" ss:Bold="1" ss:Color="#FFFFFF"/>
+   <Interior ss:Color="#00C853" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+  </Style>
+  <Style ss:ID="SubHeader">
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/>
+   <Interior ss:Color="#0091EA" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+  </Style>
+  <Style ss:ID="ColHeader">
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/>
+   <Interior ss:Color="#1E293B" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#00C853"/>
+   </Borders>
+  </Style>
+  <Style ss:ID="StandardCell">
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#1E293B"/>
+   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/></Borders>
+  </Style>
+  <Style ss:ID="BoldCell">
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Bold="1" ss:Color="#0F172A"/>
+   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/></Borders>
+  </Style>
+  <Style ss:ID="CodeCell">
+   <Font ss:FontName="Consolas" ss:Size="10" ss:Bold="1" ss:Color="#0091EA"/>
+   <Alignment ss:Horizontal="Center"/>
+   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/></Borders>
+  </Style>
+  <Style ss:ID="CategoryCell">
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#7C3AED" ss:Bold="1"/>
+   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/></Borders>
+  </Style>
+  <Style ss:ID="CurrencyCell">
+   <NumberFormat ss:Format="#,##0.00"/>
+   <Alignment ss:Horizontal="Right"/>
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Color="#0F172A"/>
+   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#E2E8F0"/></Borders>
+  </Style>
+  <Style ss:ID="SafeCell">
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Bold="1" ss:Color="#00796B"/>
+   <Interior ss:Color="#E8F5E9" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Center"/>
+   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#C8E6C9"/></Borders>
+  </Style>
+  <Style ss:ID="AmberCell">
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Bold="1" ss:Color="#E65100"/>
+   <Interior ss:Color="#FFF3E0" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Center"/>
+   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FFE0B2"/></Borders>
+  </Style>
+  <Style ss:ID="RedCell">
+   <Font ss:FontName="Segoe UI" ss:Size="10" ss:Bold="1" ss:Color="#C2185B"/>
+   <Interior ss:Color="#FFEBEE" ss:Pattern="Solid"/>
+   <Alignment ss:Horizontal="Center"/>
+   <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#FFCDD2"/></Borders>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="Product Catalog">
+  <Table ss:ExpandedColumnCount="16" ss:DefaultRowHeight="20">
+   <Column ss:Width="80"/>
+   <Column ss:Width="200"/>
+   <Column ss:Width="160"/>
+   <Column ss:Width="120"/>
+   <Column ss:Width="90"/>
+   <Column ss:Width="70"/>
+   <Column ss:Width="90"/>
+   <Column ss:Width="90"/>
+   <Column ss:Width="80"/>
+   <Column ss:Width="80"/>
+   <Column ss:Width="110"/>
+   <Column ss:Width="110"/>
+   <Column ss:Width="110"/>
+   <Column ss:Width="80"/>
+   <Column ss:Width="80"/>
+   <Column ss:Width="70"/>
+
+   <Row ss:Height="36">
+    <Cell ss:MergeAcross="15" ss:StyleID="TitleHeader"><Data ss:Type="String">🏥 ${companyName.toUpperCase()} — MASTER PHARMACEUTICAL CATALOG</Data></Cell>
+   </Row>
+   <Row ss:Height="22">
+    <Cell ss:MergeAcross="15" ss:StyleID="SubHeader"><Data ss:Type="String">Exported: ${new Date().toLocaleString('en-GB')} | Total Records: ${filteredProducts.length}</Data></Cell>
+   </Row>
+   <Row ss:Height="26">
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">CODE</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">PRODUCT NAME</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">GENERIC (INN)</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">CATEGORY</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">FORM</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">UNIT</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">BUY (KES)</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">SELL (KES)</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">MARGIN %</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">STOCK QTY</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">TOTAL COST (KES)</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">TOTAL VALUE (KES)</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">POTENTIAL PROFIT</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">RX STATUS</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">SHELF</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">STATUS</Data></Cell>
+   </Row>
+   ${rowsXml}
+  </Table>
+ </Worksheet>
+</Workbook>`;
+
+            const blob = new Blob([xmlContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pharmacy_products_${new Date().toISOString().split('T')[0]}.xls`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toast.success('Downloaded Bright Excel Sheet (.xls)');
+        } catch {
+            toast.error('Failed to export Excel');
+        }
     };
 
-    const filtered = products.filter(p => {
-        const q = searchQuery.toLowerCase();
-        return (p.product_name.toLowerCase().includes(q) || p.product_code.toLowerCase().includes(q) || (p.barcode && p.barcode.includes(searchQuery)))
-            && (filterCategory === 'All' || p.category === filterCategory);
-    });
-    const totalPages = Math.ceil(filtered.length / perPage);
-    const paginated = filtered.slice((page - 1) * perPage, page * perPage);
-    const lowStock = products.filter(p => (stockData[p.pid] || 0) <= (p.reorder_point || 10) && p.active).length;
-    const stockValCost = products.reduce((s, p) => {
-        const b = bagStockData[p.pid] || 0;
-        const pc = pieceStockData[p.pid] || 0;
-        const ppp = p.pieces_per_package || 1;
-        return s + (b * (p.purchase_cost || 0)) + (pc * ((p.purchase_cost || 0) / ppp));
-    }, 0);
-    const stockValSales = products.reduce((s, p) => {
-        const b = bagStockData[p.pid] || 0;
-        const pc = pieceStockData[p.pid] || 0;
-        const ppp = p.pieces_per_package || 1;
-        const wsPrice = (p as any).wholesale_price || p.sales_cost || 0;
-        return s + (b * ppp * wsPrice) + (pc * wsPrice);
-    }, 0);
-    const potentialProfit = stockValSales - stockValCost;
+    // ─── PRINT CATALOG / PDF VIEW ───
+    const printCatalogReport = () => {
+        window.print();
+    };
 
-    // ─── UI ───
+    // ─── FILTERING & SORTING LOGIC ───
+    const filteredProducts = useMemo(() => {
+        return products.filter(p => {
+            // Omni-search
+            if (searchQuery.trim()) {
+                const q = searchQuery.toLowerCase().trim();
+                const matchName = p.product_name?.toLowerCase().includes(q);
+                const matchGeneric = p.generic_name?.toLowerCase().includes(q);
+                const matchCode = p.product_code?.toLowerCase().includes(q);
+                const matchBarcode = p.barcode?.includes(searchQuery);
+                const matchMfg = p.manufacturer?.toLowerCase().includes(q);
+                if (!matchName && !matchGeneric && !matchCode && !matchBarcode && !matchMfg) {
+                    return false;
+                }
+            }
+
+            // Category filter
+            if (filterCategory !== 'All' && p.category !== filterCategory) {
+                return false;
+            }
+
+            // Drug Type filter
+            if (filterDrugType !== 'All' && p.drug_type !== filterDrugType) {
+                return false;
+            }
+
+            // Prescription status
+            if (filterPrescription === 'rx' && !p.requires_prescription) return false;
+            if (filterPrescription === 'otc' && p.requires_prescription) return false;
+            if (filterPrescription === 'controlled' && !p.controlled_substance) return false;
+
+            // Stock level filter
+            const stk = stockData[p.pid] || 0;
+            const reorder = p.reorder_point || 10;
+            if (filterStockStatus === 'in_stock' && stk <= reorder) return false;
+            if (filterStockStatus === 'low_stock' && (stk > reorder || stk <= 0)) return false;
+            if (filterStockStatus === 'out_of_stock' && stk > 0) return false;
+            if (filterStockStatus === 'overstocked' && stk <= reorder * 3) return false;
+
+            // Expiry risk filter
+            const pBatches = productBatches[p.pid] || [];
+            const nearestDays = pBatches.length > 0 ? getDaysUntilExpiry(pBatches[0].expiry_date) : null;
+            if (filterExpiryRisk === 'has_batches' && pBatches.length === 0) return false;
+            if (filterExpiryRisk === 'expiring_30' && (nearestDays === null || nearestDays > 30 || nearestDays < 0)) return false;
+            if (filterExpiryRisk === 'expiring_90' && (nearestDays === null || nearestDays > 90 || nearestDays < 0)) return false;
+            if (filterExpiryRisk === 'expired' && (nearestDays === null || nearestDays >= 0)) return false;
+            if (filterExpiryRisk === 'no_batches' && pBatches.length > 0) return false;
+
+            // Margin tier filter
+            const m = p.margin_per || 0;
+            if (filterMarginTier === 'high' && m < 30) return false;
+            if (filterMarginTier === 'medium' && (m < 15 || m >= 30)) return false;
+            if (filterMarginTier === 'low' && (m < 0 || m >= 15)) return false;
+            if (filterMarginTier === 'negative' && m >= 0) return false;
+
+            // Fast pill filters
+            if (activeFastFilter === 'low_stock' && (stk > reorder || stk <= 0)) return false;
+            if (activeFastFilter === 'out_of_stock' && stk > 0) return false;
+            if (activeFastFilter === 'rx_only' && !p.requires_prescription) return false;
+            if (activeFastFilter === 'high_margin' && m < 30) return false;
+            if (activeFastFilter === 'expiring' && (nearestDays === null || nearestDays > 90)) return false;
+
+            return true;
+        }).sort((a, b) => {
+            const stkA = stockData[a.pid] || 0;
+            const stkB = stockData[b.pid] || 0;
+            if (sortBy === 'name_asc') return a.product_name.localeCompare(b.product_name);
+            if (sortBy === 'name_desc') return b.product_name.localeCompare(a.product_name);
+            if (sortBy === 'stock_desc') return stkB - stkA;
+            if (sortBy === 'stock_asc') return stkA - stkB;
+            if (sortBy === 'price_desc') return (b.sales_cost || 0) - (a.sales_cost || 0);
+            if (sortBy === 'price_asc') return (a.sales_cost || 0) - (b.sales_cost || 0);
+            if (sortBy === 'margin_desc') return (b.margin_per || 0) - (a.margin_per || 0);
+            return 0;
+        });
+    }, [
+        products,
+        searchQuery,
+        filterCategory,
+        filterDrugType,
+        filterPrescription,
+        filterStockStatus,
+        filterExpiryRisk,
+        filterMarginTier,
+        activeFastFilter,
+        sortBy,
+        stockData,
+        productBatches
+    ]);
+
+    // ─── PORTFOLIO KPI AGGREGATES ───
+    const kpiData = useMemo(() => {
+        let totalValCost = 0;
+        let totalValSales = 0;
+        let lowStockCount = 0;
+        let outOfStockCount = 0;
+        let totalUnits = 0;
+        let activeSkus = 0;
+        let rxCount = 0;
+
+        products.forEach(p => {
+            const stk = stockData[p.pid] || 0;
+            const ppp = p.pieces_per_package || 1;
+            const costPerPiece = p.purchase_cost / ppp;
+            const sellPerPiece = p.sales_cost;
+
+            totalValCost += costPerPiece * stk;
+            totalValSales += sellPerPiece * stk;
+            totalUnits += stk;
+
+            if (p.active) activeSkus++;
+            if (p.requires_prescription) rxCount++;
+            if (stk <= 0) outOfStockCount++;
+            else if (stk <= (p.reorder_point || 10)) lowStockCount++;
+        });
+
+        const potentialProfit = totalValSales - totalValCost;
+        const portfolioMargin = totalValSales > 0 ? (potentialProfit / totalValSales) * 100 : 0;
+
+        return {
+            totalProducts: products.length,
+            activeSkus,
+            rxCount,
+            totalUnits,
+            totalValCost,
+            totalValSales,
+            potentialProfit,
+            portfolioMargin,
+            lowStockCount,
+            outOfStockCount
+        };
+    }, [products, stockData]);
+
+    // Pagination
+    const totalPages = Math.ceil(filteredProducts.length / perPage);
+    const paginatedProducts = filteredProducts.slice((page - 1) * perPage, page * perPage);
+
+    // Bulk selection handlers
+    const toggleSelectAll = () => {
+        if (selectedPids.size === paginatedProducts.length) {
+            setSelectedPids(new Set());
+        } else {
+            setSelectedPids(new Set(paginatedProducts.map(p => p.pid)));
+        }
+    };
+
+    const toggleSelectPid = (pid: number) => {
+        const next = new Set(selectedPids);
+        if (next.has(pid)) next.delete(pid);
+        else next.add(pid);
+        setSelectedPids(next);
+    };
+
     return (
-        <div className="space-y-5" style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
+        <div className={`space-y-5 ${autoFitScreen ? 'max-w-full' : 'max-w-[1700px]'} mx-auto`} style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
 
-            {/* ━━━ TOP BAR ━━━ */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-300/40">
-                        <FiPackage className="text-white" size={24} />
+            {/* ━━━ TOP BAR: HEADER & CONTROLS ━━━ */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 flex-shrink-0">
+                        <FiPackage size={26} />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-800">Products & Drugs</h1>
-                        <p className="text-gray-500 text-sm mt-1">Manage your pharmacy inventory &bull; Code format: DRG-XX</p>
+                        <div className="flex items-center gap-2.5">
+                            <h1 className="text-2xl font-black text-slate-800 tracking-tight">Products & Pharmaceutical Formulary</h1>
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">
+                                {products.length} Drugs
+                            </span>
+                        </div>
+                        <p className="text-slate-500 text-xs mt-0.5">
+                            Pharmacy stock inventory, batch tracking, prescription governance & profit margins
+                        </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <button onClick={() => { loadProducts(); loadStockData(); }} className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-all shadow-sm" title="Refresh">
-                        <FiRefreshCw size={16} />
-                    </button>
-                    <button onClick={() => { setShowLabelModal(true); setLabelProducts([]); setLabelQty({}); }} className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-purple-600 hover:border-purple-300 transition-all shadow-sm" title="Label Generator">
-                        <FiPrinter size={16} />
-                    </button>
-                    <button onClick={() => { setShowLookupModal(true); setLookupQuery(''); setLookupResult(null); }} className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-green-600 hover:border-green-300 transition-all shadow-sm" title="Item Lookup">
-                        <FiEye size={16} />
-                    </button>
-                    <button onClick={exportCSV} className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-300 transition-all text-sm font-semibold flex items-center gap-2 shadow-sm">
-                        <FiDownload size={14} /> Export
-                    </button>
-                    <button onClick={() => { setShowImportModal(true); setImportFile(null); setImportStatus('idle'); setImportErrors([]); setImportProgress(0); setImportMode('add_new'); }} className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-emerald-600 hover:border-emerald-300 transition-all text-sm font-semibold flex items-center gap-2 shadow-sm">
-                        <FiUpload size={14} /> Import
-                    </button>
-                    <button onClick={openAddModal} className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-2xl shadow-lg shadow-blue-300/40 hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-300">
-                        <FiPlus size={16} strokeWidth={3} /> Add Product
-                    </button>
-                </div>
-            </div>
 
-            {/* ━━━ PREMIUM STAT CARDS ━━━ */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Total Products */}
-                <div className="relative overflow-hidden rounded-2xl bg-white border border-blue-100 p-5 shadow-sm hover:shadow-xl transition-all group">
-                    <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-blue-100 to-blue-50 opacity-60 group-hover:scale-125 transition-transform" />
-                    <div className="relative flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-blue-500 uppercase tracking-wider">Total Products</p>
-                            <p className="text-3xl font-black text-gray-800 mt-1">{products.length}</p>
-                            <p className="text-[10px] text-gray-400 mt-1">All items in database</p>
-                        </div>
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-300/30 group-hover:scale-110 transition-transform">
-                            <FiPackage className="text-white" size={22} />
-                        </div>
-                    </div>
-                </div>
-                {/* Active SKUs */}
-                <div className="relative overflow-hidden rounded-2xl bg-white border border-emerald-100 p-5 shadow-sm hover:shadow-xl transition-all group">
-                    <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-emerald-100 to-green-50 opacity-60 group-hover:scale-125 transition-transform" />
-                    <div className="relative flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Active SKUs</p>
-                            <p className="text-3xl font-black text-gray-800 mt-1">{products.filter(p => p.active).length}</p>
-                            <p className="text-[10px] text-gray-400 mt-1">Available for sale</p>
-                        </div>
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-300/30 group-hover:scale-110 transition-transform">
-                            <FiCheck className="text-white" size={22} />
-                        </div>
-                    </div>
-                </div>
-                {/* Categories */}
-                <div className="relative overflow-hidden rounded-2xl bg-white border border-purple-100 p-5 shadow-sm hover:shadow-xl transition-all group">
-                    <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-purple-100 to-violet-50 opacity-60 group-hover:scale-125 transition-transform" />
-                    <div className="relative flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-purple-500 uppercase tracking-wider">Categories</p>
-                            <p className="text-3xl font-black text-gray-800 mt-1">{categories.length}</p>
-                            <p className="text-[10px] text-gray-400 mt-1">Product groups</p>
-                        </div>
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-lg shadow-purple-300/30 group-hover:scale-110 transition-transform">
-                            <FiLayers className="text-white" size={22} />
-                        </div>
-                    </div>
-                </div>
-                {/* Low Inventory */}
-                <div className={`relative overflow-hidden rounded-2xl bg-white border p-5 shadow-sm hover:shadow-xl transition-all group ${lowStock > 0 ? 'border-red-100' : 'border-teal-100'}`}>
-                    <div className={`absolute -right-4 -top-4 w-24 h-24 rounded-full opacity-60 group-hover:scale-125 transition-transform ${lowStock > 0 ? 'bg-gradient-to-br from-red-100 to-orange-50' : 'bg-gradient-to-br from-teal-100 to-cyan-50'}`} />
-                    <div className="relative flex items-center justify-between">
-                        <div>
-                            <p className={`text-xs font-bold uppercase tracking-wider ${lowStock > 0 ? 'text-red-500' : 'text-teal-500'}`}>Low Inventory</p>
-                            <p className="text-3xl font-black text-gray-800 mt-1">{lowStock}</p>
-                            <p className="text-[10px] text-gray-400 mt-1">{lowStock > 0 ? 'Items need restock' : 'All stocked well'}</p>
-                        </div>
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform ${lowStock > 0 ? 'bg-gradient-to-br from-red-500 to-orange-600 shadow-red-300/30' : 'bg-gradient-to-br from-teal-500 to-cyan-600 shadow-teal-300/30'}`}>
-                            <FiAlertTriangle className="text-white" size={22} />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* ━━━ STOCK VALUATION CARDS ━━━ */}
-            {showValuation && <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {/* Stock Value - Cost */}
-                <div className="rounded-2xl bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 p-5 text-white shadow-lg shadow-blue-400/20 hover:shadow-xl transition-all relative overflow-hidden">
-                    <div className="absolute right-3 top-3 w-16 h-16 rounded-full bg-white/10 blur-lg" />
-                    <div className="absolute right-8 bottom-2 opacity-10"><FiDollarSign size={70} /></div>
-                    <p className="text-xs font-bold text-blue-200 uppercase tracking-wider">Stock Value — Purchase Cost</p>
-                    <p className="text-3xl font-black mt-2">Ksh {stockValCost.toLocaleString()}</p>
-                    <div className="flex items-center gap-2 mt-2"><FiTrendingUp size={14} className="text-blue-200" /><span className="text-xs text-blue-200">Total cost of all stock at buying price</span></div>
-                </div>
-                {/* Stock Value - Sales */}
-                <div className="rounded-2xl bg-gradient-to-br from-emerald-500 via-green-600 to-teal-700 p-5 text-white shadow-lg shadow-emerald-400/20 hover:shadow-xl transition-all relative overflow-hidden">
-                    <div className="absolute right-3 top-3 w-16 h-16 rounded-full bg-white/10 blur-lg" />
-                    <div className="absolute right-8 bottom-2 opacity-10"><FiTrendingUp size={70} /></div>
-                    <p className="text-xs font-bold text-emerald-200 uppercase tracking-wider">Stock Value — Sales Rate</p>
-                    <p className="text-3xl font-black mt-2">Ksh {stockValSales.toLocaleString()}</p>
-                    <div className="flex items-center gap-2 mt-2"><FiTrendingUp size={14} className="text-emerald-200" /><span className="text-xs text-emerald-200">Total value if all stock sold at sell price</span></div>
-                </div>
-                {/* Potential Profit */}
-                <div className="rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 p-5 text-white shadow-lg shadow-orange-400/20 hover:shadow-xl transition-all relative overflow-hidden">
-                    <div className="absolute right-3 top-3 w-16 h-16 rounded-full bg-white/10 blur-lg" />
-                    <div className="absolute right-8 bottom-2 opacity-10"><FiZap size={70} /></div>
-                    <p className="text-xs font-bold text-amber-100 uppercase tracking-wider">Potential Profit</p>
-                    <p className="text-3xl font-black mt-2">Ksh {potentialProfit.toLocaleString()}</p>
-                    <div className="flex items-center gap-2 mt-2"><FiZap size={14} className="text-amber-100" /><span className="text-xs text-amber-100">Profit if all stock sold • Margin: {stockValCost > 0 ? ((potentialProfit / stockValCost) * 100).toFixed(1) : '0'}%</span></div>
-                </div>
-            </div>}
-
-            {/* ━━━ SEARCH & FILTER BAR ━━━ */}
-            <div className="glass-card p-4 flex flex-col lg:flex-row gap-3 items-center">
-                <div className="flex-1 relative w-full">
-                    <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                    <input type="text" value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
-                        placeholder="Search by name, code, or barcode..."
-                        className="w-full px-5 py-3 pl-12 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400/20 transition-all" />
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="relative">
-                        <FiFilter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
-                        <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setPage(1); }}
-                            className="pl-9 pr-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400/20 text-sm font-medium cursor-pointer min-w-[150px]">
-                            <option value="All">All Categories</option>
-                            {categories.map(c => <option key={c.category_id} value={c.category_name}>{c.category_name}</option>)}
-                        </select>
-                    </div>
-                    <div className="flex rounded-xl overflow-hidden border-2 border-gray-200 bg-white">
-                        <button onClick={() => setViewMode('list')} className={`p-3 transition-all ${viewMode === 'list' ? 'bg-blue-500 text-white' : 'text-gray-400 hover:text-blue-500'}`}><FiList size={16} /></button>
-                        <button onClick={() => setViewMode('grid')} className={`p-3 transition-all ${viewMode === 'grid' ? 'bg-blue-500 text-white' : 'text-gray-400 hover:text-blue-500'}`}><FiGrid size={16} /></button>
-                    </div>
+                <div className="flex flex-wrap items-center gap-2">
                     <button
-                        onClick={() => setShowValuation(!showValuation)}
-                        className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 font-semibold text-sm transition-all ${showValuation ? 'bg-indigo-500 text-white border-indigo-500 shadow-md shadow-indigo-300/30' : 'bg-white text-gray-500 border-gray-200 hover:border-indigo-400 hover:text-indigo-600'}`}
-                        title={showValuation ? 'Hide Valuation Columns' : 'Show Valuation Columns'}
+                        onClick={() => { loadProducts(); loadStockData(); toast.success('Catalog refreshed'); }}
+                        className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-300 transition shadow-sm"
+                        title="Refresh Catalog"
                     >
-                        <FiEye size={16} />
-                        {showValuation ? 'Hide Valuation' : 'Show Valuation'}
+                        <FiRefreshCw size={15} />
+                    </button>
+
+                    <button
+                        onClick={() => setAutoFitScreen(!autoFitScreen)}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition shadow-sm ${
+                            autoFitScreen
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        }`}
+                        title="Toggle Auto-Fit Layout"
+                    >
+                        {autoFitScreen ? <FiMinimize2 size={13} /> : <FiMaximize2 size={13} />}
+                        <span>{autoFitScreen ? 'Auto-Fit' : 'Expanded'}</span>
+                    </button>
+
+                    <button
+                        onClick={() => { setShowLabelModal(true); setLabelProducts([]); setLabelQty({}); }}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-purple-600 hover:border-purple-300 transition text-xs font-bold shadow-sm"
+                    >
+                        <FiPrinter size={14} className="text-purple-600" />
+                        <span>Labels</span>
+                    </button>
+
+                    <button
+                        onClick={() => { setShowLookupModal(true); setLookupQuery(''); setLookupResult(null); }}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-cyan-600 hover:border-cyan-300 transition text-xs font-bold shadow-sm"
+                    >
+                        <FiEye size={14} className="text-cyan-600" />
+                        <span>Scan / Lookup</span>
+                    </button>
+
+                    <button
+                        onClick={() => { setShowImportModal(true); setImportFile(null); setImportStatus('idle'); setImportErrors([]); }}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-300 transition text-xs font-bold shadow-sm"
+                    >
+                        <FiUpload size={14} className="text-blue-600" />
+                        <span>Import CSV</span>
+                    </button>
+
+                    <button
+                        onClick={exportBrightExcel}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition"
+                        title="Download Vivid Color Excel Spreadsheet"
+                    >
+                        <FiDownload size={14} />
+                        <span>Super Excel</span>
+                    </button>
+
+                    <button
+                        onClick={printCatalogReport}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-sm transition"
+                    >
+                        <FiPrinter size={14} />
+                        <span>Print PDF</span>
+                    </button>
+
+                    <button
+                        onClick={openAddModal}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm shadow-md shadow-emerald-500/30 transition transform hover:-translate-y-0.5 active:translate-y-0"
+                    >
+                        <FiPlus size={16} strokeWidth={3} />
+                        <span>Add New Product</span>
                     </button>
                 </div>
             </div>
 
-            {/* ━━━ CONTENT ━━━ */}
-            {isLoading ? (
-                <div className="flex flex-col items-center justify-center py-20">
-                    <div className="w-14 h-14 border-4 border-blue-200 border-t-indigo-600 rounded-full animate-spin" />
-                    <p className="mt-4 text-gray-500 font-medium text-sm">Loading products...</p>
+            {/* ━━━ EXECUTIVE METRIC TILES (WHITE THEME) ━━━ */}
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3.5">
+                {/* 1. Total Catalog */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow transition">
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Total Products</span>
+                        <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                            <FiPackage size={16} />
+                        </div>
+                    </div>
+                    <p className="text-2xl font-black text-slate-800 mt-2">{kpiData.totalProducts}</p>
+                    <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500 font-medium">
+                        <span>Active: <b className="text-emerald-600">{kpiData.activeSkus}</b></span>
+                        <span>Off: <b className="text-slate-400">{kpiData.totalProducts - kpiData.activeSkus}</b></span>
+                    </div>
                 </div>
-            ) : paginated.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 glass-card">
-                    <FiPackage className="text-gray-300" size={64} />
-                    <p className="mt-4 text-gray-500 font-semibold">No products found</p>
-                    <button onClick={openAddModal} className="mt-3 px-5 py-2 bg-blue-500 text-white rounded-xl font-semibold hover:bg-blue-600 transition-all text-sm">Add First Product</button>
+
+                {/* 2. Stock Units */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow transition">
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-blue-500">Units in Stock</span>
+                        <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                            <FiBox size={16} />
+                        </div>
+                    </div>
+                    <p className="text-2xl font-black text-slate-800 mt-2">{kpiData.totalUnits.toLocaleString()}</p>
+                    <p className="text-[11px] text-slate-500 mt-1">Dispensing units on shelf</p>
+                </div>
+
+                {/* 3. Valuation Cost */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow transition">
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-indigo-500">Stock Outlay (Cost)</span>
+                        <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                            <FiDollarSign size={16} />
+                        </div>
+                    </div>
+                    <p className="text-2xl font-black text-slate-800 mt-2">
+                        KES {Math.round(kpiData.totalValCost).toLocaleString()}
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-1">At wholesale purchase rates</p>
+                </div>
+
+                {/* 4. Retail Potential */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow transition">
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-teal-600">Retail Worth</span>
+                        <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+                            <FiTrendingUp size={16} />
+                        </div>
+                    </div>
+                    <p className="text-2xl font-black text-teal-700 mt-2">
+                        KES {Math.round(kpiData.totalValSales).toLocaleString()}
+                    </p>
+                    <p className="text-[11px] text-teal-600 mt-1 font-bold">
+                        Margin: {kpiData.portfolioMargin.toFixed(1)}%
+                    </p>
+                </div>
+
+                {/* 5. Projected Profit */}
+                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow transition">
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-purple-600">Expected Profit</span>
+                        <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                            <FiZap size={16} />
+                        </div>
+                    </div>
+                    <p className="text-2xl font-black text-purple-700 mt-2">
+                        KES {Math.round(kpiData.potentialProfit).toLocaleString()}
+                    </p>
+                    <p className="text-[11px] text-purple-600 mt-1 font-medium">When all inventory sells</p>
+                </div>
+
+                {/* 6. Stock Level Alerts */}
+                <div className={`rounded-2xl border p-4 shadow-sm transition bg-white ${
+                    kpiData.lowStockCount > 0 || kpiData.outOfStockCount > 0
+                        ? 'border-amber-300'
+                        : 'border-slate-200'
+                }`}>
+                    <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-600">Restock Alerts</span>
+                        <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                            <FiAlertTriangle size={16} />
+                        </div>
+                    </div>
+                    <div className="flex items-baseline gap-2 mt-2">
+                        <p className="text-2xl font-black text-amber-700">{kpiData.lowStockCount}</p>
+                        <span className="text-xs text-amber-600 font-bold">low</span>
+                        <span className="text-xs text-slate-300">/</span>
+                        <p className="text-2xl font-black text-red-600">{kpiData.outOfStockCount}</p>
+                        <span className="text-xs text-red-600 font-bold">nil</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">Requires purchase orders</p>
+                </div>
+            </div>
+
+            {/* ━━━ SUPER MULTI-DIMENSIONAL FILTER PANEL ━━━ */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3.5">
+                {/* Search Bar + Primary Controls */}
+                <div className="flex flex-col lg:flex-row gap-3">
+                    <div className="flex-1 relative">
+                        <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+                            placeholder="Omni-search by brand name, generic (INN), DRG code, barcode, or manufacturer..."
+                            className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                            >
+                                <FiX size={14} />
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                        {/* Category Dropdown */}
+                        <div className="relative">
+                            <select
+                                value={filterCategory}
+                                onChange={e => { setFilterCategory(e.target.value); setPage(1); }}
+                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                            >
+                                <option value="All">All Categories</option>
+                                {categories.map(c => (
+                                    <option key={c.category_id} value={c.category_name}>{c.category_name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Drug Form Dropdown */}
+                        <div className="relative">
+                            <select
+                                value={filterDrugType}
+                                onChange={e => { setFilterDrugType(e.target.value); setPage(1); }}
+                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                            >
+                                <option value="All">All Forms</option>
+                                {DRUG_TYPES.map(t => (
+                                    <option key={t} value={t}>{t}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Prescription Regulation Dropdown */}
+                        <div className="relative">
+                            <select
+                                value={filterPrescription}
+                                onChange={e => { setFilterPrescription(e.target.value); setPage(1); }}
+                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                            >
+                                <option value="All">All Regulations</option>
+                                <option value="rx">℞ Prescription (POM)</option>
+                                <option value="otc">Over The Counter (OTC)</option>
+                                <option value="controlled">Controlled Drugs</option>
+                            </select>
+                        </div>
+
+                        {/* Stock Status Dropdown */}
+                        <div className="relative">
+                            <select
+                                value={filterStockStatus}
+                                onChange={e => { setFilterStockStatus(e.target.value); setPage(1); }}
+                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                            >
+                                <option value="All">All Stock Levels</option>
+                                <option value="in_stock">In Stock (&gt; Reorder)</option>
+                                <option value="low_stock">⚠️ Low Stock (≤ Reorder)</option>
+                                <option value="out_of_stock">❌ Out of Stock (0)</option>
+                                <option value="overstocked">📦 Overstocked</option>
+                            </select>
+                        </div>
+
+                        {/* Expiry Risk Dropdown */}
+                        <div className="relative">
+                            <select
+                                value={filterExpiryRisk}
+                                onChange={e => { setFilterExpiryRisk(e.target.value); setPage(1); }}
+                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                            >
+                                <option value="All">All Expiry States</option>
+                                <option value="has_batches">Has Active Batches</option>
+                                <option value="expiring_30">Expiring in ≤ 30 Days</option>
+                                <option value="expiring_90">Expiring in ≤ 90 Days</option>
+                                <option value="expired">🚨 Expired Batches</option>
+                                <option value="no_batches">No Batches Entered</option>
+                            </select>
+                        </div>
+
+                        {/* Sort By */}
+                        <div className="relative">
+                            <select
+                                value={sortBy}
+                                onChange={e => setSortBy(e.target.value as any)}
+                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                            >
+                                <option value="name_asc">Name: A → Z</option>
+                                <option value="name_desc">Name: Z → A</option>
+                                <option value="stock_desc">Stock: High → Low</option>
+                                <option value="stock_asc">Stock: Low → High</option>
+                                <option value="price_desc">Price: High → Low</option>
+                                <option value="price_asc">Price: Low → High</option>
+                                <option value="margin_desc">Margin %: Highest</option>
+                            </select>
+                        </div>
+
+                        {/* View Mode Toggle */}
+                        <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className={`p-2 transition ${viewMode === 'list' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                title="List / Table View"
+                            >
+                                <FiList size={16} />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                className={`p-2 transition ${viewMode === 'grid' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                title="Card Grid View"
+                            >
+                                <FiGrid size={16} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Fast Quick Filter Pills */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Quick Filters:</span>
+                        {[
+                            { id: 'all', label: 'All Products', count: products.length },
+                            { id: 'low_stock', label: '⚠️ Low Stock', count: kpiData.lowStockCount },
+                            { id: 'out_of_stock', label: '❌ Nil Stock', count: kpiData.outOfStockCount },
+                            { id: 'rx_only', label: '℞ Prescription', count: kpiData.rxCount },
+                            { id: 'expiring', label: '⏳ Expiry Risk', count: products.filter(p => (productBatches[p.pid] || []).some(b => getDaysUntilExpiry(b.expiry_date) <= 90)).length },
+                            { id: 'high_margin', label: '⭐ High Margin (≥30%)', count: products.filter(p => (p.margin_per || 0) >= 30).length },
+                        ].map(f => (
+                            <button
+                                key={f.id}
+                                onClick={() => { setActiveFastFilter(f.id as any); setPage(1); }}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                                    activeFastFilter === f.id
+                                        ? 'bg-emerald-600 text-white shadow-sm'
+                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                }`}
+                            >
+                                <span>{f.label}</span>
+                                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                                    activeFastFilter === f.id ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-700'
+                                }`}>
+                                    {f.count}
+                                </span>
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                        <span>Showing <b>{filteredProducts.length}</b> of <b>{products.length}</b> items</span>
+                        {(filterCategory !== 'All' || filterDrugType !== 'All' || filterPrescription !== 'All' || filterStockStatus !== 'All' || filterExpiryRisk !== 'All' || activeFastFilter !== 'all' || searchQuery) && (
+                            <button
+                                onClick={() => {
+                                    setSearchQuery('');
+                                    setFilterCategory('All');
+                                    setFilterDrugType('All');
+                                    setFilterPrescription('All');
+                                    setFilterStockStatus('All');
+                                    setFilterExpiryRisk('All');
+                                    setActiveFastFilter('all');
+                                    setPage(1);
+                                }}
+                                className="text-red-500 hover:text-red-700 font-bold underline ml-2"
+                            >
+                                Reset All
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* Bulk Action Toolbar if items selected */}
+                {selectedPids.size > 0 && (
+                    <div className="flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800 animate-fadeIn">
+                        <div className="flex items-center gap-2">
+                            <FiCheckCircle size={15} className="text-emerald-600" />
+                            <span>{selectedPids.size} product(s) selected</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => {
+                                    setLabelProducts(Array.from(selectedPids));
+                                    const qMap: Record<number, number> = {};
+                                    selectedPids.forEach(id => qMap[id] = 1);
+                                    setLabelQty(qMap);
+                                    setShowLabelModal(true);
+                                }}
+                                className="px-3 py-1 bg-white border border-emerald-300 rounded-lg text-emerald-700 hover:bg-emerald-100 transition"
+                            >
+                                Print Labels for Selected
+                            </button>
+                            <button
+                                onClick={() => setSelectedPids(new Set())}
+                                className="px-2 py-1 text-slate-500 hover:text-slate-800"
+                            >
+                                Deselect All
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* ━━━ MAIN DATA DISPLAY (WHITE THEME TABLE / GRID) ━━━ */}
+            {isLoading ? (
+                <div className="bg-white rounded-2xl border border-slate-200 p-20 flex flex-col items-center justify-center">
+                    <div className="w-12 h-12 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin" />
+                    <p className="mt-4 text-sm font-bold text-slate-600">Loading Pharmaceutical Catalog...</p>
+                    <p className="text-xs text-slate-400 mt-1">Fetching active formulas, batches and stock balances</p>
+                </div>
+            ) : paginatedProducts.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-slate-200 p-16 text-center shadow-sm">
+                    <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                        <FiPackage size={28} />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800">No matching drugs found</h3>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                        Try adjusting your search terms or filters. Alternatively, add a new pharmaceutical product.
+                    </p>
+                    <button
+                        onClick={openAddModal}
+                        className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition"
+                    >
+                        + Add First Drug
+                    </button>
                 </div>
             ) : viewMode === 'grid' ? (
-                /* ── CARD GRID VIEW ── */
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {paginated.map(p => {
+                /* ─── CARD GRID VIEW ─── */
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5">
+                    {paginatedProducts.map(p => {
                         const stk = stockData[p.pid] || 0;
+                        const pBatches = productBatches[p.pid] || [];
+                        const nearestDays = pBatches.length > 0 ? getDaysUntilExpiry(pBatches[0].expiry_date) : null;
+                        const isSelected = selectedPids.has(p.pid);
+
                         return (
-                            <div key={p.pid} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                                {/* Card image/color */}
-                                <div className={`h-32 bg-gradient-to-br ${p.button_ui_color || 'from-blue-400 to-blue-600'} relative flex items-center justify-center`}>
-                                    {p.photo ? (
-                                        <img src={p.photo} alt={p.product_name} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).src = '/no-image.png'; }} />
-                                    ) : (
-                                        <img src="/no-image.png" alt="No image" className="h-[110px] w-[110px] object-contain" />
-                                    )}
-                                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => openEditModal(p)} className="p-1.5 bg-white/90 rounded-lg text-blue-600 hover:bg-white shadow-sm"><FiEdit2 size={12} /></button>
-                                        <button onClick={() => deleteProduct(p)} className="p-1.5 bg-white/90 rounded-lg text-red-500 hover:bg-white shadow-sm"><FiTrash2 size={12} /></button>
-                                    </div>
-                                    <span className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${p.active ? 'bg-emerald-500 text-white' : 'bg-gray-500 text-white'}`}>{p.active ? 'ACTIVE' : 'OFF'}</span>
-                                </div>
-                                <div className="p-3">
-                                    <p className="text-sm font-bold text-gray-900 truncate">{p.product_name}</p>
-                                    <div className="flex items-center justify-between mt-1">
-                                        <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{p.product_code}</span>
-                                        <span className="text-[10px] font-medium text-gray-400">{p.category || 'N/A'}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between mt-3">
-                                        <p className="text-base font-bold text-gray-900">Ksh {(p.sales_cost || 0).toLocaleString()}</p>
-                                        <div className="flex flex-col items-end gap-0.5">
-                                            {(bagStockData[p.pid] || 0) > 0 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">📦 {bagStockData[p.pid]} {p.purchase_unit}</span>}
-                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${(pieceStockData[p.pid] || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : stk <= 0 ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>🔢 {pieceStockData[p.pid] || 0} {p.sales_unit}</span>
+                            <div
+                                key={p.pid}
+                                className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden shadow-sm hover:shadow-md flex flex-col justify-between ${
+                                    isSelected ? 'border-emerald-500 ring-2 ring-emerald-400/20' : 'border-slate-200'
+                                }`}
+                            >
+                                <div className="p-3.5">
+                                    {/* Top badges */}
+                                    <div className="flex items-start justify-between gap-1 mb-2">
+                                        <div className="flex items-center gap-1.5">
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={() => toggleSelectPid(p.pid)}
+                                                className="w-4 h-4 rounded accent-emerald-600 cursor-pointer"
+                                            />
+                                            <span className="font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                                {p.product_code}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            {p.requires_prescription && (
+                                                <span className="px-1.5 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 text-[10px] font-black">
+                                                    ℞ Rx
+                                                </span>
+                                            )}
+                                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                                p.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'
+                                            }`}>
+                                                {p.active ? 'Active' : 'Off'}
+                                            </span>
                                         </div>
                                     </div>
+
+                                    {/* Product Name & Generic */}
+                                    <h4 className="text-sm font-black text-slate-800 line-clamp-1" title={p.product_name}>
+                                        {p.product_name}
+                                    </h4>
+                                    <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5 italic">
+                                        {p.generic_name || p.dosage || 'No generic specification'}
+                                    </p>
+
+                                    {/* Category & Formulation Tags */}
+                                    <div className="flex items-center gap-1 mt-2 flex-wrap">
+                                        <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-100 text-[10px] font-bold">
+                                            {p.category || 'General'}
+                                        </span>
+                                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-medium">
+                                            {p.drug_type || 'Tablet'}
+                                        </span>
+                                    </div>
+
+                                    {/* Pricing & Margin Matrix */}
+                                    <div className="mt-3.5 p-2 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-slate-400">Sell Price:</span>
+                                            <span className="font-black text-slate-800">KES {(p.sales_cost || 0).toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-slate-400">Buy Cost:</span>
+                                            <span className="font-medium text-slate-600">KES {(p.purchase_cost || 0).toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60 font-bold">
+                                            <span className="text-slate-500">Margin:</span>
+                                            <span className={(p.margin_per || 0) >= 20 ? 'text-emerald-600' : 'text-amber-600'}>
+                                                {(p.margin_per || 0).toFixed(1)}%
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Stock & Expiry Indicators */}
+                                    <div className="mt-3 flex items-center justify-between">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className={`w-2.5 h-2.5 rounded-full ${
+                                                stk <= 0 ? 'bg-red-500 animate-pulse' : stk <= (p.reorder_point || 10) ? 'bg-amber-500' : 'bg-emerald-500'
+                                            }`} />
+                                            <span className="text-xs font-black text-slate-800">
+                                                {stk} {p.sales_unit || 'Pcs'}
+                                            </span>
+                                        </div>
+                                        {nearestDays !== null && getExpiryBadge(nearestDays)}
+                                    </div>
+                                </div>
+
+                                {/* Card Footer Actions */}
+                                <div className="p-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-1">
+                                    <button
+                                        onClick={() => openEditModal(p)}
+                                        className="p-1.5 text-slate-600 hover:text-emerald-600 hover:bg-white rounded-lg transition"
+                                        title="Edit Product"
+                                    >
+                                        <FiEdit2 size={13} />
+                                    </button>
+                                    <button
+                                        onClick={() => openStockHistory(p)}
+                                        className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-white rounded-lg transition"
+                                        title="Stock History"
+                                    >
+                                        <FiClock size={13} />
+                                    </button>
+                                    <button
+                                        onClick={() => openStockAdjust(p)}
+                                        className="p-1.5 text-slate-600 hover:text-purple-600 hover:bg-white rounded-lg transition"
+                                        title="Adjust Stock"
+                                    >
+                                        <FiSliders size={13} />
+                                    </button>
+                                    <button
+                                        onClick={() => deleteProduct(p)}
+                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-white rounded-lg transition"
+                                        title="Delete Product"
+                                    >
+                                        <FiTrash2 size={13} />
+                                    </button>
                                 </div>
                             </div>
                         );
                     })}
                 </div>
             ) : (
-                /* ── LIST/TABLE VIEW ── */
-                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+                /* ─── DETAILED TABLE / DATAGRID (PURE WHITE THEME) ─── */
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
-                        <table className="w-full">
+                        <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-gradient-to-r from-blue-500 to-blue-600">
-                                    <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Product</th>
-                                    <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden md:table-cell">Category</th>
-                                    <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Buy Price</th>
-                                    <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Sell Price</th>
-                                    <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Wholesale</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Stock</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden lg:table-cell">Margin</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Batches / Expiry</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Status</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider w-28">Actions</th>
+                                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 text-[11px] font-black uppercase tracking-wider">
+                                    <th className="py-3 px-3.5 w-10 text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedPids.size === paginatedProducts.length && paginatedProducts.length > 0}
+                                            onChange={toggleSelectAll}
+                                            className="w-4 h-4 rounded accent-emerald-600 cursor-pointer"
+                                        />
+                                    </th>
+                                    <th className="py-3 px-3.5">Drug / Pharmaceutical</th>
+                                    <th className="py-3 px-3.5 hidden md:table-cell">Category</th>
+                                    <th className="py-3 px-3.5 hidden lg:table-cell">Form / Strength</th>
+                                    <th className="py-3 px-3.5 text-right">Cost Price</th>
+                                    <th className="py-3 px-3.5 text-right">Retail Sell</th>
+                                    <th className="py-3 px-3.5 text-center">Margin</th>
+                                    <th className="py-3 px-3.5 text-center">Current Stock</th>
+                                    <th className="py-3 px-3.5 text-center">Batches / Shelf</th>
+                                    <th className="py-3 px-3.5 text-center">Reg. Status</th>
+                                    <th className="py-3 px-3.5 text-center w-28">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                {paginated.map((p, idx) => {
+                            <tbody className="divide-y divide-slate-100 text-xs">
+                                {paginatedProducts.map((p, idx) => {
                                     const stk = stockData[p.pid] || 0;
                                     const pBatches = productBatches[p.pid] || [];
                                     const nearestBatch = pBatches[0];
                                     const nearestDays = nearestBatch ? getDaysUntilExpiry(nearestBatch.expiry_date) : null;
+                                    const isExpanded = expandedRows.has(p.pid);
+                                    const isSelected = selectedPids.has(p.pid);
+
                                     return (
                                         <>
-                                        <tr key={p.pid} className={`border-b border-gray-50 hover:bg-blue-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center gap-3">
-                                                    {p.photo ? (
-                                                        <div className="w-10 h-10 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0 shadow-sm">
-                                                            <img src={p.photo} alt="" className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).src = '/no-image.png'; }} />
+                                            <tr
+                                                key={p.pid}
+                                                className={`transition-colors hover:bg-slate-50/70 ${
+                                                    isSelected ? 'bg-emerald-50/40' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'
+                                                }`}
+                                            >
+                                                {/* Checkbox */}
+                                                <td className="py-3 px-3.5 text-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => toggleSelectPid(p.pid)}
+                                                        className="w-4 h-4 rounded accent-emerald-600 cursor-pointer"
+                                                    />
+                                                </td>
+
+                                                {/* Name & Generic */}
+                                                <td className="py-3 px-3.5">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-black text-sm flex-shrink-0">
+                                                            {p.photo ? (
+                                                                <img
+                                                                    src={p.photo}
+                                                                    alt=""
+                                                                    className="w-full h-full object-cover rounded-xl"
+                                                                    onError={e => { (e.target as HTMLElement).style.display = 'none'; }}
+                                                                />
+                                                            ) : (
+                                                                p.product_name.charAt(0)
+                                                            )}
                                                         </div>
-                                                    ) : (
-                                                        <div className="w-10 h-10 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0 bg-gray-50">
-                                                            <img src="/no-image.png" alt="No image" className="w-full h-full object-contain" />
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-bold text-slate-900 hover:text-emerald-700 cursor-pointer" onClick={() => openEditModal(p)}>
+                                                                    {p.product_name}
+                                                                </span>
+                                                                {p.requires_prescription && (
+                                                                    <span className="px-1.5 py-0.2 rounded bg-red-50 text-red-600 border border-red-200 text-[10px] font-black">
+                                                                        ℞
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400">
+                                                                <span className="font-mono text-emerald-600 font-bold">{p.product_code}</span>
+                                                                {p.generic_name && (
+                                                                    <>
+                                                                        <span>•</span>
+                                                                        <span className="italic text-slate-500">{p.generic_name}</span>
+                                                                    </>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                    )}
-                                                    <div>
-                                                        <p className="text-sm font-semibold text-gray-900">{p.product_name}</p>
-                                                        <p className="text-[11px] text-blue-600 font-medium">{p.product_code}</p>
                                                     </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3 hidden md:table-cell">
-                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-lg text-[11px] font-semibold">
-                                                    <FiTag size={10} /> {p.category || 'N/A'}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-right text-xs text-gray-500 font-medium">Ksh {(p.purchase_cost || 0).toLocaleString()}</td>
-                                            <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">Ksh {(p.sales_cost || 0).toLocaleString()}</td>
-                                            <td className="px-4 py-3 text-right text-xs text-purple-600 font-semibold hidden lg:table-cell">{(p as any).wholesale_price ? `Ksh ${((p as any).wholesale_price || 0).toLocaleString()}` : '-'}</td>
-                                            <td className="px-4 py-3 text-center">
-                                                <div className="flex flex-col items-center gap-0.5">
-                                                    {(bagStockData[p.pid] || 0) > 0 && (
-                                                        <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-700">📦 {bagStockData[p.pid]} {p.purchase_unit}</span>
+                                                </td>
+
+                                                {/* Category */}
+                                                <td className="py-3 px-3.5 hidden md:table-cell">
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-100 rounded-lg text-[11px] font-bold">
+                                                        <FiTag size={10} /> {p.category || 'General'}
+                                                    </span>
+                                                </td>
+
+                                                {/* Formulation */}
+                                                <td className="py-3 px-3.5 hidden lg:table-cell">
+                                                    <div className="text-slate-700 font-medium">
+                                                        {p.drug_type || 'Tablet'}
+                                                    </div>
+                                                    <div className="text-[10px] text-slate-400">
+                                                        {p.dosage || 'Standard'} • {p.sales_unit || 'Piece'}
+                                                    </div>
+                                                </td>
+
+                                                {/* Purchase Cost */}
+                                                <td className="py-3 px-3.5 text-right font-medium text-slate-600">
+                                                    KES {(p.purchase_cost || 0).toLocaleString()}
+                                                    {p.pieces_per_package && p.pieces_per_package > 1 && (
+                                                        <div className="text-[10px] text-slate-400">
+                                                            KES {(p.purchase_cost / p.pieces_per_package).toFixed(1)}/pc
+                                                        </div>
                                                     )}
-                                                    <span className={`inline-block min-w-[36px] px-2 py-0.5 rounded-md text-[10px] font-bold ${(pieceStockData[p.pid] || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>🔢 {pieceStockData[p.pid] || 0} {p.sales_unit}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3 text-center hidden lg:table-cell">
-                                                <div className="flex items-center justify-center gap-1">
-                                                    <FiTrendingUp size={11} className={(p.margin_per || 0) >= 20 ? 'text-emerald-500' : 'text-red-400'} />
-                                                    <span className={`text-xs font-bold ${(p.margin_per || 0) >= 30 ? 'text-emerald-600' : (p.margin_per || 0) >= 15 ? 'text-amber-600' : 'text-red-600'}`}>{p.margin_per?.toFixed(1) || '0'}%</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                {pBatches.length > 0 ? (
-                                                    <button onClick={() => { const s = new Set(expandedRows); if (s.has(p.pid)) s.delete(p.pid); else s.add(p.pid); setExpandedRows(s); }}
-                                                        className="flex items-center gap-1.5 mx-auto px-2.5 py-1 rounded-lg hover:bg-blue-50 transition-all group">
-                                                        <div className="flex flex-col items-center gap-0.5">
-                                                            <span className="text-xs font-semibold text-gray-600 group-hover:text-blue-600">{pBatches.length} batch{pBatches.length > 1 ? 'es' : ''}</span>
+                                                </td>
+
+                                                {/* Selling Price */}
+                                                <td className="py-3 px-3.5 text-right font-black text-slate-900">
+                                                    KES {(p.sales_cost || 0).toLocaleString()}
+                                                </td>
+
+                                                {/* Margin */}
+                                                <td className="py-3 px-3.5 text-center">
+                                                    <span className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-black ${
+                                                        (p.margin_per || 0) >= 30
+                                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                            : (p.margin_per || 0) >= 15
+                                                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                                            : 'bg-red-50 text-red-700 border border-red-200'
+                                                    }`}>
+                                                        {(p.margin_per || 0).toFixed(1)}%
+                                                    </span>
+                                                </td>
+
+                                                {/* Current Stock */}
+                                                <td className="py-3 px-3.5 text-center">
+                                                    <div className="flex flex-col items-center">
+                                                        <span className={`inline-block px-2.5 py-0.5 rounded-lg text-xs font-black ${
+                                                            stk <= 0
+                                                                ? 'bg-red-100 text-red-700 border border-red-200'
+                                                                : stk <= (p.reorder_point || 10)
+                                                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                                                : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                                        }`}>
+                                                            {stk} {p.sales_unit || 'Pcs'}
+                                                        </span>
+                                                        <span className="text-[10px] text-slate-400 mt-0.5">
+                                                            Min: {p.reorder_point || 10}
+                                                        </span>
+                                                    </div>
+                                                </td>
+
+                                                {/* Batches / Expiry */}
+                                                <td className="py-3 px-3.5 text-center">
+                                                    {pBatches.length > 0 ? (
+                                                        <button
+                                                            onClick={() => {
+                                                                const s = new Set(expandedRows);
+                                                                if (s.has(p.pid)) s.delete(p.pid);
+                                                                else s.add(p.pid);
+                                                                setExpandedRows(s);
+                                                            }}
+                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 transition text-[11px] font-bold text-slate-700"
+                                                        >
+                                                            <span>{pBatches.length} batch{pBatches.length > 1 ? 'es' : ''}</span>
                                                             {nearestDays !== null && getExpiryBadge(nearestDays)}
-                                                        </div>
-                                                        <FiChevronRight size={14} className={`text-gray-400 transition-transform duration-200 ${expandedRows.has(p.pid) ? 'rotate-90' : ''}`} />
-                                                    </button>
-                                                ) : <span className="text-xs text-gray-300">No batches</span>}
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${p.active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-200 text-gray-500'}`}>
-                                                    <span className={`w-1.5 h-1.5 rounded-full ${p.active ? 'bg-emerald-500' : 'bg-gray-400'}`} />{p.active ? 'Live' : 'Off'}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center justify-center gap-1 flex-wrap">
-                                                    <button onClick={() => openEditModal(p)} className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all" title="Edit"><FiEdit2 size={12} /></button>
-                                                    <button onClick={() => openStockHistory(p)} className="p-1.5 rounded-lg bg-cyan-50 text-cyan-600 hover:bg-cyan-100 transition-all" title="Stock History"><FiClock size={12} /></button>
-                                                    <button onClick={() => openPriceHistory(p)} className="p-1.5 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition-all" title="Price History"><FiTrendingUp size={12} /></button>
-                                                    <button onClick={() => openStockAdjust(p)} className="p-1.5 rounded-lg bg-purple-50 text-purple-600 hover:bg-purple-100 transition-all" title="Stock Adjust"><FiSliders size={12} /></button>
-                                                    <button onClick={() => deleteProduct(p)} className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-all" title="Delete"><FiTrash2 size={12} /></button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                        {/* ── EXPANDED BATCH DETAILS ROW ── */}
-                                        {expandedRows.has(p.pid) && pBatches.length > 0 && (
-                                            <tr key={`batch-${p.pid}`} className="bg-blue-50/40">
-                                                <td colSpan={10} className="px-6 py-3">
-                                                    <div className="bg-white rounded-xl border border-blue-200 shadow-sm overflow-hidden">
-                                                        <div className="bg-gradient-to-r from-blue-500 to-cyan-500 px-4 py-2 text-white text-xs font-bold flex items-center gap-2">
-                                                            <FiPackage size={12} /> Batches for {p.product_name}
-                                                        </div>
-                                                        <table className="w-full text-sm">
-                                                            <thead>
-                                                                <tr className="bg-gray-50 border-b border-gray-100">
-                                                                    <th className="px-4 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Batch #</th>
-                                                                    <th className="px-4 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Qty</th>
-                                                                    <th className="px-4 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Buy Price</th>
-                                                                    <th className="px-4 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Sell Price</th>
-                                                                    <th className="px-4 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Expiry Date</th>
-                                                                    <th className="px-4 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Days Left</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                {pBatches.map((b, bi) => {
-                                                                    const daysLeft = getDaysUntilExpiry(b.expiry_date);
-                                                                    return (
-                                                                        <tr key={bi} className={`border-b border-gray-50 ${daysLeft < 0 ? 'bg-red-50/50' : daysLeft <= 30 ? 'bg-orange-50/30' : ''}`}>
-                                                                            <td className="px-4 py-2 text-xs font-semibold text-gray-800">{b.batch_number || 'N/A'}</td>
-                                                                            <td className="px-4 py-2 text-right text-xs font-bold text-gray-700">{b.remaining_qty ?? b.quantity}</td>
-                                                                            <td className="px-4 py-2 text-right text-xs text-gray-500">Ksh {(b.purchase_cost || 0).toLocaleString()}</td>
-                                                                            <td className="px-4 py-2 text-right text-xs font-semibold text-gray-700">Ksh {(b.selling_price || 0).toLocaleString()}</td>
-                                                                            <td className="px-4 py-2 text-center text-xs text-gray-600">{b.expiry_date ? new Date(b.expiry_date).toLocaleDateString('en-GB') : 'N/A'}</td>
-                                                                            <td className="px-4 py-2 text-center">{getExpiryBadge(daysLeft)}</td>
-                                                                        </tr>
-                                                                    );
-                                                                })}
-                                                            </tbody>
-                                                        </table>
+                                                            <FiChevronRight size={12} className={`text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-[11px] text-slate-400 italic">No batches</span>
+                                                    )}
+                                                </td>
+
+                                                {/* Regulatory Status */}
+                                                <td className="py-3 px-3.5 text-center">
+                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                                        p.active
+                                                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                                            : 'bg-slate-100 text-slate-500'
+                                                    }`}>
+                                                        <span className={`w-1.5 h-1.5 rounded-full ${p.active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                                                        {p.active ? 'Active' : 'Disabled'}
+                                                    </span>
+                                                </td>
+
+                                                {/* Actions */}
+                                                <td className="py-3 px-3.5 text-center">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <button
+                                                            onClick={() => openEditModal(p)}
+                                                            className="p-1.5 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"
+                                                            title="Edit Details"
+                                                        >
+                                                            <FiEdit2 size={13} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => openStockHistory(p)}
+                                                            className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                                            title="Stock Movement Ledger"
+                                                        >
+                                                            <FiClock size={13} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => openPriceHistory(p)}
+                                                            className="p-1.5 text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition"
+                                                            title="Price History Audit"
+                                                        >
+                                                            <FiTrendingUp size={13} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => openStockAdjust(p)}
+                                                            className="p-1.5 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                                                            title="Adjust Inventory"
+                                                        >
+                                                            <FiSliders size={13} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => deleteProduct(p)}
+                                                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                                                            title="Delete"
+                                                        >
+                                                            <FiTrash2 size={13} />
+                                                        </button>
                                                     </div>
                                                 </td>
                                             </tr>
-                                        )}
+
+                                            {/* Expandable Batches Sub-Table */}
+                                            {isExpanded && pBatches.length > 0 && (
+                                                <tr key={`batches-${p.pid}`} className="bg-slate-50/60">
+                                                    <td colSpan={11} className="py-3 px-6">
+                                                        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                                                            <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 text-xs font-bold text-slate-700 flex items-center justify-between">
+                                                                <span className="flex items-center gap-2">
+                                                                    <FiBox size={14} className="text-emerald-600" />
+                                                                    Batch Registry for {p.product_name}
+                                                                </span>
+                                                                <span className="text-[11px] text-slate-500 font-normal">
+                                                                    Dispensed in FIFO / FEFO sequence
+                                                                </span>
+                                                            </div>
+                                                            <table className="w-full text-xs">
+                                                                <thead>
+                                                                    <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100 text-[10px] uppercase">
+                                                                        <th className="py-2 px-3">Batch Number</th>
+                                                                        <th className="py-2 px-3 text-center">Expiry Date</th>
+                                                                        <th className="py-2 px-3 text-center">Remaining Days</th>
+                                                                        <th className="py-2 px-3 text-right">Qty in Batch</th>
+                                                                        <th className="py-2 px-3 text-right">Unit Buy</th>
+                                                                        <th className="py-2 px-3 text-right">Unit Sell</th>
+                                                                        <th className="py-2 px-3">Supplier / Invoice</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody className="divide-y divide-slate-100">
+                                                                    {pBatches.map(b => {
+                                                                        const d = getDaysUntilExpiry(b.expiry_date);
+                                                                        return (
+                                                                            <tr key={b.batch_id} className="hover:bg-slate-50">
+                                                                                <td className="py-2 px-3 font-mono font-bold text-slate-800">
+                                                                                    {b.batch_number}
+                                                                                </td>
+                                                                                <td className="py-2 px-3 text-center text-slate-600">
+                                                                                    {b.expiry_date ? new Date(b.expiry_date).toLocaleDateString('en-GB') : '-'}
+                                                                                </td>
+                                                                                <td className="py-2 px-3 text-center">
+                                                                                    {getExpiryBadge(d)}
+                                                                                </td>
+                                                                                <td className="py-2 px-3 text-right font-bold text-slate-800">
+                                                                                    {b.remaining_qty ?? b.quantity}
+                                                                                </td>
+                                                                                <td className="py-2 px-3 text-right text-slate-600">
+                                                                                    KES {(b.purchase_cost || p.purchase_cost || 0).toLocaleString()}
+                                                                                </td>
+                                                                                <td className="py-2 px-3 text-right font-black text-slate-900">
+                                                                                    KES {(b.selling_price || p.sales_cost || 0).toLocaleString()}
+                                                                                </td>
+                                                                                <td className="py-2 px-3 text-slate-500">
+                                                                                    {b.supplier_name || '-'} {b.purchase_invoice ? `(${b.purchase_invoice})` : ''}
+                                                                                </td>
+                                                                            </tr>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
                                         </>
                                     );
                                 })}
@@ -897,427 +2329,923 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* ━━━ FLOATING PAGINATION FOOTER ━━━ */}
-            <div className="sticky bottom-0 z-30 bg-white/95 backdrop-blur-md border-t border-gray-200 rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-5 py-3 -mx-5 mt-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-500">Showing</span>
-                        <select value={perPage} onChange={e => { setPerPage(parseInt(e.target.value)); setPage(1); }} className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold focus:border-blue-500 outline-none">
-                            {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
-                        </select>
-                        <span className="text-sm text-gray-500">of <span className="font-bold text-gray-800">{filtered.length}</span> products</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <button onClick={() => setPage(1)} disabled={page === 1} className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 disabled:opacity-30 transition-all" title="First"><FiChevronsLeft size={14} /></button>
-                        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 disabled:opacity-30 transition-all" title="Previous"><FiChevronLeft size={14} /></button>
-                        {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
-                            const start = Math.max(1, Math.min(page - 3, totalPages - 6));
-                            const pg = start + i; if (pg > totalPages) return null;
-                            return (
-                                <button key={pg} onClick={() => setPage(pg)}
-                                    className={`w-9 h-9 rounded-lg text-xs font-bold transition-all ${pg === page ? 'bg-blue-500 text-white shadow-md shadow-blue-300/30' : 'bg-gray-50 border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-300'}`}>{pg}</button>
-                            );
-                        })}
-                        <button onClick={() => setPage(p => Math.min(totalPages || 1, p + 1))} disabled={page >= totalPages} className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 disabled:opacity-30 transition-all" title="Next"><FiChevronRight size={14} /></button>
-                        <button onClick={() => setPage(totalPages || 1)} disabled={page >= totalPages} className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 disabled:opacity-30 transition-all" title="Last"><FiChevronsRight size={14} /></button>
-                    </div>
-                    <span className="text-sm text-gray-400">Page <span className="font-bold text-gray-700">{page}</span> of <span className="font-bold text-gray-700">{totalPages || 1}</span></span>
+            {/* ━━━ PAGINATION FOOTER ━━━ */}
+            <div className="bg-white rounded-2xl border border-slate-200 px-5 py-3 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+                <div className="flex items-center gap-2">
+                    <span>Rows per page:</span>
+                    <select
+                        value={perPage}
+                        onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }}
+                        className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-700 outline-none"
+                    >
+                        {[15, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                    <span className="text-slate-400">|</span>
+                    <span>Total <b>{filteredProducts.length}</b> drugs</span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                    <button
+                        onClick={() => setPage(1)}
+                        disabled={page === 1}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                        <FiChevronsLeft size={14} />
+                    </button>
+                    <button
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                        <FiChevronLeft size={14} />
+                    </button>
+
+                    <span className="px-3 py-1 font-bold text-slate-800">
+                        Page {page} of {totalPages || 1}
+                    </span>
+
+                    <button
+                        onClick={() => setPage(p => Math.min(totalPages || 1, p + 1))}
+                        disabled={page >= totalPages}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                        <FiChevronRight size={14} />
+                    </button>
+                    <button
+                        onClick={() => setPage(totalPages || 1)}
+                        disabled={page >= totalPages}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                        <FiChevronsRight size={14} />
+                    </button>
                 </div>
             </div>
 
-            {/* ━━━ ADD/EDIT PRODUCT MODAL (Original Pharmacy) ━━━ */}
+            {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                SUPER ULTRA MASSIVE PRODUCT CREATION & EDITING MODAL (WHITE THEME)
+               ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
             {showModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-y-auto">
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 md:p-6 overflow-y-auto">
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-6xl max-h-[94vh] flex flex-col overflow-hidden animate-scaleUp">
                         {/* Modal Header */}
-                        <div className="bg-gradient-to-r from-teal-500 to-cyan-600 px-6 py-4 text-white rounded-t-3xl flex items-center justify-between sticky top-0 z-10">
-                            <h2 className="text-lg font-bold flex items-center gap-2">💊 {editingProduct ? 'Edit' : 'Add New'} Product / Drug</h2>
-                            <button onClick={() => { setShowModal(false); }} className="p-2 hover:bg-white/20 rounded-lg"><FiX size={18} /></button>
+                        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 px-6 py-4.5 text-white flex items-center justify-between flex-shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white text-lg">
+                                    💊
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-lg font-black tracking-tight">
+                                            {editingProduct ? `Edit Pharmaceutical Record` : `Add New Drug Formulation`}
+                                        </h2>
+                                        {editingProduct && (
+                                            <span className="px-2 py-0.5 rounded-md bg-white/20 text-white font-mono text-xs font-bold">
+                                                {editingProduct.product_code}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-white/80 text-xs mt-0.5">
+                                        Clinical parameters, dual packaging units, live margin engine & batch allocations
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowModal(false)}
+                                className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition"
+                            >
+                                <FiX size={18} />
+                            </button>
                         </div>
 
-                        <div className="p-6 space-y-6">
-                            {/* 1. Basic Info */}
-                            <div>
-                                <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                    <span className="w-6 h-6 rounded bg-teal-100 flex items-center justify-center text-xs">1</span>
-                                    Basic Information
-                                </h3>
-                                <div className="grid grid-cols-4 gap-3">
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Code</label>
-                                        <input type="text" value={formData.barcode} readOnly
-                                            className="w-full px-3 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-sm" />
+                        {/* Interactive Tab Navigation */}
+                        <div className="bg-slate-50 px-6 py-2 border-b border-slate-200 flex items-center gap-2 overflow-x-auto flex-shrink-0">
+                            {[
+                                { id: 'general', label: '1. Identification & Classification', icon: FiPackage },
+                                { id: 'clinical', label: '2. Clinical & Regulatory', icon: FiShield },
+                                { id: 'pricing', label: '3. Packaging, Prices & Margin Engine', icon: FiDollarSign },
+                                { id: 'batches', label: `4. Direct Batches (${modalBatches.length})`, icon: FiBox },
+                                { id: 'media', label: '5. POS Display & Notes', icon: FiSliders },
+                            ].map(tab => {
+                                const Icon = tab.icon;
+                                const isActive = modalTab === tab.id;
+                                return (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setModalTab(tab.id as any)}
+                                        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                                            isActive
+                                                ? 'bg-white text-emerald-700 shadow-sm border border-slate-200'
+                                                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+                                        }`}
+                                    >
+                                        <Icon size={14} className={isActive ? 'text-emerald-600' : 'text-slate-400'} />
+                                        <span>{tab.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Modal Body Content */}
+                        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+
+                            {/* ─── TAB 1: IDENTIFICATION & CLASSIFICATION ─── */}
+                            {modalTab === 'general' && (
+                                <div className="space-y-4 animate-fadeIn">
+                                    <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-center gap-3">
+                                        <FiInfo size={18} className="text-emerald-600 flex-shrink-0" />
+                                        <p className="text-xs text-emerald-800">
+                                            Enter the proprietary brand name, active international nonproprietary name (INN), barcode, and storage shelf coordinates.
+                                        </p>
                                     </div>
-                                    <div className="col-span-2">
-                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Product / Drug Name *</label>
-                                        <input type="text" value={formData.product_name} onChange={e => setFormData({ ...formData, product_name: e.target.value })}
-                                            placeholder="e.g. Paracetamol 500mg" className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm" />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Barcode</label>
-                                        <input type="text" value={formData.barcode} onChange={e => setFormData({ ...formData, barcode: e.target.value })}
-                                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm" />
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="md:col-span-2">
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                Product / Drug Brand Name <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.product_name}
+                                                onChange={e => setFormData({ ...formData, product_name: e.target.value })}
+                                                placeholder="e.g. Panadol Extra 500mg"
+                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                Generic Name (INN / Salt)
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.generic_name || ''}
+                                                onChange={e => setFormData({ ...formData, generic_name: e.target.value })}
+                                                placeholder="e.g. Paracetamol + Caffeine"
+                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5 flex items-center justify-between">
+                                                <span>Barcode / EAN / UPC</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={async () => {
+                                                        const bc = await generateBarcode();
+                                                        setFormData(prev => ({ ...prev, barcode: bc }));
+                                                        toast.success(`Generated barcode: ${bc}`);
+                                                    }}
+                                                    className="text-[10px] text-emerald-600 hover:underline font-bold"
+                                                >
+                                                    ⚡ Generate
+                                                </button>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.barcode || ''}
+                                                onChange={e => setFormData({ ...formData, barcode: e.target.value })}
+                                                placeholder="Scan or generate barcode"
+                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                Category / Formulary Group
+                                            </label>
+                                            <select
+                                                value={formData.category || ''}
+                                                onChange={e => setFormData({ ...formData, category: e.target.value })}
+                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none cursor-pointer"
+                                            >
+                                                <option value="">Select Category</option>
+                                                {categories.map(c => (
+                                                    <option key={c.category_id} value={c.category_name}>{c.category_name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                Primary Manufacturer / Lab
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.manufacturer || ''}
+                                                onChange={e => setFormData({ ...formData, manufacturer: e.target.value })}
+                                                placeholder="e.g. GlaxoSmithKline, Dawa Ltd"
+                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                Shelf / Bin Coordinates
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.shelf_location || ''}
+                                                onChange={e => setFormData({ ...formData, shelf_location: e.target.value })}
+                                                placeholder="e.g. Aisle 3 - Shelf B - Bin 4"
+                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                Default Supplier
+                                            </label>
+                                            <select
+                                                value={formData.supplier_name || ''}
+                                                onChange={e => setFormData({ ...formData, supplier_name: e.target.value })}
+                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none cursor-pointer"
+                                            >
+                                                <option value="">Direct Wholesale / Warehouse</option>
+                                                {suppliers.map(s => (
+                                                    <option key={s.supplier_id} value={s.supplier_name}>{s.supplier_name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                HS Code / Tax Classification
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.hscode || ''}
+                                                onChange={e => setFormData({ ...formData, hscode: e.target.value })}
+                                                placeholder="e.g. 3004.90.00"
+                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
 
-                            {/* 2. Drug Details */}
-                            <div>
-                                <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                    <span className="w-6 h-6 rounded bg-blue-100 flex items-center justify-center text-xs">2</span>
-                                    Drug Details
-                                </h3>
-                                <div className="grid grid-cols-4 gap-3">
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Generic Name</label>
-                                        <input type="text" value={pharmForm.generic_name} onChange={e => setPharmForm({ ...pharmForm, generic_name: e.target.value })}
-                                            placeholder="e.g. Paracetamol" className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm" />
+                            {/* ─── TAB 2: CLINICAL & REGULATORY ─── */}
+                            {modalTab === 'clinical' && (
+                                <div className="space-y-4 animate-fadeIn">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                Dosage Formulation
+                                            </label>
+                                            <select
+                                                value={formData.drug_type}
+                                                onChange={e => setFormData({ ...formData, drug_type: e.target.value })}
+                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none cursor-pointer"
+                                            >
+                                                {DRUG_TYPES.map(t => (
+                                                    <option key={t} value={t}>{t}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                Strength & Concentration
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.dosage || ''}
+                                                onChange={e => setFormData({ ...formData, dosage: e.target.value })}
+                                                placeholder="e.g. 500mg, 125mg/5ml, 1% w/w"
+                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                Storage Condition Requirement
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.storage_conditions || ''}
+                                                onChange={e => setFormData({ ...formData, storage_conditions: e.target.value })}
+                                                placeholder="e.g. Below 25°C in a dry place"
+                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                            />
+                                        </div>
                                     </div>
+
+                                    {/* Preset Storage Conditions Chips */}
                                     <div>
-                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Drug Type</label>
-                                        <select value={pharmForm.drug_type} onChange={e => setPharmForm({ ...pharmForm, drug_type: e.target.value })}
-                                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm cursor-pointer">
-                                            {DRUG_TYPES.map(t => <option key={t}>{t}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Dosage</label>
-                                        <input type="text" value={pharmForm.dosage} onChange={e => setPharmForm({ ...pharmForm, dosage: e.target.value })}
-                                            placeholder="e.g. 500mg" className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm" />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Manufacturer</label>
-                                        <input type="text" value={pharmForm.manufacturer} onChange={e => setPharmForm({ ...pharmForm, manufacturer: e.target.value })}
-                                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm" />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Category</label>
-                                        <select value={formData.category} onChange={e => setFormData({ ...formData, category: e.target.value })}
-                                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm cursor-pointer">
-                                            <option value="">Select Category</option>
-                                            {categories.map(c => <option key={c.category_id} value={c.category_name}>{c.category_name}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Storage</label>
-                                        <input type="text" value={pharmForm.storage_conditions} onChange={e => setPharmForm({ ...pharmForm, storage_conditions: e.target.value })}
-                                            placeholder="e.g. Below 25°C" className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm" />
-                                    </div>
-                                    <div className="flex items-end gap-4">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input type="checkbox" checked={pharmForm.requires_prescription} onChange={e => setPharmForm({ ...pharmForm, requires_prescription: e.target.checked })} className="accent-red-500 w-4 h-4" />
-                                            <span className="text-sm font-semibold text-red-600">℞ Prescription</span>
+                                        <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1.5">
+                                            Quick Presets for Storage Conditions:
                                         </label>
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input type="checkbox" checked={formData.show_ps} onChange={e => setFormData({ ...formData, show_ps: e.target.checked })} className="accent-teal-500 w-4 h-4" />
-                                            <span className="text-sm text-gray-600">POS</span>
-                                        </label>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {STORAGE_PRESETS.map(preset => (
+                                                <button
+                                                    key={preset}
+                                                    type="button"
+                                                    onClick={() => setFormData({ ...formData, storage_conditions: preset })}
+                                                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition border ${
+                                                        formData.storage_conditions === preset
+                                                            ? 'bg-emerald-600 text-white border-emerald-600'
+                                                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                                    }`}
+                                                >
+                                                    {preset}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
 
-                            {/* 3. Pricing, Units & Margin */}
-                            <div>
-                                <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                    <span className="w-6 h-6 rounded bg-green-100 flex items-center justify-center text-xs">3</span>
-                                    Pricing, Units & Margin
-                                </h3>
-                                <div className="grid grid-cols-6 gap-3">
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Purchase Unit</label>
-                                        <select value={formData.purchase_unit} onChange={e => setFormData({ ...formData, purchase_unit: e.target.value })}
-                                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm">
-                                            {['Piece','Tablet','Capsule','Strip','Box','Pack','Bottle','Tube','Sachet','Vial','Ampoule','Carton','Dozen','Kilogram','Gram','Liter','Milliliter'].map(u => <option key={u}>{u}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Sales Unit</label>
-                                        <select value={formData.sales_unit} onChange={e => setFormData({ ...formData, sales_unit: e.target.value })}
-                                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm">
-                                            {['Piece','Tablet','Capsule','Strip','Box','Pack','Bottle','Tube','Sachet','Vial','Ampoule','Carton','Dozen','Kilogram','Gram','Liter','Milliliter'].map(u => <option key={u}>{u}</option>)}
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Purchase Cost *</label>
-                                        <input type="number" value={formData.purchase_cost} onChange={e => setFormData({ ...formData, purchase_cost: Number(e.target.value) })}
-                                            min={0} step={0.01} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold" />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Selling Price *</label>
-                                        <input type="number" value={formData.sales_cost} onChange={e => setFormData({ ...formData, sales_cost: Number(e.target.value) })}
-                                            min={0} step={0.01} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold" />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Wholesale</label>
-                                        <input type="number" value={formData.wholesale_price} onChange={e => setFormData({ ...formData, wholesale_price: Number(e.target.value) })}
-                                            min={0} step={0.01} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm" />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs font-bold text-gray-400 uppercase mb-1 block">Pcs/Package</label>
-                                        <input type="number" value={formData.pieces_per_package} onChange={e => setFormData({ ...formData, pieces_per_package: Number(e.target.value) })}
-                                            min={1} className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm" />
-                                    </div>
-                                </div>
-                                {/* Comprehensive Profit & Margin Breakdown */}
-                                {formData.purchase_cost > 0 && (() => {
-                                    const ppp = formData.pieces_per_package || 1;
-                                    const pkgLabel = formData.purchase_unit || 'Box';
-                                    const pieceLabel = formData.sales_unit || 'Piece';
-                                    const isDiffUnit = formData.purchase_unit !== formData.sales_unit && ppp > 1;
-
-                                    // Per Package (Box/Bag/Carton)
-                                    const costPerPkg = formData.purchase_cost;
-                                    const sellPerPkg = isDiffUnit ? formData.sales_cost * ppp : formData.sales_cost;
-                                    const profitPerPkg = sellPerPkg - costPerPkg;
-                                    const marginPkg = sellPerPkg > 0 ? (profitPerPkg / sellPerPkg) * 100 : 0;
-                                    const markupPkg = costPerPkg > 0 ? (profitPerPkg / costPerPkg) * 100 : 0;
-
-                                    // Per Piece
-                                    const costPerPiece = isDiffUnit ? formData.purchase_cost / ppp : formData.purchase_cost;
-                                    const sellPerPiece = formData.sales_cost;
-                                    const profitPerPiece = sellPerPiece - costPerPiece;
-                                    const marginPiece = sellPerPiece > 0 ? (profitPerPiece / sellPerPiece) * 100 : 0;
-                                    const markupPiece = costPerPiece > 0 ? (profitPerPiece / costPerPiece) * 100 : 0;
-
-                                    const overallMargin = isDiffUnit ? marginPiece : marginPkg;
-
-                                    return (
-                                        <div className={`mt-3 rounded-xl border-2 overflow-hidden ${overallMargin >= 20 ? 'border-green-200' : overallMargin >= 10 ? 'border-yellow-200' : overallMargin > 0 ? 'border-orange-200' : 'border-red-200'}`}>
-                                            {/* Header */}
-                                            <div className={`px-4 py-2 flex items-center justify-between ${overallMargin >= 20 ? 'bg-green-600' : overallMargin >= 10 ? 'bg-yellow-500' : overallMargin > 0 ? 'bg-orange-500' : 'bg-red-500'}`}>
-                                                <span className="text-white text-xs font-bold uppercase tracking-wider">📊 Profit & Margin Breakdown</span>
-                                                <span className="text-white text-xs font-bold">
-                                                    {overallMargin < 0 ? '⚠️ Selling below cost!' : overallMargin >= 20 ? '✅ Good margin' : overallMargin > 0 ? '⚠️ Low margin' : '⚠️ No profit'}
-                                                </span>
+                                    {/* Regulatory Governance Toggles */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-200">
+                                        <label className={`p-4 rounded-2xl border-2 flex items-start gap-3 cursor-pointer transition ${
+                                            formData.requires_prescription ? 'border-red-400 bg-red-50/50' : 'border-slate-200 hover:border-slate-300'
+                                        }`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.requires_prescription}
+                                                onChange={e => setFormData({ ...formData, requires_prescription: e.target.checked })}
+                                                className="mt-1 w-4 h-4 accent-red-600 rounded cursor-pointer"
+                                            />
+                                            <div>
+                                                <p className="text-sm font-black text-red-700">℞ Prescription Only (POM)</p>
+                                                <p className="text-xs text-slate-500 mt-0.5">
+                                                    Locks dispensing at POS without a verified patient prescription number.
+                                                </p>
                                             </div>
-                                            {/* Table */}
-                                            <table className="w-full text-sm">
-                                                <thead>
-                                                    <tr className="bg-gray-50 border-b border-gray-100">
-                                                        <th className="px-4 py-2.5 text-left text-[10px] font-bold text-gray-500 uppercase">Level</th>
-                                                        <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase">Cost</th>
-                                                        <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase">Selling</th>
-                                                        <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase">Profit</th>
-                                                        <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase">Margin %</th>
-                                                        <th className="px-3 py-2.5 text-right text-[10px] font-bold text-gray-500 uppercase">Markup %</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {/* Per Package Row */}
-                                                    <tr className={`border-b border-gray-50 ${isDiffUnit ? '' : 'bg-blue-50/50'}`}>
-                                                        <td className="px-4 py-2.5">
-                                                            <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg">📦 Per {pkgLabel}</span>
-                                                        </td>
-                                                        <td className="px-3 py-2.5 text-right font-mono font-bold text-gray-700">KES {costPerPkg.toLocaleString()}</td>
-                                                        <td className="px-3 py-2.5 text-right font-mono font-bold text-blue-700">KES {sellPerPkg.toLocaleString()}</td>
-                                                        <td className={`px-3 py-2.5 text-right font-mono font-black ${profitPerPkg >= 0 ? 'text-green-700' : 'text-red-700'}`}>KES {profitPerPkg.toLocaleString()}</td>
-                                                        <td className={`px-3 py-2.5 text-right font-bold ${marginPkg >= 20 ? 'text-green-700' : marginPkg > 0 ? 'text-orange-600' : 'text-red-700'}`}>{marginPkg.toFixed(1)}%</td>
-                                                        <td className="px-3 py-2.5 text-right font-bold text-gray-600">{markupPkg.toFixed(1)}%</td>
-                                                    </tr>
-                                                    {/* Per Piece Row - only show if different units */}
-                                                    {isDiffUnit && (
-                                                        <tr className="bg-emerald-50/50">
-                                                            <td className="px-4 py-2.5">
-                                                                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">💊 Per {pieceLabel}</span>
-                                                            </td>
-                                                            <td className="px-3 py-2.5 text-right font-mono font-bold text-gray-700">KES {costPerPiece.toFixed(2)}</td>
-                                                            <td className="px-3 py-2.5 text-right font-mono font-bold text-blue-700">KES {sellPerPiece.toLocaleString()}</td>
-                                                            <td className={`px-3 py-2.5 text-right font-mono font-black ${profitPerPiece >= 0 ? 'text-green-700' : 'text-red-700'}`}>KES {profitPerPiece.toFixed(2)}</td>
-                                                            <td className={`px-3 py-2.5 text-right font-bold ${marginPiece >= 20 ? 'text-green-700' : marginPiece > 0 ? 'text-orange-600' : 'text-red-700'}`}>{marginPiece.toFixed(1)}%</td>
-                                                            <td className="px-3 py-2.5 text-right font-bold text-gray-600">{markupPiece.toFixed(1)}%</td>
-                                                        </tr>
-                                                    )}
-                                                </tbody>
-                                            </table>
-                                            {/* Summary Footer */}
-                                            {isDiffUnit && (
-                                                <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
-                                                    <span>💡 1 {pkgLabel} = {ppp} {pieceLabel}s | Cost/piece = {costPerPkg.toLocaleString()} ÷ {ppp} = KES {costPerPiece.toFixed(2)}</span>
-                                                    <span className={`font-bold ${overallMargin >= 20 ? 'text-green-600' : 'text-orange-600'}`}>
-                                                        Overall: {overallMargin.toFixed(1)}% margin
-                                                    </span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })()}
-                            </div>
+                                        </label>
 
-                            {/* 4. Batch Datagrid */}
-                            <div>
-                                <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                    <span className="w-6 h-6 rounded bg-purple-100 flex items-center justify-center text-xs">4</span>
-                                    Batches & Expiry Dates
-                                    <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs ml-2">{batches.length} batch{batches.length !== 1 ? 'es' : ''}</span>
-                                </h3>
+                                        <label className={`p-4 rounded-2xl border-2 flex items-start gap-3 cursor-pointer transition ${
+                                            formData.controlled_substance ? 'border-purple-400 bg-purple-50/50' : 'border-slate-200 hover:border-slate-300'
+                                        }`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.controlled_substance}
+                                                onChange={e => setFormData({ ...formData, controlled_substance: e.target.checked })}
+                                                className="mt-1 w-4 h-4 accent-purple-600 rounded cursor-pointer"
+                                            />
+                                            <div>
+                                                <p className="text-sm font-black text-purple-700">Controlled Substance</p>
+                                                <p className="text-xs text-slate-500 mt-0.5">
+                                                    Requires strict ledger tracking and Poison / Dangerous Drug Register sign-off.
+                                                </p>
+                                            </div>
+                                        </label>
 
-                                {/* Add Batch Row */}
-                                <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 mb-3">
-                                    <div className="grid grid-cols-7 gap-2 items-end">
-                                        <div>
-                                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Batch # *</label>
-                                            <input type="text" value={newBatch.batch_number} onChange={e => setNewBatch({ ...newBatch, batch_number: e.target.value })}
-                                                placeholder="B001" className="w-full px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm" />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Expiry Date *</label>
-                                            <input type="date" value={newBatch.expiry_date} onChange={e => setNewBatch({ ...newBatch, expiry_date: e.target.value })}
-                                                className="w-full px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm" />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Mfg Date</label>
-                                            <input type="date" value={newBatch.manufacture_date} onChange={e => setNewBatch({ ...newBatch, manufacture_date: e.target.value })}
-                                                className="w-full px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm" />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Qty *</label>
-                                            <input type="number" value={newBatch.quantity || ''} onChange={e => setNewBatch({ ...newBatch, quantity: Number(e.target.value) })}
-                                                min={1} className="w-full px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm font-bold" />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Buy Price</label>
-                                            <input type="number" value={newBatch.purchase_cost || ''} onChange={e => setNewBatch({ ...newBatch, purchase_cost: Number(e.target.value) })}
-                                                placeholder={String(formData.purchase_cost)} className="w-full px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm" />
-                                        </div>
-                                        <div>
-                                            <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Sell Price</label>
-                                            <input type="number" value={newBatch.selling_price || ''} onChange={e => setNewBatch({ ...newBatch, selling_price: Number(e.target.value) })}
-                                                placeholder={String(formData.sales_cost)} className="w-full px-2 py-2 bg-white border border-gray-200 rounded-lg text-sm" />
-                                        </div>
-                                        <button onClick={() => {
-                                            if (!newBatch.batch_number || !newBatch.expiry_date || newBatch.quantity <= 0) { toast.error('Batch #, expiry date and qty required'); return; }
-                                            setBatches(prev => [...prev, { ...newBatch, purchase_cost: newBatch.purchase_cost || formData.purchase_cost, selling_price: newBatch.selling_price || formData.sales_cost }]);
-                                            setNewBatch({ batch_number: '', expiry_date: '', manufacture_date: '', quantity: 0, purchase_cost: 0, selling_price: 0 });
-                                            toast.success('Batch added');
-                                        }} className="py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg font-bold hover:shadow-lg transition-all text-sm">
-                                            + Add Batch
-                                        </button>
+                                        <label className={`p-4 rounded-2xl border-2 flex items-start gap-3 cursor-pointer transition ${
+                                            formData.show_in_pos ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 hover:border-slate-300'
+                                        }`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={formData.show_in_pos}
+                                                onChange={e => setFormData({ ...formData, show_in_pos: e.target.checked })}
+                                                className="mt-1 w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+                                            />
+                                            <div>
+                                                <p className="text-sm font-black text-emerald-700">POS Cashier Grid</p>
+                                                <p className="text-xs text-slate-500 mt-0.5">
+                                                    Show this item on the pharmacy touch POS quick-sell dashboard.
+                                                </p>
+                                            </div>
+                                        </label>
                                     </div>
                                 </div>
+                            )}
 
-                                {/* Batch Table */}
-                                {batches.length > 0 && (
-                                    <div className="border border-gray-200 rounded-xl overflow-hidden">
-                                        <table className="w-full">
-                                            <thead><tr className="bg-gray-50">
-                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Batch #</th>
-                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Expiry Date</th>
-                                                <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Expiring In</th>
-                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Mfg Date</th>
-                                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Qty</th>
-                                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Buy</th>
-                                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Sell</th>
-                                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Batch Margin</th>
-                                                <th className="px-3 py-2 w-10"></th>
-                                            </tr></thead>
-                                            <tbody>
-                                                {batches.map((b, idx) => {
-                                                    const days = getDaysUntilExpiry(b.expiry_date);
-                                                    const bCostRaw = b.purchase_cost || formData.purchase_cost;
-                                                    const bPpp = formData.pieces_per_package || 1;
-                                                    const bCost = formData.purchase_unit !== formData.sales_unit && bPpp > 1 ? bCostRaw / bPpp : bCostRaw;
-                                                    const bSell = b.selling_price || formData.sales_cost;
-                                                    const bMargin = bSell > 0 ? ((bSell - bCost) / bSell * 100).toFixed(1) : '0';
-                                                    const bProfit = bSell - bCost;
-                                                    return (
-                                                        <tr key={idx} className={`border-b border-gray-50 ${days < 0 ? 'bg-red-50' : days <= 30 ? 'bg-orange-50' : ''}`}>
-                                                            <td className="px-3 py-2 font-mono text-sm font-bold text-gray-800">{b.batch_number}</td>
-                                                            <td className="px-3 py-2 text-sm text-gray-600">{b.expiry_date}</td>
-                                                            <td className="px-3 py-2 text-center">{getExpiryBadge(days)}</td>
-                                                            <td className="px-3 py-2 text-sm text-gray-400">{b.manufacture_date || '—'}</td>
-                                                            <td className="px-3 py-2 text-right text-sm font-bold">{b.remaining_qty !== undefined ? `${b.remaining_qty}/${b.quantity}` : b.quantity}</td>
-                                                            <td className="px-3 py-2 text-right text-sm text-gray-600">{bCost.toLocaleString()}</td>
-                                                            <td className="px-3 py-2 text-right text-sm font-bold text-green-600">{bSell.toLocaleString()}</td>
-                                                            <td className="px-3 py-2 text-right">
-                                                                <span className={`text-xs font-bold ${Number(bMargin) >= 20 ? 'text-green-600' : 'text-orange-600'}`}>{bMargin}%</span>
-                                                                <span className="text-xs text-gray-400 ml-1">(Ksh {bProfit.toLocaleString()})</span>
-                                                            </td>
-                                                            <td className="px-3 py-2">
-                                                                <button onClick={async () => {
-                                                                    if (b.batch_id) {
-                                                                        if (!confirm('Delete this saved batch?')) return;
-                                                                        await supabase.from('pharmacy_batches').update({ status: 'Deleted' }).eq('batch_id', b.batch_id);
-                                                                        toast.success('Batch deleted');
-                                                                    }
-                                                                    setBatches(prev => prev.filter((_, i) => i !== idx));
-                                                                }} className="p-1 hover:bg-red-100 rounded text-red-400" title="Delete batch"><FiTrash2 size={14} /></button>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
+                            {/* ─── TAB 3: PACKAGING, PRICING & MARGIN ENGINE ─── */}
+                            {modalTab === 'pricing' && (
+                                <div className="space-y-5 animate-fadeIn">
+                                    <div className="grid grid-cols-2 md:grid-cols-6 gap-3.5">
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                Purchase Unit
+                                            </label>
+                                            <select
+                                                value={formData.purchase_unit}
+                                                onChange={e => setFormData({ ...formData, purchase_unit: e.target.value })}
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800"
+                                            >
+                                                {units.map(u => (
+                                                    <option key={u.unit_id} value={u.unit_name}>{u.unit_name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                Dispensing Unit
+                                            </label>
+                                            <select
+                                                value={formData.sales_unit}
+                                                onChange={e => setFormData({ ...formData, sales_unit: e.target.value })}
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800"
+                                            >
+                                                {units.map(u => (
+                                                    <option key={u.unit_id} value={u.unit_name}>{u.unit_name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                Pieces / Pack
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                value={formData.pieces_per_package}
+                                                onChange={e => setFormData({ ...formData, pieces_per_package: Math.max(1, parseInt(e.target.value) || 1) })}
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-center text-slate-800"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                Buying Cost (KES) <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                step={0.01}
+                                                value={formData.purchase_cost}
+                                                onChange={e => setFormData({ ...formData, purchase_cost: Math.max(0, parseFloat(e.target.value) || 0) })}
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-800"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                Selling Price (KES) <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                step={0.01}
+                                                value={formData.sales_cost}
+                                                onChange={e => setFormData({ ...formData, sales_cost: Math.max(0, parseFloat(e.target.value) || 0) })}
+                                                className="w-full px-3 py-2 bg-emerald-50 border border-emerald-300 rounded-xl text-sm font-black text-emerald-800"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                Wholesale Price
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                step={0.01}
+                                                value={formData.wholesale_price}
+                                                onChange={e => setFormData({ ...formData, wholesale_price: Math.max(0, parseFloat(e.target.value) || 0) })}
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Secondary Parameters: VAT & Reorder Threshold */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                VAT / Tax Commodity
+                                            </label>
+                                            <select
+                                                value={formData.vat_commodity}
+                                                onChange={e => setFormData({ ...formData, vat_commodity: e.target.value })}
+                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800"
+                                            >
+                                                {VAT_OPTIONS.map(v => (
+                                                    <option key={v} value={v}>{v}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                Minimum Reorder Threshold (Pcs)
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min={0}
+                                                value={formData.reorder_point}
+                                                onChange={e => setFormData({ ...formData, reorder_point: Math.max(0, parseInt(e.target.value) || 0) })}
+                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800"
+                                            />
+                                        </div>
+
+                                        <div className="flex items-center gap-3 pt-6">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={formData.active}
+                                                    onChange={e => setFormData({ ...formData, active: e.target.checked })}
+                                                    className="w-4 h-4 rounded accent-emerald-600 cursor-pointer"
+                                                />
+                                                <span className="text-sm font-black text-slate-700">Active Product</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    {/* ─── LIVE FINANCIAL MARGIN BREAKDOWN MATRIX ─── */}
+                                    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                                        <div className="px-4 py-2.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
+                                            <div className="flex items-center gap-2 text-xs font-black text-slate-800 uppercase tracking-wider">
+                                                <FiTrendingUp className="text-emerald-600" size={14} />
+                                                Live Financial Margin Breakdown
+                                            </div>
+                                            <div className="text-xs font-bold">
+                                                {computedMetrics.marginPerPiece >= 25 ? (
+                                                    <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                                                        ✓ High Profit Margin ({computedMetrics.marginPerPiece.toFixed(1)}%)
+                                                    </span>
+                                                ) : computedMetrics.marginPerPiece >= 10 ? (
+                                                    <span className="text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                                                        ⚠️ Standard Margin ({computedMetrics.marginPerPiece.toFixed(1)}%)
+                                                    </span>
+                                                ) : computedMetrics.marginPerPiece > 0 ? (
+                                                    <span className="text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
+                                                        ⚠️ Low Margin ({computedMetrics.marginPerPiece.toFixed(1)}%)
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
+                                                        ❌ Loss-Making Price ({computedMetrics.marginPerPiece.toFixed(1)}%)
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <table className="w-full text-xs">
+                                            <thead>
+                                                <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100 text-[10px] uppercase">
+                                                    <th className="py-2.5 px-4 text-left">Level</th>
+                                                    <th className="py-2.5 px-4 text-right">Cost Price</th>
+                                                    <th className="py-2.5 px-4 text-right">Selling Price</th>
+                                                    <th className="py-2.5 px-4 text-right">Unit Profit</th>
+                                                    <th className="py-2.5 px-4 text-right">Gross Margin %</th>
+                                                    <th className="py-2.5 px-4 text-right">Markup %</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                <tr className="hover:bg-slate-50">
+                                                    <td className="py-3 px-4 font-bold text-slate-800">
+                                                        📦 Per {formData.purchase_unit} (Pack)
+                                                    </td>
+                                                    <td className="py-3 px-4 text-right font-mono font-medium text-slate-700">
+                                                        KES {computedMetrics.costPerPkg.toLocaleString()}
+                                                    </td>
+                                                    <td className="py-3 px-4 text-right font-mono font-black text-slate-900">
+                                                        KES {computedMetrics.sellPerPkg.toLocaleString()}
+                                                    </td>
+                                                    <td className={`py-3 px-4 text-right font-mono font-black ${
+                                                        computedMetrics.profitPerPkg >= 0 ? 'text-emerald-700' : 'text-red-700'
+                                                    }`}>
+                                                        KES {computedMetrics.profitPerPkg.toLocaleString()}
+                                                    </td>
+                                                    <td className="py-3 px-4 text-right font-black text-slate-800">
+                                                        {computedMetrics.marginPerPiece.toFixed(1)}%
+                                                    </td>
+                                                    <td className="py-3 px-4 text-right text-slate-600">
+                                                        {computedMetrics.markupPerPiece.toFixed(1)}%
+                                                    </td>
+                                                </tr>
+
+                                                {computedMetrics.isDiffUnit && (
+                                                    <tr className="bg-emerald-50/40">
+                                                        <td className="py-3 px-4 font-bold text-emerald-800">
+                                                            💊 Per {formData.sales_unit} (Dispensed)
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right font-mono font-medium text-slate-700">
+                                                            KES {computedMetrics.costPerPiece.toFixed(2)}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right font-mono font-black text-emerald-800">
+                                                            KES {computedMetrics.sellPerPiece.toLocaleString()}
+                                                        </td>
+                                                        <td className={`py-3 px-4 text-right font-mono font-black ${
+                                                            computedMetrics.profitPerPiece >= 0 ? 'text-emerald-700' : 'text-red-700'
+                                                        }`}>
+                                                            KES {computedMetrics.profitPerPiece.toFixed(2)}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right font-black text-emerald-800">
+                                                            {computedMetrics.marginPerPiece.toFixed(1)}%
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right text-slate-600">
+                                                            {computedMetrics.markupPerPiece.toFixed(1)}%
+                                                        </td>
+                                                    </tr>
+                                                )}
                                             </tbody>
                                         </table>
                                     </div>
-                                )}
-                                {batches.length === 0 && (
-                                    <div className="text-center py-6 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
-                                        <p className="text-sm">📦 No batches added yet</p>
-                                        <p className="text-xs mt-1">Add batches above with expiry dates for proper tracking</p>
+                                </div>
+                            )}
+
+                            {/* ─── TAB 4: DIRECT OPENING BATCHES ─── */}
+                            {modalTab === 'batches' && (
+                                <div className="space-y-4 animate-fadeIn">
+                                    <div className="p-3 bg-purple-50 border border-purple-200 rounded-2xl flex items-center justify-between">
+                                        <div className="flex items-center gap-2.5">
+                                            <FiBox size={18} className="text-purple-600" />
+                                            <div>
+                                                <p className="text-xs font-black text-purple-900">Direct Batch Allocation</p>
+                                                <p className="text-[11px] text-purple-700">
+                                                    Assign opening stock directly into batch codes with strict expiry date monitoring.
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
-                                )}
+
+                                    {/* Add Batch Inline Sub-Form */}
+                                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+                                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">
+                                            + Add New Batch Record
+                                        </h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                                            <div className="col-span-2 md:col-span-1">
+                                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                                                    Batch # *
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={newBatchRow.batch_number}
+                                                    onChange={e => setNewBatchRow({ ...newBatchRow, batch_number: e.target.value })}
+                                                    placeholder="e.g. BAT-2611-102"
+                                                    className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                                                    Expiry Date *
+                                                </label>
+                                                <input
+                                                    type="date"
+                                                    value={newBatchRow.expiry_date}
+                                                    onChange={e => setNewBatchRow({ ...newBatchRow, expiry_date: e.target.value })}
+                                                    className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                                                    Quantity (Pcs) *
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    value={newBatchRow.quantity || ''}
+                                                    onChange={e => setNewBatchRow({ ...newBatchRow, quantity: Math.max(0, parseInt(e.target.value) || 0) })}
+                                                    placeholder="100"
+                                                    className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-center"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                                                    Batch Cost
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={newBatchRow.purchase_cost || ''}
+                                                    onChange={e => setNewBatchRow({ ...newBatchRow, purchase_cost: parseFloat(e.target.value) || 0 })}
+                                                    placeholder={String(formData.purchase_cost)}
+                                                    className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs"
+                                                />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                                                    Batch Sell Price
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={newBatchRow.selling_price || ''}
+                                                    onChange={e => setNewBatchRow({ ...newBatchRow, selling_price: parseFloat(e.target.value) || 0 })}
+                                                    placeholder={String(formData.sales_cost)}
+                                                    className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold"
+                                                />
+                                            </div>
+
+                                            <div className="flex items-end">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (!newBatchRow.batch_number || !newBatchRow.expiry_date || newBatchRow.quantity <= 0) {
+                                                            toast.error('Batch #, expiry date and quantity are required');
+                                                            return;
+                                                        }
+                                                        setModalBatches(prev => [
+                                                            ...prev,
+                                                            {
+                                                                ...newBatchRow,
+                                                                purchase_cost: newBatchRow.purchase_cost || formData.purchase_cost,
+                                                                selling_price: newBatchRow.selling_price || formData.sales_cost,
+                                                                status: 'Active'
+                                                            }
+                                                        ]);
+                                                        setNewBatchRow({
+                                                            batch_number: generateBatchNumber(),
+                                                            expiry_date: '',
+                                                            manufacture_date: '',
+                                                            quantity: 0,
+                                                            purchase_cost: 0,
+                                                            selling_price: 0,
+                                                            purchase_invoice: ''
+                                                        });
+                                                        toast.success('Batch added to product');
+                                                    }}
+                                                    className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-xs transition shadow-sm"
+                                                >
+                                                    + Add Batch
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {/* Quick Expiry Date Chips */}
+                                        <div className="flex items-center gap-1.5 pt-1">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase">Quick Expiry:</span>
+                                            {[
+                                                { label: '+6 Months', m: 6 },
+                                                { label: '+1 Year', m: 12 },
+                                                { label: '+2 Years', m: 24 },
+                                                { label: '+3 Years', m: 36 },
+                                                { label: '+5 Years', m: 60 },
+                                            ].map(chip => (
+                                                <button
+                                                    key={chip.label}
+                                                    type="button"
+                                                    onClick={() => setQuickExpiry(chip.m)}
+                                                    className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 hover:border-purple-300 hover:text-purple-600 text-[10px] font-bold transition"
+                                                >
+                                                    {chip.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Batches Table */}
+                                    {modalBatches.length > 0 ? (
+                                        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                                            <table className="w-full text-xs">
+                                                <thead>
+                                                    <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100 text-[10px] uppercase">
+                                                        <th className="py-2.5 px-3 text-left">Batch Code</th>
+                                                        <th className="py-2.5 px-3 text-center">Expiry Date</th>
+                                                        <th className="py-2.5 px-3 text-center">Shelf Life</th>
+                                                        <th className="py-2.5 px-3 text-right">Units</th>
+                                                        <th className="py-2.5 px-3 text-right">Cost Price</th>
+                                                        <th className="py-2.5 px-3 text-right">Selling Price</th>
+                                                        <th className="py-2.5 px-3 text-center w-12">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-100">
+                                                    {modalBatches.map((b, bi) => {
+                                                        const d = getDaysUntilExpiry(b.expiry_date);
+                                                        return (
+                                                            <tr key={bi} className="hover:bg-slate-50">
+                                                                <td className="py-2.5 px-3 font-mono font-bold text-slate-800">
+                                                                    {b.batch_number}
+                                                                </td>
+                                                                <td className="py-2.5 px-3 text-center text-slate-600">
+                                                                    {b.expiry_date}
+                                                                </td>
+                                                                <td className="py-2.5 px-3 text-center">
+                                                                    {getExpiryBadge(d)}
+                                                                </td>
+                                                                <td className="py-2.5 px-3 text-right font-bold text-slate-800">
+                                                                    {b.quantity}
+                                                                </td>
+                                                                <td className="py-2.5 px-3 text-right text-slate-600">
+                                                                    KES {(b.purchase_cost || formData.purchase_cost || 0).toLocaleString()}
+                                                                </td>
+                                                                <td className="py-2.5 px-3 text-right font-black text-slate-900">
+                                                                    KES {(b.selling_price || formData.sales_cost || 0).toLocaleString()}
+                                                                </td>
+                                                                <td className="py-2.5 px-3 text-center">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setModalBatches(prev => prev.filter((_, i) => i !== bi))}
+                                                                        className="p-1 text-slate-400 hover:text-red-600 transition"
+                                                                        title="Remove batch"
+                                                                    >
+                                                                        <FiTrash2 size={13} />
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <div className="py-8 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
+                                            <FiBox size={32} className="mx-auto mb-2 opacity-50" />
+                                            <p className="text-xs font-bold text-slate-600">No batches allocated yet</p>
+                                            <p className="text-[11px] text-slate-400 mt-0.5">
+                                                You can add initial batches above or receive them later via the Batches module.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* ─── TAB 5: POS DISPLAY & NOTES ─── */}
+                            {modalTab === 'media' && (
+                                <div className="space-y-4 animate-fadeIn">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                Product Photo URL
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={formData.photo || ''}
+                                                onChange={e => setFormData({ ...formData, photo: e.target.value })}
+                                                placeholder="https://example.com/product-image.jpg"
+                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800"
+                                            />
+                                            {formData.photo && (
+                                                <div className="mt-3 w-28 h-28 rounded-2xl border border-slate-200 overflow-hidden bg-white p-1">
+                                                    <img
+                                                        src={formData.photo}
+                                                        alt="Preview"
+                                                        className="w-full h-full object-contain"
+                                                        onError={e => { (e.target as HTMLElement).style.display = 'none'; }}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                                POS Button Theme Gradient
+                                            </label>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {COLOR_PRESETS.map(preset => (
+                                                    <button
+                                                        key={preset.name}
+                                                        type="button"
+                                                        onClick={() => setFormData({ ...formData, button_ui_color: preset.gradient })}
+                                                        className={`p-2 rounded-xl border flex items-center gap-2 transition ${
+                                                            formData.button_ui_color === preset.gradient
+                                                                ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-400/20'
+                                                                : 'border-slate-200 hover:border-slate-300'
+                                                        }`}
+                                                    >
+                                                        <div className={`w-5 h-5 rounded-lg bg-gradient-to-br ${preset.gradient} shadow-sm`} />
+                                                        <span className="text-xs font-bold text-slate-700">{preset.name}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                            Clinical Description & Patient Advisory Notes
+                                        </label>
+                                        <textarea
+                                            rows={4}
+                                            value={formData.description || ''}
+                                            onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                            placeholder="Dosage administration advice, precautions, food interactions, and contraindications..."
+                                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                        </div>
+
+                        {/* Modal Sticky Footer */}
+                        <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-between flex-shrink-0">
+                            <div className="flex items-center gap-4 text-xs font-bold text-slate-600">
+                                <span>Profit/Pc: <b className="text-emerald-700 font-mono">KES {computedMetrics.profitPerPiece.toFixed(2)}</b></span>
+                                <span className="text-slate-300">|</span>
+                                <span>Margin: <b className="text-emerald-700 font-mono">{computedMetrics.marginPerPiece.toFixed(1)}%</b></span>
+                                <span className="text-slate-300">|</span>
+                                <span>Batches to save: <b className="text-purple-700">{modalBatches.length}</b></span>
                             </div>
 
-                            {/* Save / Cancel */}
-                            <div className="flex gap-3 pt-4 border-t border-gray-100">
-                                <button onClick={() => { setShowModal(false); }} className="flex-1 py-3 border-2 border-gray-200 rounded-xl text-gray-500 font-bold hover:bg-gray-50">Cancel</button>
-                                <button onClick={async () => {
-                                    if (!formData.product_name.trim()) { toast.error('Product name required'); return; }
-                                    setIsSaving(true);
-                                    try {
-                                        const costPerPiece = formData.purchase_cost / (formData.pieces_per_package || 1);
-                                        const marginPer = formData.sales_cost > 0 ? Math.round(((formData.sales_cost - costPerPiece) / formData.sales_cost) * 10000) / 100 : 0;
-                                        const d = {
-                                            product_name: formData.product_name, barcode: formData.barcode || null,
-                                            category: formData.category || null, purchase_unit: formData.purchase_unit,
-                                            sales_unit: formData.sales_unit, purchase_cost: formData.purchase_cost || 0,
-                                            sales_cost: formData.sales_cost || 0, wholesale_price: formData.wholesale_price || 0,
-                                            reorder_point: formData.reorder_point || 10, margin_per: marginPer,
-                                            show_in_pos: formData.show_ps !== false, active: formData.active !== false,
-                                            pieces_per_package: formData.pieces_per_package || 1,
-                                            generic_name: pharmForm.generic_name || null, manufacturer: pharmForm.manufacturer || null,
-                                            drug_type: pharmForm.drug_type || 'Tablet', dosage: pharmForm.dosage || null,
-                                            requires_prescription: pharmForm.requires_prescription || false,
-                                            storage_conditions: pharmForm.storage_conditions || null,
-                                        };
-                                        let pid: number;
-                                        if (editingProduct) {
-                                            const { error } = await supabase.from('pharmacy_products').update({ ...d, updated_at: new Date().toISOString() }).eq('pid', editingProduct.pid);
-                                            if (error) throw error;
-                                            pid = editingProduct.pid;
-                                            toast.success('Product updated!');
-                                        } else {
-                                            const code = await generateProductCode();
-                                            const { data: np, error } = await supabase.from('pharmacy_products').insert({ ...d, product_code: code, outlet_id: outletId, created_at: new Date().toISOString() }).select().single();
-                                            if (error) throw error;
-                                            pid = np.pid;
-                                            await supabase.from('pharmacy_stock').insert({ pid, qty: 0, outlet_id: outletId, storage_type: 'Store' });
-                                            toast.success(`Product ${code} created!`);
-                                        }
-                                        // Save new batches
-                                        for (const batch of batches) {
-                                            if (!batch.batch_id) {
-                                                const { data: batchData } = await supabase.from('pharmacy_batches').insert({
-                                                    product_id: pid, batch_number: batch.batch_number,
-                                                    expiry_date: batch.expiry_date, manufacture_date: batch.manufacture_date || null,
-                                                    quantity: batch.quantity, remaining_qty: batch.quantity,
-                                                    purchase_cost: batch.purchase_cost || formData.purchase_cost,
-                                                    selling_price: batch.selling_price || formData.sales_cost,
-                                                    outlet_id: outletId, status: 'Active',
-                                                }).select().single();
-                                                if (batchData) {
-                                                    const { data: stockRow } = await supabase.from('pharmacy_stock')
-                                                        .select('st_id, qty').eq('pid', pid).eq('outlet_id', outletId).limit(1).single();
-                                                    if (stockRow) {
-                                                        await supabase.from('pharmacy_stock').update({ qty: (stockRow.qty || 0) + batch.quantity }).eq('st_id', stockRow.st_id);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        setShowModal(false); loadProducts(); loadStockData();
-                                    } catch (err: any) { toast.error(err.message || 'Save failed'); }
-                                    setIsSaving(false);
-                                }} disabled={isSaving} className="flex-1 py-3 bg-gradient-to-r from-teal-500 to-cyan-600 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-60">
-                                    {isSaving ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</> : <>{editingProduct ? '💾 Update Product' : '💊 Save Product'}</>}
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModal(false)}
+                                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-white transition"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSaveProduct}
+                                    disabled={isSaving}
+                                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs shadow-md shadow-emerald-500/20 transition flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {isSaving ? (
+                                        <>
+                                            <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                            <span>Saving Record...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FiCheck size={14} strokeWidth={3} />
+                                            <span>{editingProduct ? 'Save Changes' : 'Create Product'}</span>
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </div>
@@ -1327,91 +3255,129 @@ export default function ProductsPage() {
 
             {/* ━━━ LABEL GENERATOR MODAL ━━━ */}
             {showLabelModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowLabelModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-6 py-4 text-white flex items-center justify-between rounded-t-3xl flex-shrink-0">
-                            <div className="flex items-center gap-3"><FiPrinter size={20} /><div><h2 className="text-lg font-bold">Label Generator</h2><p className="text-purple-100 text-xs">{labelProducts.length} selected • {labelProducts.reduce((s, id) => s + (labelQty[id] || 1), 0)} total labels</p></div></div>
-                            <button onClick={() => setShowLabelModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
+                        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 text-white flex items-center justify-between flex-shrink-0">
+                            <div className="flex items-center gap-3">
+                                <FiPrinter size={20} />
+                                <div>
+                                    <h3 className="font-bold text-base">Barcode & Price Label Generator</h3>
+                                    <p className="text-xs text-purple-200">
+                                        {labelProducts.length} selected &bull; {labelProducts.reduce((s, id) => s + (labelQty[id] || 1), 0)} total tags
+                                    </p>
+                                </div>
+                            </div>
+                            <button onClick={() => setShowLabelModal(false)} className="p-1 hover:bg-white/20 rounded-lg">
+                                <FiX size={18} />
+                            </button>
                         </div>
+
                         <div className="flex flex-1 overflow-hidden">
-                            {/* LEFT: Product Selection */}
-                            <div className="flex-1 p-4 flex flex-col overflow-hidden border-r border-gray-200">
-                                {/* Search */}
-                                <div className="relative mb-3 flex-shrink-0">
-                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                    <input type="text" value={labelSearch} onChange={e => setLabelSearch(e.target.value)} placeholder="Search or scan barcode..." autoFocus
-                                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-purple-500 outline-none" />
+                            {/* Product List */}
+                            <div className="flex-1 p-4 border-r border-slate-200 overflow-y-auto space-y-2">
+                                <div className="relative mb-2">
+                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                                    <input
+                                        type="text"
+                                        value={labelSearch}
+                                        onChange={e => setLabelSearch(e.target.value)}
+                                        placeholder="Search products for labels..."
+                                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+                                    />
                                 </div>
-                                {/* Size + Select All */}
-                                <div className="flex items-center justify-between mb-3 flex-shrink-0">
-                                    <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
-                                        {(['small', 'medium', 'large'] as const).map(sz => (
-                                            <button key={sz} onClick={() => setLabelSize(sz)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${labelSize === sz ? 'bg-purple-500 text-white shadow' : 'text-gray-500 hover:text-purple-600'}`}>{sz.charAt(0).toUpperCase() + sz.slice(1)}</button>
-                                        ))}
-                                    </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => { const ids = filteredLabelProducts.map(p => p.pid); setLabelProducts(ids); const q: Record<number, number> = {}; ids.forEach(id => q[id] = labelQty[id] || 1); setLabelQty(q); }} className="px-3 py-1.5 bg-purple-50 text-purple-600 rounded-lg text-xs font-bold">Select All</button>
-                                        <button onClick={() => setLabelProducts([])} className="px-3 py-1.5 bg-gray-100 text-gray-500 rounded-lg text-xs font-bold">Clear</button>
-                                    </div>
-                                </div>
-                                {/* Product List */}
-                                <div className="flex-1 overflow-y-auto space-y-1.5">
-                                    {filteredLabelProducts.map(p => (
-                                        <div key={p.pid} className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all cursor-pointer ${labelProducts.includes(p.pid) ? 'border-purple-400 bg-purple-50' : 'border-gray-100 hover:border-purple-200'}`}
-                                            onClick={() => { if (labelProducts.includes(p.pid)) { setLabelProducts(labelProducts.filter(id => id !== p.pid)); } else { setLabelProducts([...labelProducts, p.pid]); setLabelQty({ ...labelQty, [p.pid]: labelQty[p.pid] || 1 }); } }}>
-                                            <input type="checkbox" checked={labelProducts.includes(p.pid)} readOnly className="w-4 h-4 accent-purple-500 pointer-events-none" />
-                                            <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${p.button_ui_color || 'from-blue-400 to-blue-600'} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>{p.product_name.charAt(0)}</div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-semibold truncate">{p.product_name}</p>
-                                                <p className="text-[10px] text-gray-400">{p.product_code} • {p.barcode || 'No barcode'} • Ksh {(p.sales_cost || 0).toLocaleString()}</p>
+                                {filteredLabelProducts.map(p => {
+                                    const isSel = labelProducts.includes(p.pid);
+                                    return (
+                                        <div
+                                            key={p.pid}
+                                            onClick={() => {
+                                                if (isSel) setLabelProducts(labelProducts.filter(id => id !== p.pid));
+                                                else {
+                                                    setLabelProducts([...labelProducts, p.pid]);
+                                                    setLabelQty({ ...labelQty, [p.pid]: labelQty[p.pid] || 1 });
+                                                }
+                                            }}
+                                            className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition ${
+                                                isSel ? 'border-purple-300 bg-purple-50/60' : 'border-slate-100 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2.5">
+                                                <input type="checkbox" checked={isSel} readOnly className="accent-purple-600 rounded" />
+                                                <div>
+                                                    <p className="text-xs font-bold text-slate-800">{p.product_name}</p>
+                                                    <p className="text-[10px] text-slate-400 font-mono">{p.product_code} • KES {(p.sales_cost || 0).toLocaleString()}</p>
+                                                </div>
                                             </div>
-                                            {labelProducts.includes(p.pid) && (
-                                                <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
-                                                    <button onClick={() => setLabelQty({ ...labelQty, [p.pid]: Math.max(1, (labelQty[p.pid] || 1) - 1) })} className="w-7 h-7 rounded-lg bg-purple-200 text-purple-700 font-bold flex items-center justify-center">−</button>
-                                                    <input type="number" value={labelQty[p.pid] || 1} onChange={e => setLabelQty({ ...labelQty, [p.pid]: parseInt(e.target.value) || 1 })} min="1" max="200" className="w-12 px-1 py-1 border border-purple-300 rounded-lg text-sm text-center font-bold" />
-                                                    <button onClick={() => setLabelQty({ ...labelQty, [p.pid]: (labelQty[p.pid] || 1) + 1 })} className="w-7 h-7 rounded-lg bg-purple-200 text-purple-700 font-bold flex items-center justify-center">+</button>
+                                            {isSel && (
+                                                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                                    <button
+                                                        onClick={() => setLabelQty({ ...labelQty, [p.pid]: Math.max(1, (labelQty[p.pid] || 1) - 1) })}
+                                                        className="w-6 h-6 rounded bg-purple-200 text-purple-800 font-bold text-xs"
+                                                    >
+                                                        -
+                                                    </button>
+                                                    <span className="text-xs font-bold px-2">{labelQty[p.pid] || 1}</span>
+                                                    <button
+                                                        onClick={() => setLabelQty({ ...labelQty, [p.pid]: (labelQty[p.pid] || 1) + 1 })}
+                                                        className="w-6 h-6 rounded bg-purple-200 text-purple-800 font-bold text-xs"
+                                                    >
+                                                        +
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>
-                                    ))}
-                                    {filteredLabelProducts.length === 0 && <p className="text-center text-gray-400 py-8 text-sm">No products match &quot;{labelSearch}&quot;</p>}
-                                </div>
+                                    );
+                                })}
                             </div>
-                            {/* RIGHT: Preview */}
-                            <div className="w-[340px] p-4 bg-gray-50 flex flex-col flex-shrink-0 overflow-hidden">
-                                <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><FiEye size={14} /> Live Preview</h3>
-                                <div className="flex-1 overflow-y-auto bg-white rounded-xl border border-gray-200 p-3">
-                                    {labelProducts.length === 0 ? (
-                                        <div className="flex flex-col items-center justify-center h-full text-gray-300">
-                                            <FiPrinter size={40} />
-                                            <p className="mt-2 text-sm">Select products to preview labels</p>
+
+                            {/* Label Controls & Print Button */}
+                            <div className="w-80 p-4 bg-slate-50 flex flex-col justify-between overflow-hidden">
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Label Tag Size</label>
+                                        <div className="grid grid-cols-3 gap-1 bg-white p-1 rounded-xl border border-slate-200">
+                                            {(['small', 'medium', 'large'] as const).map(sz => (
+                                                <button
+                                                    key={sz}
+                                                    onClick={() => setLabelSize(sz)}
+                                                    className={`py-1.5 text-xs font-bold rounded-lg capitalize transition ${
+                                                        labelSize === sz ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    {sz}
+                                                </button>
+                                            ))}
                                         </div>
-                                    ) : (
-                                        <div className="flex flex-wrap gap-2 justify-center">
-                                            {products.filter(p => labelProducts.includes(p.pid)).slice(0, 8).map(p => {
-                                                const s = labelSizes[labelSize];
-                                                return (
-                                                    <div key={p.pid} className="border-2 border-gray-800 rounded-sm flex flex-col justify-between overflow-hidden" style={{ width: '140px', height: labelSize === 'small' ? '80px' : labelSize === 'medium' ? '95px' : '110px', padding: '4px' }}>
-                                                        <p className="text-center text-gray-400" style={{ fontSize: `${s.code - 1}px`, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{companyName || 'Alpha Pharmacy'}</p>
-                                                        <p className="text-center font-bold leading-tight" style={{ fontSize: `${Math.min(s.name, 11)}px`, textTransform: 'uppercase', overflow: 'hidden', maxHeight: '22px' }}>{p.product_name}</p>
-                                                        <p className="text-center font-black font-mono" style={{ fontSize: `${Math.min(s.barcode, 14)}px`, letterSpacing: '2px' }}>{p.barcode || p.product_code}</p>
-                                                        <p className="text-center font-black bg-black text-white text-xs rounded-sm" style={{ fontSize: `${Math.min(s.price, 12)}px`, padding: '1px 0' }}>Ksh {(p.sales_cost || 0).toLocaleString()}</p>
-                                                        <p className="text-center text-gray-500" style={{ fontSize: '7px' }}>{p.product_code} • ×{labelQty[p.pid] || 1}</p>
-                                                    </div>
-                                                );
-                                            })}
-                                            {labelProducts.length > 8 && <p className="text-xs text-gray-400 w-full text-center mt-1">+{labelProducts.length - 8} more...</p>}
+                                    </div>
+
+                                    <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5 text-xs">
+                                        <div className="flex justify-between text-slate-500">
+                                            <span>Dimensions:</span>
+                                            <span className="font-bold text-slate-800">{labelSizes[labelSize].w} × {labelSizes[labelSize].h}</span>
                                         </div>
-                                    )}
+                                        <div className="flex justify-between text-slate-500">
+                                            <span>Total Labels:</span>
+                                            <span className="font-black text-purple-700">
+                                                {labelProducts.reduce((s, id) => s + (labelQty[id] || 1), 0)}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="mt-3 space-y-2 flex-shrink-0">
-                                    <div className="text-xs text-gray-500 flex justify-between"><span>Label size:</span><span className="font-bold text-purple-600">{labelSizes[labelSize].w} × {labelSizes[labelSize].h}</span></div>
-                                    <div className="text-xs text-gray-500 flex justify-between"><span>Total labels:</span><span className="font-bold text-purple-600">{labelProducts.reduce((s, id) => s + (labelQty[id] || 1), 0)}</span></div>
-                                    <button onClick={printLabels} disabled={labelProducts.length === 0}
-                                        className="w-full py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                                        <FiPrinter size={16} /> Print Labels
+
+                                <div className="space-y-2 pt-4">
+                                    <button
+                                        onClick={printLabels}
+                                        disabled={labelProducts.length === 0}
+                                        className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition disabled:opacity-40"
+                                    >
+                                        Print Barcode Labels
                                     </button>
-                                    <button onClick={() => setShowLabelModal(false)} className="w-full py-2.5 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm">Close</button>
+                                    <button
+                                        onClick={() => setShowLabelModal(false)}
+                                        className="w-full py-2 bg-white border border-slate-200 text-slate-600 font-bold text-xs rounded-xl hover:bg-slate-50"
+                                    >
+                                        Close
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -1419,44 +3385,73 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* ━━━ ITEM LOOKUP MODAL ━━━ */}
+            {/* ━━━ FAST ITEM LOOKUP / SCANNER MODAL ━━━ */}
             {showLookupModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowLookupModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-4 text-white flex items-center justify-between rounded-t-3xl">
-                            <div className="flex items-center gap-3"><FiEye size={20} /><h2 className="text-lg font-bold">Item Lookup</h2></div>
-                            <button onClick={() => setShowLookupModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
-                        </div>
-                        <div className="p-5 space-y-4">
-                            <div className="flex gap-2">
-                                <input type="text" value={lookupQuery} onChange={e => setLookupQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && doLookup()} placeholder="Scan barcode or type name/code..."
-                                    className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-green-500 outline-none" autoFocus />
-                                <button onClick={doLookup} className="px-5 py-3 bg-green-500 text-white rounded-xl font-bold text-sm"><FiSearch size={16} /></button>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden">
+                        <div className="bg-gradient-to-r from-cyan-600 to-blue-600 px-6 py-4 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <FiEye size={20} />
+                                <h3 className="font-bold text-base">Rapid Drug Lookup / Barcode Scan</h3>
                             </div>
+                            <button onClick={() => setShowLookupModal(false)} className="p-1 hover:bg-white/20 rounded-lg">
+                                <FiX size={18} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={lookupQuery}
+                                    onChange={e => setLookupQuery(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && doLookup()}
+                                    placeholder="Scan barcode or type drug name/code..."
+                                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:bg-white focus:border-cyan-500 outline-none"
+                                    autoFocus
+                                />
+                                <button
+                                    onClick={doLookup}
+                                    className="px-5 py-3 bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-sm rounded-xl transition"
+                                >
+                                    Lookup
+                                </button>
+                            </div>
+
                             {lookupResult && (
-                                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
-                                    <div className="flex items-start gap-4">
-                                        <div className={`w-16 h-16 rounded-xl flex items-center justify-center text-white text-xl font-bold bg-gradient-to-br ${lookupResult.button_ui_color || 'from-blue-400 to-blue-600'} shadow-md`}>
-                                            {lookupResult.photo ? <img src={lookupResult.photo} alt="" className="w-full h-full object-cover rounded-xl" /> : lookupResult.product_name.charAt(0)}
+                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                                    <div>
+                                        <span className="font-mono text-xs font-bold text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded">
+                                            {lookupResult.product_code}
+                                        </span>
+                                        <h4 className="text-base font-black text-slate-800 mt-1">{lookupResult.product_name}</h4>
+                                        <p className="text-xs text-slate-500 italic">{lookupResult.generic_name || 'No generic specification'}</p>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                                            <span className="text-slate-400 text-[10px] uppercase font-bold">Sell Price</span>
+                                            <p className="text-sm font-black text-slate-800 mt-0.5">KES {(lookupResult.sales_cost || 0).toLocaleString()}</p>
                                         </div>
-                                        <div className="flex-1">
-                                            <p className="font-bold text-gray-900">{lookupResult.product_name}</p>
-                                            <p className="text-xs text-blue-600 font-medium">{lookupResult.product_code} • Barcode: {lookupResult.barcode || 'N/A'}</p>
+                                        <div className="bg-white p-2.5 rounded-xl border border-slate-200">
+                                            <span className="text-slate-400 text-[10px] uppercase font-bold">Stock Available</span>
+                                            <p className="text-sm font-black text-emerald-700 mt-0.5">{stockData[lookupResult.pid] || 0} {lookupResult.sales_unit || 'Pcs'}</p>
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3 mt-4">
-                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Category</p><p className="font-bold text-sm">{lookupResult.category || 'N/A'}</p></div>
-                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Stock</p><div className="space-y-0.5">{(bagStockData[lookupResult.pid] || 0) > 0 && <p className="font-bold text-xs text-indigo-700">📦 {bagStockData[lookupResult.pid]} {lookupResult.purchase_unit}(s)</p>}<p className="font-bold text-xs text-emerald-700">🔢 {pieceStockData[lookupResult.pid] || 0} {lookupResult.sales_unit}(s)</p></div></div>
-                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Buy Price</p><p className="font-bold text-sm">Ksh {(lookupResult.purchase_cost || 0).toLocaleString()} / {lookupResult.purchase_unit}</p></div>
-                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Sell Price</p><p className="font-bold text-sm text-green-700">Ksh {(lookupResult.sales_cost || 0).toLocaleString()} / {lookupResult.sales_unit}</p></div>
-                                        <div className="bg-white p-3 rounded-xl border border-purple-100"><p className="text-[10px] text-purple-500 uppercase">Wholesale</p><p className="font-bold text-sm text-purple-700">{(lookupResult as any).wholesale_price ? `Ksh ${((lookupResult as any).wholesale_price || 0).toLocaleString()}` : 'N/A'}</p></div>
-                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Pcs/Package</p><p className="font-bold text-sm">{lookupResult.pieces_per_package || 1}</p></div>
-                                        <div className="bg-white p-3 rounded-xl border"><p className="text-[10px] text-gray-400 uppercase">Margin</p><p className="font-bold text-sm">{lookupResult.margin_per?.toFixed(1) || '0'}%</p></div>
-                                    </div>
-                                    <div className="flex gap-2 mt-4">
-                                        <button onClick={() => { setShowLookupModal(false); openEditModal(lookupResult); }} className="flex-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1"><FiEdit2 size={12} /> Edit</button>
-                                        <button onClick={() => { setShowLookupModal(false); openStockHistory(lookupResult); }} className="flex-1 px-3 py-2 bg-cyan-50 text-cyan-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1"><FiClock size={12} /> Stock Hx</button>
-                                        <button onClick={() => { setShowLookupModal(false); openStockAdjust(lookupResult); }} className="flex-1 px-3 py-2 bg-purple-50 text-purple-600 rounded-xl text-xs font-bold flex items-center justify-center gap-1"><FiSliders size={12} /> Adjust</button>
+
+                                    <div className="flex gap-2 pt-2">
+                                        <button
+                                            onClick={() => { setShowLookupModal(false); openEditModal(lookupResult); }}
+                                            className="flex-1 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700"
+                                        >
+                                            Edit Full Record
+                                        </button>
+                                        <button
+                                            onClick={() => { setShowLookupModal(false); openStockAdjust(lookupResult); }}
+                                            className="flex-1 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700"
+                                        >
+                                            Adjust Stock
+                                        </button>
                                     </div>
                                 </div>
                             )}
@@ -1465,26 +3460,51 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* ━━━ STOCK HISTORY MODAL ━━━ */}
+            {/* ━━━ STOCK HISTORY LEDGER MODAL ━━━ */}
             {showStockHistoryModal && stockHistoryProduct && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowStockHistoryModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-cyan-500 to-blue-600 px-6 py-4 text-white sticky top-0 z-10 flex items-center justify-between rounded-t-3xl">
-                            <div><h2 className="text-lg font-bold flex items-center gap-2"><FiClock size={18} /> Stock History</h2><p className="text-cyan-100 text-xs">{stockHistoryProduct.product_name} ({stockHistoryProduct.product_code})</p></div>
-                            <button onClick={() => setShowStockHistoryModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 text-white flex items-center justify-between flex-shrink-0">
+                            <div>
+                                <h3 className="font-bold text-base flex items-center gap-2">
+                                    <FiClock size={16} /> Stock Movement Audit Ledger
+                                </h3>
+                                <p className="text-xs text-blue-200">
+                                    {stockHistoryProduct.product_name} ({stockHistoryProduct.product_code})
+                                </p>
+                            </div>
+                            <button onClick={() => setShowStockHistoryModal(false)} className="p-1 hover:bg-white/20 rounded-lg">
+                                <FiX size={18} />
+                            </button>
                         </div>
-                        <div className="p-5">
-                            {stockHistory.length === 0 ? <p className="text-center text-gray-400 py-10">No stock movements found</p> : (
-                                <table className="w-full text-sm">
-                                    <thead><tr className="bg-gray-100"><th className="px-3 py-2 text-left text-xs font-bold">Date</th><th className="px-3 py-2 text-left text-xs font-bold">Reference</th><th className="px-3 py-2 text-left text-xs font-bold">Type</th><th className="px-3 py-2 text-right text-xs font-bold text-green-600">In</th><th className="px-3 py-2 text-right text-xs font-bold text-red-600">Out</th><th className="px-3 py-2 text-right text-xs font-bold">Balance</th></tr></thead>
-                                    <tbody>{stockHistory.map(r => (
-                                        <tr key={r.id} className="border-b border-gray-50 hover:bg-blue-50/30">
-                                            <td className="px-3 py-2 text-xs">{r.date}</td><td className="px-3 py-2 text-xs font-medium text-blue-600">{r.ref}</td><td className="px-3 py-2 text-xs">{r.type}</td>
-                                            <td className="px-3 py-2 text-right text-xs font-bold text-green-600">{r.qty_in > 0 ? `+${r.qty_in}` : ''}</td>
-                                            <td className="px-3 py-2 text-right text-xs font-bold text-red-600">{r.qty_out > 0 ? `-${r.qty_out}` : ''}</td>
-                                            <td className="px-3 py-2 text-right text-xs font-bold">{r.balance}</td>
+
+                        <div className="p-6 overflow-y-auto flex-1">
+                            {stockHistory.length === 0 ? (
+                                <p className="text-center text-slate-400 py-12 text-xs">No movement history recorded yet</p>
+                            ) : (
+                                <table className="w-full text-xs">
+                                    <thead>
+                                        <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 text-[10px] uppercase">
+                                            <th className="py-2.5 px-3 text-left">Date</th>
+                                            <th className="py-2.5 px-3 text-left">Reference</th>
+                                            <th className="py-2.5 px-3 text-left">Type</th>
+                                            <th className="py-2.5 px-3 text-right text-emerald-600">Qty In</th>
+                                            <th className="py-2.5 px-3 text-right text-red-600">Qty Out</th>
+                                            <th className="py-2.5 px-3 text-right">Balance</th>
                                         </tr>
-                                    ))}</tbody>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {stockHistory.map(r => (
+                                            <tr key={r.id} className="hover:bg-slate-50">
+                                                <td className="py-2.5 px-3 text-slate-600">{r.date}</td>
+                                                <td className="py-2.5 px-3 font-mono font-bold text-blue-600">{r.ref}</td>
+                                                <td className="py-2.5 px-3 text-slate-700">{r.type}</td>
+                                                <td className="py-2.5 px-3 text-right font-black text-emerald-700">{r.qty_in > 0 ? `+${r.qty_in}` : '-'}</td>
+                                                <td className="py-2.5 px-3 text-right font-black text-red-700">{r.qty_out > 0 ? `-${r.qty_out}` : '-'}</td>
+                                                <td className="py-2.5 px-3 text-right font-black text-slate-900">{r.balance}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
                                 </table>
                             )}
                         </div>
@@ -1492,27 +3512,47 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* ━━━ PRICE HISTORY MODAL ━━━ */}
+            {/* ━━━ PRICE HISTORY AUDIT MODAL ━━━ */}
             {showPriceHistoryModal && priceHistoryProduct && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowPriceHistoryModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-4 text-white sticky top-0 z-10 flex items-center justify-between rounded-t-3xl">
-                            <div><h2 className="text-lg font-bold flex items-center gap-2"><FiTrendingUp size={18} /> Price History</h2><p className="text-amber-100 text-xs">{priceHistoryProduct.product_name}</p></div>
-                            <button onClick={() => setShowPriceHistoryModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden">
+                        <div className="bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-4 text-white flex items-center justify-between flex-shrink-0">
+                            <div>
+                                <h3 className="font-bold text-base flex items-center gap-2">
+                                    <FiTrendingUp size={16} /> Historical Price Change Audit
+                                </h3>
+                                <p className="text-xs text-amber-200">{priceHistoryProduct.product_name}</p>
+                            </div>
+                            <button onClick={() => setShowPriceHistoryModal(false)} className="p-1 hover:bg-white/20 rounded-lg">
+                                <FiX size={18} />
+                            </button>
                         </div>
-                        <div className="p-5">
-                            {priceHistory.length === 0 ? <p className="text-center text-gray-400 py-10">No price changes recorded yet</p> : (
-                                <table className="w-full text-sm">
-                                    <thead><tr className="bg-gray-100"><th className="px-3 py-2 text-left text-xs font-bold">Date</th><th className="px-3 py-2 text-right text-xs font-bold">Old Buy</th><th className="px-3 py-2 text-right text-xs font-bold">New Buy</th><th className="px-3 py-2 text-right text-xs font-bold">Old Sell</th><th className="px-3 py-2 text-right text-xs font-bold">New Sell</th></tr></thead>
-                                    <tbody>{priceHistory.map(r => (
-                                        <tr key={r.id} className="border-b border-gray-50 hover:bg-amber-50/30">
-                                            <td className="px-3 py-2 text-xs">{r.date}</td>
-                                            <td className="px-3 py-2 text-right text-xs text-gray-400 line-through">{r.old_buy.toLocaleString()}</td>
-                                            <td className="px-3 py-2 text-right text-xs font-bold text-blue-600">{r.new_buy.toLocaleString()}</td>
-                                            <td className="px-3 py-2 text-right text-xs text-gray-400 line-through">{r.old_sell.toLocaleString()}</td>
-                                            <td className="px-3 py-2 text-right text-xs font-bold text-green-600">{r.new_sell.toLocaleString()}</td>
+
+                        <div className="p-6 overflow-y-auto flex-1">
+                            {priceHistory.length === 0 ? (
+                                <p className="text-center text-slate-400 py-12 text-xs">No price revisions logged yet</p>
+                            ) : (
+                                <table className="w-full text-xs">
+                                    <thead>
+                                        <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 text-[10px] uppercase">
+                                            <th className="py-2.5 px-3 text-left">Timestamp</th>
+                                            <th className="py-2.5 px-3 text-right">Old Buy</th>
+                                            <th className="py-2.5 px-3 text-right text-blue-600">New Buy</th>
+                                            <th className="py-2.5 px-3 text-right">Old Sell</th>
+                                            <th className="py-2.5 px-3 text-right text-emerald-600">New Sell</th>
                                         </tr>
-                                    ))}</tbody>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {priceHistory.map(r => (
+                                            <tr key={r.id} className="hover:bg-slate-50">
+                                                <td className="py-2.5 px-3 text-slate-600">{r.date}</td>
+                                                <td className="py-2.5 px-3 text-right text-slate-400 line-through">KES {r.old_buy.toLocaleString()}</td>
+                                                <td className="py-2.5 px-3 text-right font-bold text-blue-600">KES {r.new_buy.toLocaleString()}</td>
+                                                <td className="py-2.5 px-3 text-right text-slate-400 line-through">KES {r.old_sell.toLocaleString()}</td>
+                                                <td className="py-2.5 px-3 text-right font-black text-emerald-700">KES {r.new_sell.toLocaleString()}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
                                 </table>
                             )}
                         </div>
@@ -1522,46 +3562,81 @@ export default function ProductsPage() {
 
             {/* ━━━ STOCK ADJUSTMENT MODAL ━━━ */}
             {showStockAdjustModal && adjustProduct && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowStockAdjustModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md" onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-purple-500 to-indigo-600 px-6 py-4 text-white flex items-center justify-between rounded-t-3xl">
-                            <div><h2 className="text-lg font-bold flex items-center gap-2"><FiSliders size={18} /> Stock Adjustment</h2><p className="text-purple-100 text-xs">{adjustProduct.product_name} — 📦 {bagStockData[adjustProduct.pid] || 0} {adjustProduct.purchase_unit}(s) • 🔢 {pieceStockData[adjustProduct.pid] || 0} {adjustProduct.sales_unit}(s)</p></div>
-                            <button onClick={() => setShowStockAdjustModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
-                        </div>
-                        <div className="p-5 space-y-4">
-                            <div className="flex gap-2">
-                                <button onClick={() => setAdjustType('add')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${adjustType === 'add' ? 'bg-green-500 text-white shadow-lg' : 'bg-gray-100 text-gray-500'}`}>➕ Add Stock</button>
-                                <button onClick={() => setAdjustType('remove')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${adjustType === 'remove' ? 'bg-red-500 text-white shadow-lg' : 'bg-gray-100 text-gray-500'}`}>➖ Remove Stock</button>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block text-xs font-bold text-indigo-600 mb-1 uppercase">📦 {adjustProduct.purchase_unit}s (Big Qty)</label>
-                                    <input type="number" value={adjustBags} onChange={e => setAdjustBags(parseFloat(e.target.value) || 0)} min="0" step="1" placeholder="0"
-                                        className="w-full px-4 py-3 bg-indigo-50 border-2 border-indigo-200 rounded-xl text-lg font-bold text-center text-indigo-700 focus:border-indigo-500 outline-none" autoFocus />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-emerald-600 mb-1 uppercase">🔢 {adjustProduct.sales_unit}s (Pieces)</label>
-                                    <input type="number" value={adjustPieces} onChange={e => setAdjustPieces(parseFloat(e.target.value) || 0)} min="0" step="1" placeholder="0"
-                                        className="w-full px-4 py-3 bg-emerald-50 border-2 border-emerald-200 rounded-xl text-lg font-bold text-center text-emerald-700 focus:border-emerald-500 outline-none" />
-                                </div>
-                            </div>
-                            {(adjustBags > 0 || adjustPieces > 0) && (
-                                <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-sm">
-                                    {adjustType === 'add' ? '➕' : '➖'}{' '}
-                                    {adjustBags > 0 && <><span className="font-bold text-indigo-700">{adjustBags}</span> {adjustProduct.purchase_unit}(s) </>}
-                                    {adjustBags > 0 && adjustPieces > 0 && <span className="text-gray-400">+ </span>}
-                                    {adjustPieces > 0 && <><span className="font-bold text-emerald-700">{adjustPieces}</span> {adjustProduct.sales_unit}(s)</>}
-                                </div>
-                            )}
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden">
+                        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 text-white flex items-center justify-between">
                             <div>
-                                <label className="block text-xs font-bold text-gray-600 mb-1 uppercase">Reason (optional)</label>
-                                <input type="text" value={adjustReason} onChange={e => setAdjustReason(e.target.value)} placeholder="e.g., Damaged goods, Recount..."
-                                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-purple-500 outline-none" />
+                                <h3 className="font-bold text-base flex items-center gap-2">
+                                    <FiSliders size={16} /> Physical Stock Reconciliation
+                                </h3>
+                                <p className="text-xs text-purple-200">{adjustProduct.product_name}</p>
                             </div>
-                            <div className="flex gap-3 pt-3 border-t">
-                                <button onClick={() => setShowStockAdjustModal(false)} className="flex-1 px-4 py-3 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm">Cancel</button>
-                                <button onClick={submitStockAdjust} className={`flex-1 px-4 py-3 text-white font-bold rounded-xl text-sm ${adjustType === 'add' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}`}>
-                                    {adjustType === 'add' ? '➕ Add Stock' : '➖ Remove Stock'}
+                            <button onClick={() => setShowStockAdjustModal(false)} className="p-1 hover:bg-white/20 rounded-lg">
+                                <FiX size={18} />
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-4">
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setAdjustType('add')}
+                                    className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition ${
+                                        adjustType === 'add' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600'
+                                    }`}
+                                >
+                                    + Add Stock
+                                </button>
+                                <button
+                                    onClick={() => setAdjustType('remove')}
+                                    className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition ${
+                                        adjustType === 'remove' ? 'bg-red-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600'
+                                    }`}
+                                >
+                                    - Deduct Stock
+                                </button>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 mb-1">
+                                    Quantity in {adjustProduct.sales_unit || 'Pieces'}
+                                </label>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    value={adjustPieces || ''}
+                                    onChange={e => setAdjustPieces(parseInt(e.target.value) || 0)}
+                                    placeholder="Enter units count"
+                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base font-bold text-center"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-600 mb-1">
+                                    Audit Reason / Memo
+                                </label>
+                                <input
+                                    type="text"
+                                    value={adjustReason}
+                                    onChange={e => setAdjustReason(e.target.value)}
+                                    placeholder="e.g. Physical count discrepancy, damaged blister pack"
+                                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                                />
+                            </div>
+
+                            <div className="flex gap-2 pt-2">
+                                <button
+                                    onClick={() => setShowStockAdjustModal(false)}
+                                    className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={submitStockAdjust}
+                                    className={`flex-1 py-2.5 text-white rounded-xl text-xs font-bold shadow-sm ${
+                                        adjustType === 'add' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
+                                    }`}
+                                >
+                                    Confirm Adjustment
                                 </button>
                             </div>
                         </div>
@@ -1569,141 +3644,100 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* ━━━ IMPORT PRODUCTS MODAL ━━━ */}
+            {/* ━━━ CSV IMPORT MODAL ━━━ */}
             {showImportModal && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => importStatus !== 'importing' && setShowImportModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-xl max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className={`px-6 py-4 text-white flex items-center justify-between rounded-t-3xl transition-all duration-700 ${importStatus === 'success' ? 'bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 animate-pulse' : importStatus === 'error' ? 'bg-gradient-to-r from-red-500 to-red-600' : 'bg-gradient-to-r from-blue-500 to-indigo-600'}`}>
-                            <div className="flex items-center gap-3"><FiUpload size={20} /><h2 className="text-lg font-bold">{importStatus === 'success' ? '🎉 Import Complete!' : importStatus === 'error' ? '❌ Import Failed' : 'Import Products'}</h2></div>
-                            {importStatus !== 'importing' && <button onClick={() => setShowImportModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>}
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl overflow-hidden">
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                                <FiUpload size={18} />
+                                <h3 className="font-bold text-base">Bulk Pharmaceutical CSV Import</h3>
+                            </div>
+                            <button onClick={() => setShowImportModal(false)} className="p-1 hover:bg-white/20 rounded-lg">
+                                <FiX size={18} />
+                            </button>
                         </div>
-                        <div className="p-6 space-y-5">
-                            {/* Success State */}
-                            {importStatus === 'success' && (
-                                <div className="text-center py-4">
-                                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-300/40 animate-bounce">
-                                        <FiCheck className="text-white" size={36} />
-                                    </div>
-                                    <p className="text-2xl font-black text-gray-800">{importSuccessCount} Products Imported!</p>
-                                    {importErrors.length > 0 && <p className="text-sm text-amber-600 mt-2">{importErrors.length} items had errors</p>}
-                                    <div className="flex gap-3 mt-6">
-                                        <button onClick={() => { setShowImportModal(false); }} className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold rounded-xl text-sm">Done</button>
-                                    </div>
-                                    {importErrors.length > 0 && (
-                                        <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-3 text-left max-h-32 overflow-y-auto">
-                                            <p className="text-xs font-bold text-red-600 mb-1">Errors:</p>
-                                            {importErrors.map((e, i) => <p key={i} className="text-xs text-red-500">{e}</p>)}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
 
-                            {/* Error State */}
-                            {importStatus === 'error' && importSuccessCount === 0 && (
-                                <div className="text-center py-4">
-                                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-red-300/40">
-                                        <FiX className="text-white" size={36} />
+                        <div className="p-6 space-y-4">
+                            {importStatus === 'success' ? (
+                                <div className="text-center py-6">
+                                    <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                                        <FiCheck size={32} />
                                     </div>
-                                    <p className="text-xl font-bold text-gray-800">Import Failed</p>
-                                    <div className="mt-4 bg-red-50 border border-red-200 rounded-xl p-3 text-left max-h-40 overflow-y-auto">
-                                        {importErrors.map((e, i) => <p key={i} className="text-xs text-red-500">{e}</p>)}
-                                    </div>
-                                    <button onClick={() => setImportStatus('idle')} className="mt-4 px-6 py-3 bg-blue-500 text-white font-bold rounded-xl text-sm">Try Again</button>
+                                    <h4 className="text-lg font-black text-slate-800">{importSuccessCount} Products Imported!</h4>
+                                    <p className="text-xs text-slate-500 mt-1">Catalog updated successfully.</p>
+                                    <button
+                                        onClick={() => setShowImportModal(false)}
+                                        className="mt-5 px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700"
+                                    >
+                                        Close
+                                    </button>
                                 </div>
-                            )}
-
-                            {/* Importing State */}
-                            {importStatus === 'importing' && (
-                                <div className="py-4">
-                                    <div className="text-center mb-4">
-                                        <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto" />
-                                        <p className="text-lg font-bold text-gray-800 mt-3">Importing Products...</p>
-                                        <p className="text-sm text-gray-500 mt-1">{importProgress} of {importTotal}</p>
-                                    </div>
-                                    <div className="bg-gray-100 rounded-full h-4 overflow-hidden">
-                                        <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-300 relative"
-                                            style={{ width: `${importTotal > 0 ? (importProgress / importTotal) * 100 : 0}%` }}>
-                                            <div className="absolute inset-0 bg-white/30 animate-pulse" />
-                                        </div>
-                                    </div>
-                                    <p className="text-xs text-gray-400 mt-2 text-center">{Math.round(importTotal > 0 ? (importProgress / importTotal) * 100 : 0)}%</p>
-                                    <div className="mt-3 bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center gap-2">
-                                        <FiPackage className="text-blue-500 flex-shrink-0" size={14} />
-                                        <p className="text-xs text-blue-700 font-medium truncate">Current: <span className="font-bold">{importCurrentItem}</span></p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Idle / Parsing State */}
-                            {(importStatus === 'idle' || importStatus === 'parsing') && (
+                            ) : (
                                 <>
-                                    {/* File Upload */}
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider">Upload CSV File</label>
-                                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-blue-300 rounded-2xl bg-blue-50/50 hover:bg-blue-50 cursor-pointer transition-all group">
-                                            <FiFileText className="text-blue-400 group-hover:text-blue-600 transition-colors" size={32} />
-                                            <p className="text-sm font-semibold text-blue-500 mt-2">{importFile ? importFile.name : 'Click to select CSV file'}</p>
-                                            <p className="text-[10px] text-gray-400 mt-1">Supports .csv format</p>
-                                            <input type="file" accept=".csv,.txt" className="hidden" onChange={e => { if (e.target.files?.[0]) setImportFile(e.target.files[0]); }} />
-                                        </label>
+                                        <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Select CSV File</label>
+                                        <input
+                                            type="file"
+                                            accept=".csv"
+                                            onChange={e => { if (e.target.files?.[0]) setImportFile(e.target.files[0]); }}
+                                            className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                        />
                                     </div>
 
-                                    {/* Import Mode */}
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wider">Import Mode</label>
-                                        <div className="space-y-2">
-                                            {([
-                                                { value: 'add_new' as const, label: 'Add New Items Only', desc: 'Imports only new products, skips existing ones', color: 'border-green-300 bg-green-50', icon: '➕' },
-                                                { value: 'update' as const, label: 'Update & Add', desc: 'Updates existing products by name/barcode match, adds new ones', color: 'border-blue-300 bg-blue-50', icon: '🔄' },
-                                                { value: 'overwrite' as const, label: 'Full Overwrite', desc: '⚠️ Deletes ALL existing products and imports fresh', color: 'border-red-300 bg-red-50', icon: '🗑️' },
-                                            ]).map(m => (
-                                                <label key={m.value} className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${importMode === m.value ? m.color + ' shadow-sm' : 'border-gray-200 hover:border-gray-300'}`}>
-                                                    <input type="radio" name="importMode" value={m.value} checked={importMode === m.value} onChange={() => setImportMode(m.value)} className="mt-0.5 accent-blue-500" />
+                                        <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Import Mode</label>
+                                        <div className="space-y-1.5 text-xs">
+                                            {[
+                                                { id: 'add_new', label: 'Add New Products Only', desc: 'Skips items with duplicate names' },
+                                                { id: 'update', label: 'Update & Append', desc: 'Updates matching items, adds new ones' },
+                                            ].map(m => (
+                                                <label key={m.id} className="flex items-center gap-2 p-2 rounded-xl border border-slate-200 cursor-pointer">
+                                                    <input
+                                                        type="radio"
+                                                        name="importMode"
+                                                        value={m.id}
+                                                        checked={importMode === m.id}
+                                                        onChange={() => setImportMode(m.id as any)}
+                                                        className="accent-blue-600"
+                                                    />
                                                     <div>
-                                                        <p className="text-sm font-bold text-gray-800">{m.icon} {m.label}</p>
-                                                        <p className="text-[11px] text-gray-500">{m.desc}</p>
+                                                        <span className="font-bold text-slate-800">{m.label}</span>
+                                                        <span className="text-slate-400 block text-[10px]">{m.desc}</span>
                                                     </div>
                                                 </label>
                                             ))}
                                         </div>
                                     </div>
 
-                                    {/* CSV Template */}
-                                    <div className="bg-gray-50 rounded-xl p-3 border border-gray-200">
-                                        <p className="text-xs font-bold text-gray-600 mb-1">📄 Required CSV Columns:</p>
-                                        <div className="flex flex-wrap gap-1 mt-1 mb-2">
-                                            {['product_name', 'barcode', 'category', 'purchase_cost', 'sales_cost', 'wholesale_price', 'purchase_unit', 'sales_unit', 'quantity', 'reorder_point', 'pieces_per_package', 'supplier_name', 'description'].map(col => (
-                                                <span key={col} className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold ${col === 'wholesale_price' ? 'bg-purple-100 text-purple-700 border border-purple-200' : col === 'product_name' ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>{col}{col === 'product_name' && ' *'}</span>
-                                            ))}
-                                        </div>
-                                        <button onClick={() => {
-                                            const tpl = 'product_name,barcode,category,purchase_cost,sales_cost,wholesale_price,purchase_unit,sales_unit,quantity,reorder_point,pieces_per_package,supplier_name,description\n'
-                                                + '"Paracetamol 500mg",10001,Painkillers,15,30,25,Box,Tablet,500,50,100,Cosmos Pharma,Paracetamol 500mg tablets\n'
-                                                + '"Amoxicillin 250mg",10002,Antibiotics,80,150,120,Box,Capsule,200,20,50,Dawa Ltd,Amoxicillin 250mg capsules\n'
-                                                + '"Metformin 500mg",10003,Diabetes,45,90,75,Box,Tablet,300,30,60,Beta Healthcare,Metformin hydrochloride 500mg\n'
-                                                + '"Cough Syrup 100ml",10004,Cough & Cold,120,200,180,Carton,Bottle,100,15,24,GlaxoSmithKline,Cough suppressant syrup 100ml\n'
-                                                + '"Cetrizine 10mg",10005,Allergy,10,25,20,Strip,Tablet,400,40,10,Cosmos Pharma,Antihistamine tablets 10mg\n';
-                                            const blob = new Blob([tpl], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'alpha_pharmacy_import_template.csv'; a.click(); URL.revokeObjectURL(url);
-                                        }} className="text-xs text-blue-600 font-bold mt-2 hover:underline flex items-center gap-1">⬇️ Download Template CSV (with 5 sample products)</button>
-                                    </div>
-
-                                    {/* Overwrite Warning */}
-                                    {importMode === 'overwrite' && (
-                                        <div className="bg-red-50 border-2 border-red-300 rounded-xl p-3 flex items-start gap-2">
-                                            <FiAlertTriangle className="text-red-500 flex-shrink-0 mt-0.5" size={16} />
-                                            <div>
-                                                <p className="text-xs font-bold text-red-700">⚠️ Full Overwrite Mode</p>
-                                                <p className="text-[11px] text-red-500">This will permanently DELETE all existing products and stock data before importing. This action cannot be undone.</p>
+                                    {importStatus === 'importing' && (
+                                        <div className="space-y-1">
+                                            <div className="flex justify-between text-xs text-slate-500">
+                                                <span>Importing: {importCurrentItem}</span>
+                                                <span>{importProgress} of {importTotal}</span>
+                                            </div>
+                                            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                                                <div
+                                                    className="bg-blue-600 h-2 transition-all duration-200"
+                                                    style={{ width: `${importTotal > 0 ? (importProgress / importTotal) * 100 : 0}%` }}
+                                                />
                                             </div>
                                         </div>
                                     )}
 
-                                    {/* Action Buttons */}
-                                    <div className="flex gap-3 pt-3 border-t">
-                                        <button onClick={() => setShowImportModal(false)} className="flex-1 px-4 py-3 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm">Cancel</button>
-                                        <button onClick={importProducts} disabled={!importFile || importStatus === 'parsing'}
-                                            className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2 hover:shadow-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-                                            <FiUpload size={14} /> {importStatus === 'parsing' ? 'Parsing...' : 'Start Import'}
+                                    <div className="flex gap-2 pt-2">
+                                        <button
+                                            onClick={() => setShowImportModal(false)}
+                                            className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={importProducts}
+                                            disabled={!importFile || importStatus === 'importing'}
+                                            className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 disabled:opacity-40"
+                                        >
+                                            {importStatus === 'importing' ? 'Importing...' : 'Start Import'}
                                         </button>
                                     </div>
                                 </>
@@ -1712,6 +3746,7 @@ export default function ProductsPage() {
                     </div>
                 </div>
             )}
+
         </div>
     );
 }
