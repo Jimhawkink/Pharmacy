@@ -12,7 +12,7 @@ import {
     FiSliders, FiEye, FiChevronsLeft, FiChevronsRight, FiFileText,
     FiShield, FiCalendar, FiBox, FiAlertCircle, FiArrowUpRight,
     FiMaximize2, FiMinimize2, FiInfo, FiCopy, FiCheckCircle,
-    FiCheckSquare, FiSquare, FiActivity
+    FiCheckSquare, FiSquare, FiActivity, FiChevronDown, FiChevronUp
 } from 'react-icons/fi';
 
 // ─── TYPES & INTERFACES ───
@@ -107,6 +107,35 @@ interface PriceHistoryRow {
     new_sell: number;
 }
 
+// Interface for Parsed Import Row
+interface ImportRow {
+    _id: number;
+    selected: boolean;
+    valid: boolean;
+    errors: string[];
+    product_name: string;
+    generic_name?: string;
+    barcode?: string;
+    category?: string;
+    drug_type?: string;
+    dosage?: string;
+    purchase_unit?: string;
+    sales_unit?: string;
+    pieces_per_package?: number;
+    purchase_cost: number;
+    sales_cost: number;
+    wholesale_price?: number;
+    reorder_point?: number;
+    quantity: number;
+    batch_number?: string;
+    expiry_date?: string;
+    manufacture_date?: string;
+    supplier_name?: string;
+    storage_conditions?: string;
+    shelf_location?: string;
+    requires_prescription?: boolean;
+}
+
 // ─── CONSTANTS ───
 const DRUG_TYPES = [
     'Tablet', 'Capsule', 'Syrup', 'Suspension', 'Injection', 'Cream', 'Ointment',
@@ -163,15 +192,15 @@ const getDaysUntilExpiry = (d?: string) => {
 
 const getExpiryBadge = (days: number) => {
     if (days < 0) {
-        return <span className="px-2 py-0.5 bg-red-100 text-red-700 border border-red-200 rounded-full text-[10px] font-black">EXPIRED</span>;
+        return <span className="px-2 py-0.5 bg-red-100/90 text-red-700 border border-red-200 rounded-full text-[10px] font-black shadow-xs">EXPIRED</span>;
     }
     if (days <= 30) {
-        return <span className="px-2 py-0.5 bg-orange-100 text-orange-700 border border-orange-200 rounded-full text-[10px] font-black">{days}d ⚠️</span>;
+        return <span className="px-2 py-0.5 bg-orange-100/90 text-orange-700 border border-orange-200 rounded-full text-[10px] font-black shadow-xs">{days}d ⚠️</span>;
     }
     if (days <= 90) {
-        return <span className="px-2 py-0.5 bg-amber-100 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold">{days}d</span>;
+        return <span className="px-2 py-0.5 bg-amber-100/90 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold shadow-xs">{days}d</span>;
     }
-    return <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-bold">{days}d ✓</span>;
+    return <span className="px-2 py-0.5 bg-emerald-100/90 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-bold shadow-xs">{days}d ✓</span>;
 };
 
 // Default blank product form
@@ -236,10 +265,10 @@ export default function ProductsPage() {
     const [sortBy, setSortBy] = useState<'name_asc' | 'name_desc' | 'stock_desc' | 'stock_asc' | 'price_desc' | 'price_asc' | 'margin_desc'>('name_asc');
     const [activeFastFilter, setActiveFastFilter] = useState<'all' | 'low_stock' | 'expiring' | 'rx_only' | 'out_of_stock' | 'high_margin'>('all');
 
-    // Layout & Pagination
+    // Layout & View Options
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [autoFitScreen, setAutoFitScreen] = useState(true);
-    const [showValuation, setShowValuation] = useState(true);
+    const [showAnalyticsCards, setShowAnalyticsCards] = useState(true); // Toggle to collapse cards and bring table right to top!
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(25);
     const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
@@ -247,7 +276,7 @@ export default function ProductsPage() {
     // Selection & Bulk
     const [selectedPids, setSelectedPids] = useState<Set<number>>(new Set());
 
-    // ─── SUPER ULTRA MODAL STATE ───
+    // ─── ADD/EDIT PRODUCT MODAL STATE ───
     const [showModal, setShowModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [modalTab, setModalTab] = useState<'general' | 'clinical' | 'pricing' | 'batches' | 'media'>('general');
@@ -295,16 +324,24 @@ export default function ProductsPage() {
     const [adjustType, setAdjustType] = useState<'add' | 'remove'>('add');
     const [adjustReason, setAdjustReason] = useState('');
 
-    // CSV Import
+    // ─── SUPER MASSIVE ULTRA IMPORT STATE ───
     const [showImportModal, setShowImportModal] = useState(false);
     const [importFile, setImportFile] = useState<File | null>(null);
-    const [importMode, setImportMode] = useState<'add_new' | 'update' | 'overwrite'>('add_new');
+    const [importMode, setImportMode] = useState<'add_new' | 'update' | 'overwrite_all'>('add_new');
+    const [importQtyHandling, setImportQtyHandling] = useState<'with_qty' | 'zero_qty'>('with_qty');
+    const [importBatchesOption, setImportBatchesOption] = useState<'import_batches' | 'no_batches'>('import_batches');
+    const [importParsedRows, setImportParsedRows] = useState<ImportRow[]>([]);
+    const [importSearch, setImportSearch] = useState('');
+    const [confirmOverwrite, setConfirmOverwrite] = useState(false);
     const [importProgress, setImportProgress] = useState(0);
     const [importTotal, setImportTotal] = useState(0);
     const [importCurrentItem, setImportCurrentItem] = useState('');
-    const [importStatus, setImportStatus] = useState<'idle' | 'parsing' | 'importing' | 'success' | 'error'>('idle');
-    const [importErrors, setImportErrors] = useState<string[]>([]);
+    const [importStatus, setImportStatus] = useState<'idle' | 'parsing' | 'parsed' | 'importing' | 'success' | 'error'>('idle');
     const [importSuccessCount, setImportSuccessCount] = useState(0);
+    const [importUpdatedCount, setImportUpdatedCount] = useState(0);
+    const [importBatchCount, setImportBatchCount] = useState(0);
+    const [importSkippedCount, setImportSkippedCount] = useState(0);
+    const [importErrors, setImportErrors] = useState<{ row: number; item: string; error: string }[]>([]);
 
     // ─── DATA FETCHING ───
     const loadProducts = useCallback(async () => {
@@ -993,138 +1030,296 @@ export default function ProductsPage() {
         if (!found) toast.error('No matching drug found in catalog');
     };
 
-    // ─── CSV IMPORT ENGINE ───
-    const parseCSV = (text: string): Record<string, string>[] => {
-        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-        if (lines.length < 2) return [];
-        const headers = lines[0]
-            .split(',')
-            .map(h => h.trim().replace(/^"(.*)"$/, '$1').toLowerCase().replace(/\s+/g, '_'));
-        return lines.slice(1).map(line => {
-            const vals: string[] = [];
-            let current = '';
-            let inQuotes = false;
-            for (const ch of line) {
-                if (ch === '"') {
-                    inQuotes = !inQuotes;
-                } else if (ch === ',' && !inQuotes) {
-                    vals.push(current.trim());
-                    current = '';
-                } else {
-                    current += ch;
-                }
-            }
-            vals.push(current.trim());
-            const row: Record<string, string> = {};
-            headers.forEach((h, i) => {
-                row[h] = (vals[i] || '').replace(/^"(.*)"$/, '$1');
-            });
-            return row;
-        });
-    };
-
-    const importProducts = async () => {
-        if (!importFile) {
-            toast.error('Select a CSV file to import');
-            return;
-        }
+    // ─── SUPER MASSIVE ULTRA CSV/FILE PARSER ───
+    const parseCSVFile = async (file: File) => {
+        setImportFile(file);
         setImportStatus('parsing');
-        setImportErrors([]);
-        setImportSuccessCount(0);
-        setImportProgress(0);
-
         try {
-            const text = await importFile.text();
-            const rows = parseCSV(text);
-            if (rows.length === 0) {
-                toast.error('No rows found in file');
+            const text = await file.text();
+            const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+            if (lines.length < 2) {
+                toast.error('CSV file has no data rows');
                 setImportStatus('error');
                 return;
             }
-            setImportTotal(rows.length);
-            setImportStatus('importing');
 
-            if (importMode === 'overwrite') {
-                setImportCurrentItem('Clearing existing products...');
+            const headers = lines[0]
+                .split(',')
+                .map(h => h.trim().replace(/^"(.*)"$/, '$1').toLowerCase().replace(/\s+/g, '_'));
+
+            const parsedRows: ImportRow[] = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i];
+                const vals: string[] = [];
+                let current = '';
+                let inQuotes = false;
+                for (const ch of line) {
+                    if (ch === '"') inQuotes = !inQuotes;
+                    else if (ch === ',' && !inQuotes) { vals.push(current.trim()); current = ''; }
+                    else current += ch;
+                }
+                vals.push(current.trim());
+
+                const r: Record<string, string> = {};
+                headers.forEach((h, idx) => {
+                    r[h] = (vals[idx] || '').replace(/^"(.*)"$/, '$1');
+                });
+
+                const name = r.product_name || r.name || r.item_name || r.item || '';
+                const errors: string[] = [];
+                if (!name) errors.push('Missing drug name');
+
+                const buyCost = parseFloat(r.purchase_cost || r.buy_price || r.cost || '0') || 0;
+                const sellCost = parseFloat(r.sales_cost || r.sell_price || r.price || '0') || 0;
+                if (sellCost < buyCost && sellCost > 0) errors.push('Sell price below cost');
+
+                parsedRows.push({
+                    _id: i,
+                    selected: errors.length === 0, // Auto-select valid rows by default
+                    valid: errors.length === 0,
+                    errors,
+                    product_name: name,
+                    generic_name: r.generic_name || r.generic || r.inn || undefined,
+                    barcode: r.barcode || r.bar_code || r.upc || undefined,
+                    category: r.category || r.group || 'General',
+                    drug_type: r.drug_type || r.form || 'Tablet',
+                    dosage: r.dosage || r.strength || undefined,
+                    purchase_unit: r.purchase_unit || r.buy_unit || 'Box',
+                    sales_unit: r.sales_unit || r.sell_unit || 'Piece',
+                    pieces_per_package: parseInt(r.pieces_per_package || r.pcs_per_pack || '1') || 1,
+                    purchase_cost: buyCost,
+                    sales_cost: sellCost,
+                    wholesale_price: parseFloat(r.wholesale_price || r.wholesale || '0') || 0,
+                    reorder_point: parseInt(r.reorder_point || r.min_stock || '10') || 10,
+                    quantity: parseFloat(r.quantity || r.stock || r.qty || '0') || 0,
+                    batch_number: r.batch_number || r.batch_no || r.batch || undefined,
+                    expiry_date: r.expiry_date || r.expiry || r.exp || undefined,
+                    manufacture_date: r.manufacture_date || r.mfg_date || undefined,
+                    supplier_name: r.supplier_name || r.supplier || undefined,
+                    storage_conditions: r.storage_conditions || r.storage || undefined,
+                    shelf_location: r.shelf_location || r.shelf || undefined,
+                    requires_prescription: (r.requires_prescription || r.prescription || r.rx || 'false').toLowerCase() === 'true'
+                });
+            }
+
+            setImportParsedRows(parsedRows);
+            setImportTotal(parsedRows.length);
+            setImportStatus('parsed');
+            toast.success(`Parsed ${parsedRows.length} items from CSV`);
+        } catch (err: unknown) {
+            setImportStatus('error');
+            toast.error(err instanceof Error ? err.message : 'Failed to parse file');
+        }
+    };
+
+    // ─── EXECUTE SUPER MASSIVE IMPORT ───
+    const executeImport = async (targetRows: ImportRow[]) => {
+        if (targetRows.length === 0) {
+            toast.error('No rows selected for import');
+            return;
+        }
+
+        if (importMode === 'overwrite_all' && !confirmOverwrite) {
+            toast.error('Please confirm overwrite before proceeding with wiping catalog');
+            return;
+        }
+
+        setImportStatus('importing');
+        setImportProgress(0);
+        setImportTotal(targetRows.length);
+        setImportSuccessCount(0);
+        setImportUpdatedCount(0);
+        setImportBatchCount(0);
+        setImportSkippedCount(0);
+        setImportErrors([]);
+
+        let success = 0;
+        let updated = 0;
+        let batchCreated = 0;
+        let skipped = 0;
+        const errLog: { row: number; item: string; error: string }[] = [];
+
+        try {
+            // Overwrite all handling
+            if (importMode === 'overwrite_all') {
+                setImportCurrentItem('Clearing current outlet catalog and inventory...');
                 await supabase.from('pharmacy_stock').delete().eq('outlet_id', outletId);
+                await supabase.from('pharmacy_batches').delete().eq('outlet_id', outletId);
                 await supabase.from('pharmacy_products').delete().eq('outlet_id', outletId);
             }
 
-            let success = 0;
-            const errs: string[] = [];
+            for (let i = 0; i < targetRows.length; i++) {
+                const r = targetRows[i];
+                setImportCurrentItem(r.product_name);
+                setImportProgress(i + 1);
 
-            for (let i = 0; i < rows.length; i++) {
-                const r = rows[i];
-                const name = r.product_name || r.name || r.item_name || r.item || '';
-                if (!name) {
-                    errs.push(`Row ${i + 2}: Missing product name`);
-                    setImportProgress(i + 1);
+                if (!r.product_name.trim()) {
+                    skipped++;
+                    errLog.push({ row: r._id, item: 'Unnamed', error: 'Missing product name' });
                     continue;
                 }
-                setImportCurrentItem(name);
 
-                const prodData = {
-                    product_name: name,
-                    generic_name: r.generic_name || r.generic || null,
-                    alias: r.alias || r.short_name || null,
-                    barcode: r.barcode || r.bar_code || r.upc || null,
-                    category: r.category || r.group || null,
-                    purchase_unit: r.purchase_unit || r.buy_unit || 'Box',
-                    sales_unit: r.sales_unit || r.sell_unit || 'Piece',
-                    purchase_cost: parseFloat(r.purchase_cost || r.buy_price || r.cost || '0') || 0,
-                    sales_cost: parseFloat(r.sales_cost || r.sell_price || r.price || '0') || 0,
-                    wholesale_price: parseFloat(r.wholesale_price || r.wholesale || '0') || 0,
-                    reorder_point: parseInt(r.reorder_point || r.min_stock || '10') || 10,
-                    vat_commodity: r.vat_commodity || 'Standard (16%)',
-                    supplier_name: r.supplier_name || r.supplier || null,
-                    hscode: r.hscode || null,
-                    batch_no: r.batch_no || null,
-                    description: r.description || null,
-                    active: (r.active || r.status || 'true').toLowerCase() !== 'false',
-                    pieces_per_package: parseInt(r.pieces_per_package || r.pcs_per_pack || '1') || 1,
-                    margin_per: 0,
+                const ppp = r.pieces_per_package || 1;
+                const costPerPiece = r.purchase_cost > 0 ? r.purchase_cost / ppp : 0;
+                const margin = r.sales_cost > 0
+                    ? Math.round(((r.sales_cost - costPerPiece) / r.sales_cost) * 10000) / 100
+                    : 0;
+
+                const payload = {
+                    product_name: r.product_name.trim(),
+                    generic_name: r.generic_name?.trim() || null,
+                    barcode: r.barcode?.trim() || null,
+                    category: r.category || 'General',
+                    drug_type: r.drug_type || 'Tablet',
+                    dosage: r.dosage?.trim() || null,
+                    purchase_unit: r.purchase_unit || 'Box',
+                    sales_unit: r.sales_unit || 'Piece',
+                    pieces_per_package: ppp,
+                    purchase_cost: r.purchase_cost || 0,
+                    sales_cost: r.sales_cost || 0,
+                    wholesale_price: r.wholesale_price || 0,
+                    reorder_point: r.reorder_point || 10,
+                    vat_commodity: 'Standard (16%)',
+                    supplier_name: r.supplier_name || null,
+                    shelf_location: r.shelf_location || null,
+                    storage_conditions: r.storage_conditions || 'Room Temperature (15°C – 25°C)',
+                    requires_prescription: !!r.requires_prescription,
+                    active: true,
+                    margin_per: margin,
                     outlet_id: outletId
                 };
 
-                if (prodData.purchase_cost > 0) {
-                    const cpp = prodData.purchase_cost / (prodData.pieces_per_package || 1);
-                    const sp = prodData.sales_cost;
-                    prodData.margin_per = sp > 0 ? Math.round(((sp - cpp) / sp) * 10000) / 100 : 0;
-                }
-
                 try {
-                    if (importMode === 'update') {
-                        const existing = products.find(
-                            ep =>
-                                ep.product_name.toLowerCase() === name.toLowerCase() ||
-                                (ep.barcode && ep.barcode === prodData.barcode)
-                        );
-                        if (existing) {
-                            await supabase.from('pharmacy_products').update(prodData).eq('pid', existing.pid);
-                        } else {
-                            const code = `DRG-${String(products.length + i + 1).padStart(4, '0')}`;
-                            await supabase.from('pharmacy_products').insert({ ...prodData, product_code: code });
-                        }
+                    let targetPid: number | null = null;
+                    const existing = products.find(
+                        ep =>
+                            ep.product_name.toLowerCase() === r.product_name.toLowerCase() ||
+                            (r.barcode && ep.barcode === r.barcode)
+                    );
+
+                    if (importMode === 'update' && existing) {
+                        await supabase
+                            .from('pharmacy_products')
+                            .update({ ...payload, updated_at: new Date().toISOString() })
+                            .eq('pid', existing.pid);
+                        targetPid = existing.pid;
+                        updated++;
+                    } else if (importMode === 'add_new' && existing) {
+                        skipped++;
+                        continue;
                     } else {
                         const code = `DRG-${String(products.length + i + 1).padStart(4, '0')}`;
-                        await supabase.from('pharmacy_products').insert({ ...prodData, product_code: code });
+                        const { data: newP, error } = await supabase
+                            .from('pharmacy_products')
+                            .insert({ ...payload, product_code: code, created_at: new Date().toISOString() })
+                            .select()
+                            .single();
+                        if (error) throw error;
+                        targetPid = newP.pid;
+                        success++;
                     }
-                    success++;
-                } catch (err: unknown) {
-                    errs.push(`Row ${i + 2} (${name}): ${err instanceof Error ? err.message : 'Database error'}`);
+
+                    // Stock Quantity & Batches Handling
+                    if (targetPid) {
+                        const finalQty = importQtyHandling === 'zero_qty' ? 0 : Math.max(0, r.quantity || 0);
+
+                        if (importBatchesOption === 'import_batches' && (r.batch_number || r.expiry_date || finalQty > 0)) {
+                            const bNum = r.batch_number || generateBatchNumber();
+                            const expDate = r.expiry_date || new Date(Date.now() + 365 * 24 * 3600000 * 2).toISOString().split('T')[0];
+
+                            const { data: savedBatch } = await supabase
+                                .from('pharmacy_batches')
+                                .insert({
+                                    product_id: targetPid,
+                                    batch_number: bNum,
+                                    expiry_date: expDate,
+                                    manufacture_date: r.manufacture_date || null,
+                                    quantity: finalQty,
+                                    remaining_qty: finalQty,
+                                    purchase_cost: r.purchase_cost,
+                                    selling_price: r.sales_cost,
+                                    supplier_name: r.supplier_name || null,
+                                    purchase_invoice: 'CSV-IMPORT',
+                                    outlet_id: outletId,
+                                    status: 'Active'
+                                })
+                                .select()
+                                .single();
+
+                            if (savedBatch) {
+                                batchCreated++;
+                                if (finalQty > 0) {
+                                    await supabase.from('pharmacy_stock').insert({
+                                        pid: targetPid,
+                                        batch_id: savedBatch.batch_id,
+                                        invoice_no: 'CSV-IMPORT',
+                                        qty: finalQty,
+                                        storage_type: 'Pieces',
+                                        expiry_date: expDate,
+                                        outlet_id: outletId
+                                    });
+                                }
+                            }
+                        } else {
+                            if (finalQty > 0) {
+                                await supabase.from('pharmacy_stock').insert({
+                                    pid: targetPid,
+                                    invoice_no: 'CSV-IMPORT',
+                                    qty: finalQty,
+                                    storage_type: 'Pieces',
+                                    outlet_id: outletId
+                                });
+                            }
+                        }
+                    }
+                } catch (rowErr: unknown) {
+                    errLog.push({
+                        row: r._id,
+                        item: r.product_name,
+                        error: rowErr instanceof Error ? rowErr.message : 'DB error'
+                    });
                 }
-                setImportProgress(i + 1);
             }
 
             setImportSuccessCount(success);
-            setImportErrors(errs);
-            setImportStatus(errs.length > 0 && success === 0 ? 'error' : 'success');
+            setImportUpdatedCount(updated);
+            setImportBatchCount(batchCreated);
+            setImportSkippedCount(skipped);
+            setImportErrors(errLog);
+            setImportStatus('success');
+
+            toast.success(`Import complete! ${success} added, ${updated} updated, ${batchCreated} batches`);
             loadProducts();
             loadStockData();
         } catch (err: unknown) {
             setImportStatus('error');
-            setImportErrors([err instanceof Error ? err.message : 'Failed to parse file']);
+            toast.error(err instanceof Error ? err.message : 'Import failed');
         }
+    };
+
+    // Download Sample Detailed Pharmacy Template
+    const downloadPharmacyCSVTemplate = () => {
+        const sampleCSV = `product_name,generic_name,barcode,category,drug_type,dosage,purchase_unit,sales_unit,pieces_per_package,purchase_cost,sales_cost,wholesale_price,reorder_point,quantity,batch_number,expiry_date,supplier_name,storage_conditions,requires_prescription
+"Augmentin 625mg","Amoxicillin + Clavulanic Acid","616110123001","Antibiotics","Tablet","625mg","Box","Tablet",14,850,1400,1200,20,100,"AUG-2401","2026-11-30","GlaxoSmithKline","Room Temperature (15°C – 25°C)",true
+"Panadol Extra 500mg","Paracetamol + Caffeine","616110123002","Analgesics & Pain","Tablet","500mg","Box","Tablet",100,600,1000,900,50,500,"PAN-2405","2027-06-30","Haleon Kenya","Room Temperature (15°C – 25°C)",false
+"Amoxil 500mg","Amoxicillin Trihydrate","616110123003","Antibiotics","Capsule","500mg","Pack","Capsule",20,320,600,500,25,200,"AMX-2409","2026-08-31","Dawa Pharmaceuticals","Room Temperature (15°C – 25°C)",true
+"Ventolin Inhaler 100mcg","Salbutamol Sulfate","616110123004","Respiratory","Inhaler","100mcg","Piece","Piece",1,450,750,650,15,50,"VEN-2412","2027-02-28","GlaxoSmithKline","Cool Place (8°C – 15°C)",true
+"Cetirizine 10mg","Cetirizine Dihydrochloride","616110123005","Antihistamines","Tablet","10mg","Box","Tablet",30,180,350,300,30,150,"CET-2403","2026-12-31","Cosmos Ltd","Room Temperature (15°C – 25°C)",false
+"Metformin 500mg","Metformin HCl","616110123006","Diabetes Care","Tablet","500mg","Box","Tablet",100,500,900,800,40,300,"MET-2408","2027-04-30","Beta Healthcare","Room Temperature (15°C – 25°C)",true
+"Cough Syrup Adult 100ml","Guaifenesin + Menthol","616110123007","Cough & Cold","Syrup","100ml","Bottle","Bottle",1,220,400,350,20,80,"CSY-2410","2026-09-30","Regal Pharmaceuticals","Room Temperature (15°C – 25°C)",false
+"Insulin Mixtard 100IU/ml","Human Insulin","616110123008","Diabetes Care","Injection","100IU/ml","Vial","Vial",1,1200,1850,1650,10,30,"INS-2411","2026-05-31","Novo Nordisk","Refrigerate (2°C – 8°C)",true`;
+
+        const blob = new Blob([sampleCSV], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'alpha_pharmacy_master_import_template.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('Downloaded master pharmacy template CSV');
     };
 
     // ─── SUPER VIVID BRIGHT COLORS EXCEL EXPORT (SpreadsheetML) ───
@@ -1413,6 +1608,7 @@ export default function ProductsPage() {
         let totalUnits = 0;
         let activeSkus = 0;
         let rxCount = 0;
+        let expiringIn90Days = 0;
 
         products.forEach(p => {
             const stk = stockData[p.pid] || 0;
@@ -1428,6 +1624,11 @@ export default function ProductsPage() {
             if (p.requires_prescription) rxCount++;
             if (stk <= 0) outOfStockCount++;
             else if (stk <= (p.reorder_point || 10)) lowStockCount++;
+
+            const pB = productBatches[p.pid] || [];
+            if (pB.some(b => getDaysUntilExpiry(b.expiry_date) <= 90)) {
+                expiringIn90Days++;
+            }
         });
 
         const potentialProfit = totalValSales - totalValCost;
@@ -1443,9 +1644,10 @@ export default function ProductsPage() {
             potentialProfit,
             portfolioMargin,
             lowStockCount,
-            outOfStockCount
+            outOfStockCount,
+            expiringIn90Days
         };
-    }, [products, stockData]);
+    }, [products, stockData, productBatches]);
 
     // Pagination
     const totalPages = Math.ceil(filteredProducts.length / perPage);
@@ -1467,45 +1669,76 @@ export default function ProductsPage() {
         setSelectedPids(next);
     };
 
-    return (
-        <div className={`space-y-5 ${autoFitScreen ? 'max-w-full' : 'max-w-[1700px]'} mx-auto`} style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+    // Filtered Parsed Import Rows (inside Import Modal)
+    const filteredImportRows = useMemo(() => {
+        if (!importSearch.trim()) return importParsedRows;
+        const q = importSearch.toLowerCase().trim();
+        return importParsedRows.filter(
+            r =>
+                r.product_name.toLowerCase().includes(q) ||
+                (r.generic_name && r.generic_name.toLowerCase().includes(q)) ||
+                (r.barcode && r.barcode.includes(q)) ||
+                (r.batch_number && r.batch_number.toLowerCase().includes(q))
+        );
+    }, [importParsedRows, importSearch]);
 
-            {/* ━━━ TOP BAR: HEADER & CONTROLS ━━━ */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+    const selectedImportCount = useMemo(() => {
+        return importParsedRows.filter(r => r.selected).length;
+    }, [importParsedRows]);
+
+    return (
+        <div className={`space-y-4 ${autoFitScreen ? 'max-w-full' : 'max-w-[1700px]'} mx-auto`} style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+
+            {/* ━━━ GLASS TOP BAR: HEADER & MASTER CONTROLS ━━━ */}
+            <div className="glass-card p-4 md:p-5 shadow-lg shadow-slate-200/40 border border-white/80 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
                 <div className="flex items-center gap-3.5">
-                    <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white shadow-md shadow-emerald-500/20 flex-shrink-0">
-                        <FiPackage size={26} />
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 via-teal-600 to-cyan-600 flex items-center justify-center text-white shadow-lg shadow-emerald-500/30 flex-shrink-0">
+                        <FiPackage size={24} />
                     </div>
                     <div>
                         <div className="flex items-center gap-2.5">
                             <h1 className="text-2xl font-black text-slate-800 tracking-tight">Products & Pharmaceutical Formulary</h1>
-                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">
+                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-100/80 border border-emerald-200 text-emerald-800 text-xs font-black">
                                 {products.length} Drugs
                             </span>
                         </div>
                         <p className="text-slate-500 text-xs mt-0.5">
-                            Pharmacy stock inventory, batch tracking, prescription governance & profit margins
+                            Formulary master catalog, direct batch allocations, live margin engine & POS touch controls
                         </p>
                     </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
                     <button
-                        onClick={() => { loadProducts(); loadStockData(); toast.success('Catalog refreshed'); }}
-                        className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-300 transition shadow-sm"
+                        onClick={() => { loadProducts(); loadStockData(); toast.success('Formulary refreshed'); }}
+                        className="p-2.5 rounded-xl bg-white/90 border border-slate-200 text-slate-600 hover:text-emerald-600 hover:border-emerald-300 transition shadow-xs"
                         title="Refresh Catalog"
                     >
                         <FiRefreshCw size={15} />
                     </button>
 
                     <button
-                        onClick={() => setAutoFitScreen(!autoFitScreen)}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition shadow-sm ${
-                            autoFitScreen
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                        onClick={() => setShowAnalyticsCards(!showAnalyticsCards)}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition shadow-xs ${
+                            showAnalyticsCards
+                                ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                                : 'bg-white/90 border-slate-200 text-slate-600 hover:bg-slate-50'
                         }`}
-                        title="Toggle Auto-Fit Layout"
+                        title="Toggle Metric Cards Visibility (Brings Table To Top)"
+                    >
+                        <FiActivity size={14} className="text-indigo-600" />
+                        <span>{showAnalyticsCards ? 'Collapse Cards' : 'Expand Cards'}</span>
+                        {showAnalyticsCards ? <FiChevronUp size={12} /> : <FiChevronDown size={12} />}
+                    </button>
+
+                    <button
+                        onClick={() => setAutoFitScreen(!autoFitScreen)}
+                        className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition shadow-xs ${
+                            autoFitScreen
+                                ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                                : 'bg-white/90 border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                        title="Toggle Auto-Fit Screen Layout"
                     >
                         {autoFitScreen ? <FiMinimize2 size={13} /> : <FiMaximize2 size={13} />}
                         <span>{autoFitScreen ? 'Auto-Fit' : 'Expanded'}</span>
@@ -1513,7 +1746,7 @@ export default function ProductsPage() {
 
                     <button
                         onClick={() => { setShowLabelModal(true); setLabelProducts([]); setLabelQty({}); }}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-purple-600 hover:border-purple-300 transition text-xs font-bold shadow-sm"
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/90 border border-slate-200 text-slate-700 hover:text-purple-600 hover:border-purple-300 transition text-xs font-bold shadow-xs"
                     >
                         <FiPrinter size={14} className="text-purple-600" />
                         <span>Labels</span>
@@ -1521,18 +1754,25 @@ export default function ProductsPage() {
 
                     <button
                         onClick={() => { setShowLookupModal(true); setLookupQuery(''); setLookupResult(null); }}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-cyan-600 hover:border-cyan-300 transition text-xs font-bold shadow-sm"
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/90 border border-slate-200 text-slate-700 hover:text-cyan-600 hover:border-cyan-300 transition text-xs font-bold shadow-xs"
                     >
                         <FiEye size={14} className="text-cyan-600" />
                         <span>Scan / Lookup</span>
                     </button>
 
                     <button
-                        onClick={() => { setShowImportModal(true); setImportFile(null); setImportStatus('idle'); setImportErrors([]); }}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-300 transition text-xs font-bold shadow-sm"
+                        onClick={() => {
+                            setShowImportModal(true);
+                            setImportFile(null);
+                            setImportParsedRows([]);
+                            setImportStatus('idle');
+                            setImportErrors([]);
+                            setConfirmOverwrite(false);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 transition text-xs font-bold shadow-md shadow-blue-500/20"
                     >
-                        <FiUpload size={14} className="text-blue-600" />
-                        <span>Import CSV</span>
+                        <FiUpload size={14} />
+                        <span>Advanced Import</span>
                     </button>
 
                     <button
@@ -1546,7 +1786,7 @@ export default function ProductsPage() {
 
                     <button
                         onClick={printCatalogReport}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-sm transition"
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-xs transition"
                     >
                         <FiPrinter size={14} />
                         <span>Print PDF</span>
@@ -1554,263 +1794,262 @@ export default function ProductsPage() {
 
                     <button
                         onClick={openAddModal}
-                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm shadow-md shadow-emerald-500/30 transition transform hover:-translate-y-0.5 active:translate-y-0"
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-700 hover:to-teal-700 text-white font-black text-sm shadow-lg shadow-emerald-500/30 transition transform hover:-translate-y-0.5 active:translate-y-0"
                     >
                         <FiPlus size={16} strokeWidth={3} />
-                        <span>Add New Product</span>
+                        <span>Add Product</span>
                     </button>
                 </div>
             </div>
 
-            {/* ━━━ EXECUTIVE METRIC TILES (WHITE THEME) ━━━ */}
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3.5">
-                {/* 1. Total Catalog */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow transition">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Total Products</span>
-                        <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                            <FiPackage size={16} />
+            {/* ━━━ GLASSMORPHIC KPI SUMMARY CARDS DECK (COLLAPSIBLE TO BRING TABLE TO TOP) ━━━ */}
+            {showAnalyticsCards && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 animate-fadeIn">
+                    {/* Card 1: Total Catalog */}
+                    <div className="glass-card p-3.5 border border-white/80 shadow-md shadow-slate-200/30 hover:shadow-xl hover:-translate-y-0.5 transition-all relative overflow-hidden group">
+                        <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br from-blue-400/20 to-cyan-400/10 blur-xl group-hover:scale-150 transition-transform" />
+                        <div className="relative flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-blue-600">Total Formulary</span>
+                            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-xs">
+                                <FiPackage size={16} />
+                            </div>
+                        </div>
+                        <p className="text-2xl font-black text-slate-800 mt-1.5 tracking-tight">{kpiData.totalProducts}</p>
+                        <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500 font-semibold">
+                            <span>Active: <b className="text-emerald-600">{kpiData.activeSkus}</b></span>
+                            <span>Disabled: <b className="text-slate-400">{kpiData.totalProducts - kpiData.activeSkus}</b></span>
                         </div>
                     </div>
-                    <p className="text-2xl font-black text-slate-800 mt-2">{kpiData.totalProducts}</p>
-                    <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500 font-medium">
-                        <span>Active: <b className="text-emerald-600">{kpiData.activeSkus}</b></span>
-                        <span>Off: <b className="text-slate-400">{kpiData.totalProducts - kpiData.activeSkus}</b></span>
-                    </div>
-                </div>
 
-                {/* 2. Stock Units */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow transition">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-blue-500">Units in Stock</span>
-                        <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                            <FiBox size={16} />
+                    {/* Card 2: Units in Stock */}
+                    <div className="glass-card p-3.5 border border-white/80 shadow-md shadow-slate-200/30 hover:shadow-xl hover:-translate-y-0.5 transition-all relative overflow-hidden group">
+                        <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400/20 to-teal-400/10 blur-xl group-hover:scale-150 transition-transform" />
+                        <div className="relative flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600">Stock on Shelf</span>
+                            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs">
+                                <FiBox size={16} />
+                            </div>
                         </div>
+                        <p className="text-2xl font-black text-slate-800 mt-1.5 tracking-tight">{kpiData.totalUnits.toLocaleString()}</p>
+                        <p className="text-[11px] text-slate-500 mt-1 font-medium">Dispensing units in store</p>
                     </div>
-                    <p className="text-2xl font-black text-slate-800 mt-2">{kpiData.totalUnits.toLocaleString()}</p>
-                    <p className="text-[11px] text-slate-500 mt-1">Dispensing units on shelf</p>
-                </div>
 
-                {/* 3. Valuation Cost */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow transition">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-indigo-500">Stock Outlay (Cost)</span>
-                        <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                            <FiDollarSign size={16} />
+                    {/* Card 3: Stock Value (Cost) */}
+                    <div className="glass-card p-3.5 border border-white/80 shadow-md shadow-slate-200/30 hover:shadow-xl hover:-translate-y-0.5 transition-all relative overflow-hidden group">
+                        <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br from-indigo-400/20 to-purple-400/10 blur-xl group-hover:scale-150 transition-transform" />
+                        <div className="relative flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">Outlay (Buy Cost)</span>
+                            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs">
+                                <FiDollarSign size={16} />
+                            </div>
                         </div>
+                        <p className="text-2xl font-black text-slate-800 mt-1.5 tracking-tight">
+                            KES {Math.round(kpiData.totalValCost).toLocaleString()}
+                        </p>
+                        <p className="text-[11px] text-slate-500 mt-1 font-medium">Inventory purchase outlay</p>
                     </div>
-                    <p className="text-2xl font-black text-slate-800 mt-2">
-                        KES {Math.round(kpiData.totalValCost).toLocaleString()}
-                    </p>
-                    <p className="text-[11px] text-slate-500 mt-1">At wholesale purchase rates</p>
-                </div>
 
-                {/* 4. Retail Potential */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow transition">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-teal-600">Retail Worth</span>
-                        <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
-                            <FiTrendingUp size={16} />
+                    {/* Card 4: Retail Sales Value */}
+                    <div className="glass-card p-3.5 border border-white/80 shadow-md shadow-slate-200/30 hover:shadow-xl hover:-translate-y-0.5 transition-all relative overflow-hidden group">
+                        <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br from-teal-400/20 to-emerald-400/10 blur-xl group-hover:scale-150 transition-transform" />
+                        <div className="relative flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-teal-600">Retail Worth</span>
+                            <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shadow-xs">
+                                <FiTrendingUp size={16} />
+                            </div>
                         </div>
+                        <p className="text-2xl font-black text-teal-800 mt-1.5 tracking-tight">
+                            KES {Math.round(kpiData.totalValSales).toLocaleString()}
+                        </p>
+                        <p className="text-[11px] text-teal-700 mt-1 font-bold">
+                            Avg Margin: {kpiData.portfolioMargin.toFixed(1)}%
+                        </p>
                     </div>
-                    <p className="text-2xl font-black text-teal-700 mt-2">
-                        KES {Math.round(kpiData.totalValSales).toLocaleString()}
-                    </p>
-                    <p className="text-[11px] text-teal-600 mt-1 font-bold">
-                        Margin: {kpiData.portfolioMargin.toFixed(1)}%
-                    </p>
-                </div>
 
-                {/* 5. Projected Profit */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow transition">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-purple-600">Expected Profit</span>
-                        <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-                            <FiZap size={16} />
+                    {/* Card 5: Potential Gross Profit */}
+                    <div className="glass-card p-3.5 border border-white/80 shadow-md shadow-slate-200/30 hover:shadow-xl hover:-translate-y-0.5 transition-all relative overflow-hidden group">
+                        <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br from-purple-400/20 to-pink-400/10 blur-xl group-hover:scale-150 transition-transform" />
+                        <div className="relative flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-purple-600">Potential Profit</span>
+                            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shadow-xs">
+                                <FiZap size={16} />
+                            </div>
                         </div>
+                        <p className="text-2xl font-black text-purple-800 mt-1.5 tracking-tight">
+                            KES {Math.round(kpiData.potentialProfit).toLocaleString()}
+                        </p>
+                        <p className="text-[11px] text-purple-700 mt-1 font-medium">Projected net earnings</p>
                     </div>
-                    <p className="text-2xl font-black text-purple-700 mt-2">
-                        KES {Math.round(kpiData.potentialProfit).toLocaleString()}
-                    </p>
-                    <p className="text-[11px] text-purple-600 mt-1 font-medium">When all inventory sells</p>
-                </div>
 
-                {/* 6. Stock Level Alerts */}
-                <div className={`rounded-2xl border p-4 shadow-sm transition bg-white ${
-                    kpiData.lowStockCount > 0 || kpiData.outOfStockCount > 0
-                        ? 'border-amber-300'
-                        : 'border-slate-200'
-                }`}>
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-600">Restock Alerts</span>
-                        <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                            <FiAlertTriangle size={16} />
+                    {/* Card 6: Restock & Nil Alerts */}
+                    <div className={`glass-card p-3.5 border shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all relative overflow-hidden group ${
+                        kpiData.lowStockCount > 0 || kpiData.outOfStockCount > 0 ? 'border-amber-300' : 'border-white/80'
+                    }`}>
+                        <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br from-amber-400/20 to-rose-400/10 blur-xl group-hover:scale-150 transition-transform" />
+                        <div className="relative flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-amber-600">Restock Urgency</span>
+                            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shadow-xs">
+                                <FiAlertTriangle size={16} />
+                            </div>
                         </div>
+                        <div className="flex items-baseline gap-1.5 mt-1.5">
+                            <p className="text-2xl font-black text-amber-700">{kpiData.lowStockCount}</p>
+                            <span className="text-[11px] text-amber-600 font-bold">low</span>
+                            <span className="text-xs text-slate-300">/</span>
+                            <p className="text-2xl font-black text-red-600">{kpiData.outOfStockCount}</p>
+                            <span className="text-[11px] text-red-600 font-bold">nil</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-1 font-medium">Items need purchase orders</p>
                     </div>
-                    <div className="flex items-baseline gap-2 mt-2">
-                        <p className="text-2xl font-black text-amber-700">{kpiData.lowStockCount}</p>
-                        <span className="text-xs text-amber-600 font-bold">low</span>
-                        <span className="text-xs text-slate-300">/</span>
-                        <p className="text-2xl font-black text-red-600">{kpiData.outOfStockCount}</p>
-                        <span className="text-xs text-red-600 font-bold">nil</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-1">Requires purchase orders</p>
                 </div>
-            </div>
+            )}
 
-            {/* ━━━ SUPER MULTI-DIMENSIONAL FILTER PANEL ━━━ */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-3.5">
-                {/* Search Bar + Primary Controls */}
-                <div className="flex flex-col lg:flex-row gap-3">
-                    <div className="flex-1 relative">
-                        <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
-                        <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
-                            placeholder="Omni-search by brand name, generic (INN), DRG code, barcode, or manufacturer..."
-                            className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition"
-                        />
-                        {searchQuery && (
-                            <button
-                                onClick={() => setSearchQuery('')}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
-                            >
-                                <FiX size={14} />
-                            </button>
-                        )}
-                    </div>
+            {/* ━━━ EXPANSIVE PROMINENT OMNI-SEARCH & FILTER BAR ━━━ */}
+            <div className="glass-card p-4 shadow-md shadow-slate-200/30 border border-white/80 space-y-3">
+                {/* 1. Generous, Prominent, Wide Search Bar */}
+                <div className="relative w-full">
+                    <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-600" size={20} />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+                        placeholder="Search products by brand name, generic (INN), DRG code, barcode, or manufacturer..."
+                        className="w-full pl-12 pr-12 py-3.5 bg-white/95 backdrop-blur-md border border-slate-200 hover:border-emerald-400 focus:border-emerald-500 rounded-2xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-emerald-500/15 shadow-sm transition"
+                        autoComplete="off"
+                    />
+                    {searchQuery ? (
+                        <button
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition"
+                            title="Clear search"
+                        >
+                            <FiX size={16} />
+                        </button>
+                    ) : (
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 hidden sm:inline">
+                            Instant Filter
+                        </span>
+                    )}
+                </div>
 
+                {/* 2. Secondary Dropdown Filters + View Mode Controls */}
+                <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
                     <div className="flex flex-wrap items-center gap-2">
-                        {/* Category Dropdown */}
-                        <div className="relative">
-                            <select
-                                value={filterCategory}
-                                onChange={e => { setFilterCategory(e.target.value); setPage(1); }}
-                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer"
-                            >
-                                <option value="All">All Categories</option>
-                                {categories.map(c => (
-                                    <option key={c.category_id} value={c.category_name}>{c.category_name}</option>
-                                ))}
-                            </select>
-                        </div>
+                        {/* Category */}
+                        <select
+                            value={filterCategory}
+                            onChange={e => { setFilterCategory(e.target.value); setPage(1); }}
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs"
+                        >
+                            <option value="All">All Categories</option>
+                            {categories.map(c => (
+                                <option key={c.category_id} value={c.category_name}>{c.category_name}</option>
+                            ))}
+                        </select>
 
-                        {/* Drug Form Dropdown */}
-                        <div className="relative">
-                            <select
-                                value={filterDrugType}
-                                onChange={e => { setFilterDrugType(e.target.value); setPage(1); }}
-                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer"
-                            >
-                                <option value="All">All Forms</option>
-                                {DRUG_TYPES.map(t => (
-                                    <option key={t} value={t}>{t}</option>
-                                ))}
-                            </select>
-                        </div>
+                        {/* Formulation */}
+                        <select
+                            value={filterDrugType}
+                            onChange={e => { setFilterDrugType(e.target.value); setPage(1); }}
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs"
+                        >
+                            <option value="All">All Forms</option>
+                            {DRUG_TYPES.map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </select>
 
-                        {/* Prescription Regulation Dropdown */}
-                        <div className="relative">
-                            <select
-                                value={filterPrescription}
-                                onChange={e => { setFilterPrescription(e.target.value); setPage(1); }}
-                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer"
-                            >
-                                <option value="All">All Regulations</option>
-                                <option value="rx">℞ Prescription (POM)</option>
-                                <option value="otc">Over The Counter (OTC)</option>
-                                <option value="controlled">Controlled Drugs</option>
-                            </select>
-                        </div>
+                        {/* Prescription Regulation */}
+                        <select
+                            value={filterPrescription}
+                            onChange={e => { setFilterPrescription(e.target.value); setPage(1); }}
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs"
+                        >
+                            <option value="All">All Regulations</option>
+                            <option value="rx">℞ Prescription (POM)</option>
+                            <option value="otc">Over The Counter (OTC)</option>
+                            <option value="controlled">Controlled Drugs</option>
+                        </select>
 
-                        {/* Stock Status Dropdown */}
-                        <div className="relative">
-                            <select
-                                value={filterStockStatus}
-                                onChange={e => { setFilterStockStatus(e.target.value); setPage(1); }}
-                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer"
-                            >
-                                <option value="All">All Stock Levels</option>
-                                <option value="in_stock">In Stock (&gt; Reorder)</option>
-                                <option value="low_stock">⚠️ Low Stock (≤ Reorder)</option>
-                                <option value="out_of_stock">❌ Out of Stock (0)</option>
-                                <option value="overstocked">📦 Overstocked</option>
-                            </select>
-                        </div>
+                        {/* Stock Level */}
+                        <select
+                            value={filterStockStatus}
+                            onChange={e => { setFilterStockStatus(e.target.value); setPage(1); }}
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs"
+                        >
+                            <option value="All">All Stock Levels</option>
+                            <option value="in_stock">In Stock (&gt; Min)</option>
+                            <option value="low_stock">⚠️ Low Stock (≤ Min)</option>
+                            <option value="out_of_stock">❌ Out of Stock (0)</option>
+                            <option value="overstocked">📦 Overstocked</option>
+                        </select>
 
-                        {/* Expiry Risk Dropdown */}
-                        <div className="relative">
-                            <select
-                                value={filterExpiryRisk}
-                                onChange={e => { setFilterExpiryRisk(e.target.value); setPage(1); }}
-                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer"
-                            >
-                                <option value="All">All Expiry States</option>
-                                <option value="has_batches">Has Active Batches</option>
-                                <option value="expiring_30">Expiring in ≤ 30 Days</option>
-                                <option value="expiring_90">Expiring in ≤ 90 Days</option>
-                                <option value="expired">🚨 Expired Batches</option>
-                                <option value="no_batches">No Batches Entered</option>
-                            </select>
-                        </div>
+                        {/* Expiry Risk */}
+                        <select
+                            value={filterExpiryRisk}
+                            onChange={e => { setFilterExpiryRisk(e.target.value); setPage(1); }}
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs"
+                        >
+                            <option value="All">All Expiry States</option>
+                            <option value="has_batches">Has Batches</option>
+                            <option value="expiring_30">Expiring ≤ 30 Days</option>
+                            <option value="expiring_90">Expiring ≤ 90 Days</option>
+                            <option value="expired">🚨 Expired</option>
+                        </select>
 
-                        {/* Sort By */}
-                        <div className="relative">
-                            <select
-                                value={sortBy}
-                                onChange={e => setSortBy(e.target.value as any)}
-                                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer"
-                            >
-                                <option value="name_asc">Name: A → Z</option>
-                                <option value="name_desc">Name: Z → A</option>
-                                <option value="stock_desc">Stock: High → Low</option>
-                                <option value="stock_asc">Stock: Low → High</option>
-                                <option value="price_desc">Price: High → Low</option>
-                                <option value="price_asc">Price: Low → High</option>
-                                <option value="margin_desc">Margin %: Highest</option>
-                            </select>
-                        </div>
+                        {/* Sort */}
+                        <select
+                            value={sortBy}
+                            onChange={e => setSortBy(e.target.value as any)}
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs"
+                        >
+                            <option value="name_asc">Name: A → Z</option>
+                            <option value="name_desc">Name: Z → A</option>
+                            <option value="stock_desc">Stock: High → Low</option>
+                            <option value="stock_asc">Stock: Low → High</option>
+                            <option value="price_desc">Price: High → Low</option>
+                            <option value="margin_desc">Margin %: High → Low</option>
+                        </select>
+                    </div>
 
-                        {/* View Mode Toggle */}
-                        <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
-                            <button
-                                onClick={() => setViewMode('list')}
-                                className={`p-2 transition ${viewMode === 'list' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                title="List / Table View"
-                            >
-                                <FiList size={16} />
-                            </button>
-                            <button
-                                onClick={() => setViewMode('grid')}
-                                className={`p-2 transition ${viewMode === 'grid' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                                title="Card Grid View"
-                            >
-                                <FiGrid size={16} />
-                            </button>
-                        </div>
+                    {/* View Switcher */}
+                    <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-white/90 shadow-xs">
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`p-2 transition ${viewMode === 'list' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            title="Table View"
+                        >
+                            <FiList size={16} />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            className={`p-2 transition ${viewMode === 'grid' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            title="Grid View"
+                        >
+                            <FiGrid size={16} />
+                        </button>
                     </div>
                 </div>
 
-                {/* Fast Quick Filter Pills */}
+                {/* 3. Fast Quick Filter Pills Bar */}
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
                     <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Quick Filters:</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider mr-1">Fast Filters:</span>
                         {[
-                            { id: 'all', label: 'All Products', count: products.length },
+                            { id: 'all', label: 'All Items', count: products.length },
                             { id: 'low_stock', label: '⚠️ Low Stock', count: kpiData.lowStockCount },
                             { id: 'out_of_stock', label: '❌ Nil Stock', count: kpiData.outOfStockCount },
                             { id: 'rx_only', label: '℞ Prescription', count: kpiData.rxCount },
-                            { id: 'expiring', label: '⏳ Expiry Risk', count: products.filter(p => (productBatches[p.pid] || []).some(b => getDaysUntilExpiry(b.expiry_date) <= 90)).length },
-                            { id: 'high_margin', label: '⭐ High Margin (≥30%)', count: products.filter(p => (p.margin_per || 0) >= 30).length },
+                            { id: 'expiring', label: '⏳ Expiry Risk', count: kpiData.expiringIn90Days },
+                            { id: 'high_margin', label: '⭐ High Margin', count: products.filter(p => (p.margin_per || 0) >= 30).length },
                         ].map(f => (
                             <button
                                 key={f.id}
                                 onClick={() => { setActiveFastFilter(f.id as any); setPage(1); }}
-                                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs ${
                                     activeFastFilter === f.id
-                                        ? 'bg-emerald-600 text-white shadow-sm'
-                                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                        ? 'bg-emerald-600 text-white shadow-emerald-500/20'
+                                        : 'bg-white/80 text-slate-600 border border-slate-200 hover:bg-slate-100'
                                 }`}
                             >
                                 <span>{f.label}</span>
@@ -1824,7 +2063,7 @@ export default function ProductsPage() {
                     </div>
 
                     <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-                        <span>Showing <b>{filteredProducts.length}</b> of <b>{products.length}</b> items</span>
+                        <span>Showing <b>{filteredProducts.length}</b> of <b>{products.length}</b></span>
                         {(filterCategory !== 'All' || filterDrugType !== 'All' || filterPrescription !== 'All' || filterStockStatus !== 'All' || filterExpiryRisk !== 'All' || activeFastFilter !== 'all' || searchQuery) && (
                             <button
                                 onClick={() => {
@@ -1837,7 +2076,7 @@ export default function ProductsPage() {
                                     setActiveFastFilter('all');
                                     setPage(1);
                                 }}
-                                className="text-red-500 hover:text-red-700 font-bold underline ml-2"
+                                className="text-red-500 hover:text-red-700 font-bold underline ml-1"
                             >
                                 Reset All
                             </button>
@@ -1845,7 +2084,7 @@ export default function ProductsPage() {
                     </div>
                 </div>
 
-                {/* Bulk Action Toolbar if items selected */}
+                {/* Bulk Actions Toolbar */}
                 {selectedPids.size > 0 && (
                     <div className="flex items-center justify-between p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800 animate-fadeIn">
                         <div className="flex items-center gap-2">
@@ -1876,27 +2115,27 @@ export default function ProductsPage() {
                 )}
             </div>
 
-            {/* ━━━ MAIN DATA DISPLAY (WHITE THEME TABLE / GRID) ━━━ */}
+            {/* ━━━ PRODUCTS DATAGRID / CARD GRID (IMMEDIATELY VISIBLE & ACCESSIBLE) ━━━ */}
             {isLoading ? (
-                <div className="bg-white rounded-2xl border border-slate-200 p-20 flex flex-col items-center justify-center">
+                <div className="glass-card p-16 flex flex-col items-center justify-center border border-white/80">
                     <div className="w-12 h-12 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin" />
-                    <p className="mt-4 text-sm font-bold text-slate-600">Loading Pharmaceutical Catalog...</p>
-                    <p className="text-xs text-slate-400 mt-1">Fetching active formulas, batches and stock balances</p>
+                    <p className="mt-4 text-sm font-bold text-slate-700">Loading Pharmaceutical Formulary...</p>
+                    <p className="text-xs text-slate-400 mt-1">Connecting to live inventory balances and batch records</p>
                 </div>
             ) : paginatedProducts.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-slate-200 p-16 text-center shadow-sm">
+                <div className="glass-card p-16 text-center border border-white/80 shadow-md">
                     <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
                         <FiPackage size={28} />
                     </div>
                     <h3 className="text-lg font-bold text-slate-800">No matching drugs found</h3>
                     <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                        Try adjusting your search terms or filters. Alternatively, add a new pharmaceutical product.
+                        Try clearing search terms or resetting filters to show all formulary items.
                     </p>
                     <button
                         onClick={openAddModal}
                         className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition"
                     >
-                        + Add First Drug
+                        + Add New Drug
                     </button>
                 </div>
             ) : viewMode === 'grid' ? (
@@ -1911,12 +2150,11 @@ export default function ProductsPage() {
                         return (
                             <div
                                 key={p.pid}
-                                className={`bg-white rounded-2xl border transition-all duration-200 overflow-hidden shadow-sm hover:shadow-md flex flex-col justify-between ${
-                                    isSelected ? 'border-emerald-500 ring-2 ring-emerald-400/20' : 'border-slate-200'
+                                className={`glass-card transition-all duration-200 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-0.5 flex flex-col justify-between border ${
+                                    isSelected ? 'border-emerald-500 ring-2 ring-emerald-400/20' : 'border-white/80'
                                 }`}
                             >
                                 <div className="p-3.5">
-                                    {/* Top badges */}
                                     <div className="flex items-start justify-between gap-1 mb-2">
                                         <div className="flex items-center gap-1.5">
                                             <input
@@ -1943,15 +2181,13 @@ export default function ProductsPage() {
                                         </div>
                                     </div>
 
-                                    {/* Product Name & Generic */}
                                     <h4 className="text-sm font-black text-slate-800 line-clamp-1" title={p.product_name}>
                                         {p.product_name}
                                     </h4>
                                     <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5 italic">
-                                        {p.generic_name || p.dosage || 'No generic specification'}
+                                        {p.generic_name || p.dosage || 'No generic specified'}
                                     </p>
 
-                                    {/* Category & Formulation Tags */}
                                     <div className="flex items-center gap-1 mt-2 flex-wrap">
                                         <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-100 text-[10px] font-bold">
                                             {p.category || 'General'}
@@ -1961,8 +2197,7 @@ export default function ProductsPage() {
                                         </span>
                                     </div>
 
-                                    {/* Pricing & Margin Matrix */}
-                                    <div className="mt-3.5 p-2 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                                    <div className="mt-3.5 p-2 bg-slate-50/70 rounded-xl border border-slate-100 space-y-1">
                                         <div className="flex items-center justify-between text-xs">
                                             <span className="text-slate-400">Sell Price:</span>
                                             <span className="font-black text-slate-800">KES {(p.sales_cost || 0).toLocaleString()}</span>
@@ -1979,7 +2214,6 @@ export default function ProductsPage() {
                                         </div>
                                     </div>
 
-                                    {/* Stock & Expiry Indicators */}
                                     <div className="mt-3 flex items-center justify-between">
                                         <div className="flex items-center gap-1.5">
                                             <span className={`w-2.5 h-2.5 rounded-full ${
@@ -1993,8 +2227,7 @@ export default function ProductsPage() {
                                     </div>
                                 </div>
 
-                                {/* Card Footer Actions */}
-                                <div className="p-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-1">
+                                <div className="p-2.5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-1">
                                     <button
                                         onClick={() => openEditModal(p)}
                                         className="p-1.5 text-slate-600 hover:text-emerald-600 hover:bg-white rounded-lg transition"
@@ -2029,12 +2262,12 @@ export default function ProductsPage() {
                     })}
                 </div>
             ) : (
-                /* ─── DETAILED TABLE / DATAGRID (PURE WHITE THEME) ─── */
-                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+                /* ─── DETAILED TABLE / DATAGRID (GLASSMORPHIC THEME) ─── */
+                <div className="glass-card border border-white/80 overflow-hidden shadow-lg shadow-slate-200/40">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 text-[11px] font-black uppercase tracking-wider">
+                                <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 text-[11px] font-black uppercase tracking-wider backdrop-blur-md">
                                     <th className="py-3 px-3.5 w-10 text-center">
                                         <input
                                             type="checkbox"
@@ -2068,8 +2301,8 @@ export default function ProductsPage() {
                                         <>
                                             <tr
                                                 key={p.pid}
-                                                className={`transition-colors hover:bg-slate-50/70 ${
-                                                    isSelected ? 'bg-emerald-50/40' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'
+                                                className={`transition-colors hover:bg-emerald-50/40 ${
+                                                    isSelected ? 'bg-emerald-50/50' : idx % 2 === 0 ? 'bg-white/60' : 'bg-slate-50/30'
                                                 }`}
                                             >
                                                 {/* Checkbox */}
@@ -2085,7 +2318,7 @@ export default function ProductsPage() {
                                                 {/* Name & Generic */}
                                                 <td className="py-3 px-3.5">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-black text-sm flex-shrink-0">
+                                                        <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-black text-sm flex-shrink-0 shadow-xs">
                                                             {p.photo ? (
                                                                 <img
                                                                     src={p.photo}
@@ -2123,7 +2356,7 @@ export default function ProductsPage() {
 
                                                 {/* Category */}
                                                 <td className="py-3 px-3.5 hidden md:table-cell">
-                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-100 rounded-lg text-[11px] font-bold">
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-100 rounded-lg text-[11px] font-bold shadow-2xs">
                                                         <FiTag size={10} /> {p.category || 'General'}
                                                     </span>
                                                 </td>
@@ -2330,13 +2563,13 @@ export default function ProductsPage() {
             )}
 
             {/* ━━━ PAGINATION FOOTER ━━━ */}
-            <div className="bg-white rounded-2xl border border-slate-200 px-5 py-3 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+            <div className="glass-card border border-white/80 px-5 py-3 shadow-md shadow-slate-200/30 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
                 <div className="flex items-center gap-2">
                     <span>Rows per page:</span>
                     <select
                         value={perPage}
                         onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }}
-                        className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-700 outline-none"
+                        className="px-2.5 py-1 bg-white/90 border border-slate-200 rounded-lg font-bold text-slate-700 outline-none shadow-2xs"
                     >
                         {[15, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
                     </select>
@@ -2348,14 +2581,14 @@ export default function ProductsPage() {
                     <button
                         onClick={() => setPage(1)}
                         disabled={page === 1}
-                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs"
                     >
                         <FiChevronsLeft size={14} />
                     </button>
                     <button
                         onClick={() => setPage(p => Math.max(1, p - 1))}
                         disabled={page === 1}
-                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs"
                     >
                         <FiChevronLeft size={14} />
                     </button>
@@ -2367,14 +2600,14 @@ export default function ProductsPage() {
                     <button
                         onClick={() => setPage(p => Math.min(totalPages || 1, p + 1))}
                         disabled={page >= totalPages}
-                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs"
                     >
                         <FiChevronRight size={14} />
                     </button>
                     <button
                         onClick={() => setPage(totalPages || 1)}
                         disabled={page >= totalPages}
-                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs"
                     >
                         <FiChevronsRight size={14} />
                     </button>
@@ -2382,30 +2615,31 @@ export default function ProductsPage() {
             </div>
 
             {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                SUPER ULTRA MASSIVE PRODUCT CREATION & EDITING MODAL (WHITE THEME)
+                ADD/EDIT PRODUCT MODAL (COMPACT BALANCED WIDTH: max-w-3xl)
                ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
             {showModal && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 md:p-6 overflow-y-auto">
-                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-6xl max-h-[94vh] flex flex-col overflow-hidden animate-scaleUp">
+                    {/* Modal container: REDUCED WIDTH TO max-w-3xl to ensure clean, balanced proportions without being too long */}
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden animate-scaleUp">
                         {/* Modal Header */}
-                        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 px-6 py-4.5 text-white flex items-center justify-between flex-shrink-0">
+                        <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 px-5 py-4 text-white flex items-center justify-between flex-shrink-0">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white text-lg">
+                                <div className="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center text-white text-base">
                                     💊
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <h2 className="text-lg font-black tracking-tight">
+                                        <h2 className="text-base font-black tracking-tight">
                                             {editingProduct ? `Edit Pharmaceutical Record` : `Add New Drug Formulation`}
                                         </h2>
                                         {editingProduct && (
-                                            <span className="px-2 py-0.5 rounded-md bg-white/20 text-white font-mono text-xs font-bold">
+                                            <span className="px-2 py-0.5 rounded-md bg-white/20 text-white font-mono text-[11px] font-bold">
                                                 {editingProduct.product_code}
                                             </span>
                                         )}
                                     </div>
                                     <p className="text-white/80 text-xs mt-0.5">
-                                        Clinical parameters, dual packaging units, live margin engine & batch allocations
+                                        Formulary parameters, packaging units, margin engine & batch allocations
                                     </p>
                                 </div>
                             </div>
@@ -2418,13 +2652,13 @@ export default function ProductsPage() {
                         </div>
 
                         {/* Interactive Tab Navigation */}
-                        <div className="bg-slate-50 px-6 py-2 border-b border-slate-200 flex items-center gap-2 overflow-x-auto flex-shrink-0">
+                        <div className="bg-slate-50 px-5 py-2 border-b border-slate-200 flex items-center gap-1.5 overflow-x-auto flex-shrink-0">
                             {[
-                                { id: 'general', label: '1. Identification & Classification', icon: FiPackage },
-                                { id: 'clinical', label: '2. Clinical & Regulatory', icon: FiShield },
-                                { id: 'pricing', label: '3. Packaging, Prices & Margin Engine', icon: FiDollarSign },
-                                { id: 'batches', label: `4. Direct Batches (${modalBatches.length})`, icon: FiBox },
-                                { id: 'media', label: '5. POS Display & Notes', icon: FiSliders },
+                                { id: 'general', label: '1. Identity', icon: FiPackage },
+                                { id: 'clinical', label: '2. Clinical & Rx', icon: FiShield },
+                                { id: 'pricing', label: '3. Pricing & Margins', icon: FiDollarSign },
+                                { id: 'batches', label: `4. Batches (${modalBatches.length})`, icon: FiBox },
+                                { id: 'media', label: '5. POS Display', icon: FiSliders },
                             ].map(tab => {
                                 const Icon = tab.icon;
                                 const isActive = modalTab === tab.id;
@@ -2432,36 +2666,29 @@ export default function ProductsPage() {
                                     <button
                                         key={tab.id}
                                         onClick={() => setModalTab(tab.id as any)}
-                                        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                                             isActive
-                                                ? 'bg-white text-emerald-700 shadow-sm border border-slate-200'
+                                                ? 'bg-white text-emerald-700 shadow-xs border border-slate-200'
                                                 : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
                                         }`}
                                     >
-                                        <Icon size={14} className={isActive ? 'text-emerald-600' : 'text-slate-400'} />
+                                        <Icon size={13} className={isActive ? 'text-emerald-600' : 'text-slate-400'} />
                                         <span>{tab.label}</span>
                                     </button>
                                 );
                             })}
                         </div>
 
-                        {/* Modal Body Content */}
-                        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+                        {/* Modal Body Content (Comfortable 2-Column Responsive Form) */}
+                        <div className="p-5 overflow-y-auto flex-1 space-y-4">
 
                             {/* ─── TAB 1: IDENTIFICATION & CLASSIFICATION ─── */}
                             {modalTab === 'general' && (
-                                <div className="space-y-4 animate-fadeIn">
-                                    <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-2xl flex items-center gap-3">
-                                        <FiInfo size={18} className="text-emerald-600 flex-shrink-0" />
-                                        <p className="text-xs text-emerald-800">
-                                            Enter the proprietary brand name, active international nonproprietary name (INN), barcode, and storage shelf coordinates.
-                                        </p>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="md:col-span-2">
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                                                Product / Drug Brand Name <span className="text-red-500">*</span>
+                                <div className="space-y-3.5 animate-fadeIn">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                        <div className="sm:col-span-2">
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1">
+                                                Brand Trade Name <span className="text-red-500">*</span>
                                             </label>
                                             <input
                                                 type="text"
@@ -2473,7 +2700,7 @@ export default function ProductsPage() {
                                         </div>
 
                                         <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1">
                                                 Generic Name (INN / Salt)
                                             </label>
                                             <input
@@ -2481,19 +2708,19 @@ export default function ProductsPage() {
                                                 value={formData.generic_name || ''}
                                                 onChange={e => setFormData({ ...formData, generic_name: e.target.value })}
                                                 placeholder="e.g. Paracetamol + Caffeine"
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
                                             />
                                         </div>
 
                                         <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5 flex items-center justify-between">
-                                                <span>Barcode / EAN / UPC</span>
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1 flex items-center justify-between">
+                                                <span>Barcode / EAN</span>
                                                 <button
                                                     type="button"
                                                     onClick={async () => {
                                                         const bc = await generateBarcode();
                                                         setFormData(prev => ({ ...prev, barcode: bc }));
-                                                        toast.success(`Generated barcode: ${bc}`);
+                                                        toast.success(`Generated: ${bc}`);
                                                     }}
                                                     className="text-[10px] text-emerald-600 hover:underline font-bold"
                                                 >
@@ -2504,19 +2731,19 @@ export default function ProductsPage() {
                                                 type="text"
                                                 value={formData.barcode || ''}
                                                 onChange={e => setFormData({ ...formData, barcode: e.target.value })}
-                                                placeholder="Scan or generate barcode"
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                                placeholder="Barcode code"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
                                             />
                                         </div>
 
                                         <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                                                Category / Formulary Group
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1">
+                                                Formulary Category
                                             </label>
                                             <select
                                                 value={formData.category || ''}
                                                 onChange={e => setFormData({ ...formData, category: e.target.value })}
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none cursor-pointer"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none cursor-pointer"
                                             >
                                                 <option value="">Select Category</option>
                                                 {categories.map(c => (
@@ -2526,58 +2753,45 @@ export default function ProductsPage() {
                                         </div>
 
                                         <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                                                Primary Manufacturer / Lab
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1">
+                                                Manufacturer / Lab
                                             </label>
                                             <input
                                                 type="text"
                                                 value={formData.manufacturer || ''}
                                                 onChange={e => setFormData({ ...formData, manufacturer: e.target.value })}
-                                                placeholder="e.g. GlaxoSmithKline, Dawa Ltd"
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                                placeholder="e.g. GlaxoSmithKline"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
                                             />
                                         </div>
 
                                         <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1">
                                                 Shelf / Bin Coordinates
                                             </label>
                                             <input
                                                 type="text"
                                                 value={formData.shelf_location || ''}
                                                 onChange={e => setFormData({ ...formData, shelf_location: e.target.value })}
-                                                placeholder="e.g. Aisle 3 - Shelf B - Bin 4"
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                                placeholder="e.g. Aisle 2 - Shelf B"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
                                             />
                                         </div>
 
                                         <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1">
                                                 Default Supplier
                                             </label>
                                             <select
                                                 value={formData.supplier_name || ''}
                                                 onChange={e => setFormData({ ...formData, supplier_name: e.target.value })}
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none cursor-pointer"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none cursor-pointer"
                                             >
                                                 <option value="">Direct Wholesale / Warehouse</option>
                                                 {suppliers.map(s => (
                                                     <option key={s.supplier_id} value={s.supplier_name}>{s.supplier_name}</option>
                                                 ))}
                                             </select>
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                                                HS Code / Tax Classification
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={formData.hscode || ''}
-                                                onChange={e => setFormData({ ...formData, hscode: e.target.value })}
-                                                placeholder="e.g. 3004.90.00"
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
-                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -2586,15 +2800,15 @@ export default function ProductsPage() {
                             {/* ─── TAB 2: CLINICAL & REGULATORY ─── */}
                             {modalTab === 'clinical' && (
                                 <div className="space-y-4 animate-fadeIn">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                                         <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                                                Dosage Formulation
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1">
+                                                Formulation
                                             </label>
                                             <select
                                                 value={formData.drug_type}
                                                 onChange={e => setFormData({ ...formData, drug_type: e.target.value })}
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none cursor-pointer"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 cursor-pointer"
                                             >
                                                 {DRUG_TYPES.map(t => (
                                                     <option key={t} value={t}>{t}</option>
@@ -2603,105 +2817,93 @@ export default function ProductsPage() {
                                         </div>
 
                                         <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                                                Strength & Concentration
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1">
+                                                Strength / Concentration
                                             </label>
                                             <input
                                                 type="text"
                                                 value={formData.dosage || ''}
                                                 onChange={e => setFormData({ ...formData, dosage: e.target.value })}
-                                                placeholder="e.g. 500mg, 125mg/5ml, 1% w/w"
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                                placeholder="e.g. 500mg, 125mg/5ml"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
                                             />
                                         </div>
 
-                                        <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                                                Storage Condition Requirement
+                                        <div className="sm:col-span-2">
+                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1">
+                                                Storage Condition
                                             </label>
                                             <input
                                                 type="text"
                                                 value={formData.storage_conditions || ''}
                                                 onChange={e => setFormData({ ...formData, storage_conditions: e.target.value })}
                                                 placeholder="e.g. Below 25°C in a dry place"
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none transition"
+                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
                                             />
-                                        </div>
-                                    </div>
-
-                                    {/* Preset Storage Conditions Chips */}
-                                    <div>
-                                        <label className="block text-[11px] font-bold uppercase text-slate-400 mb-1.5">
-                                            Quick Presets for Storage Conditions:
-                                        </label>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {STORAGE_PRESETS.map(preset => (
-                                                <button
-                                                    key={preset}
-                                                    type="button"
-                                                    onClick={() => setFormData({ ...formData, storage_conditions: preset })}
-                                                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition border ${
-                                                        formData.storage_conditions === preset
-                                                            ? 'bg-emerald-600 text-white border-emerald-600'
-                                                            : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                                                    }`}
-                                                >
-                                                    {preset}
-                                                </button>
-                                            ))}
+                                            {/* Preset Chips */}
+                                            <div className="flex flex-wrap gap-1 mt-1.5">
+                                                {STORAGE_PRESETS.slice(0, 4).map(preset => (
+                                                    <button
+                                                        key={preset}
+                                                        type="button"
+                                                        onClick={() => setFormData({ ...formData, storage_conditions: preset })}
+                                                        className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                                            formData.storage_conditions === preset
+                                                                ? 'bg-emerald-600 text-white border-emerald-600'
+                                                                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                                                        }`}
+                                                    >
+                                                        {preset}
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
 
                                     {/* Regulatory Governance Toggles */}
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t border-slate-200">
-                                        <label className={`p-4 rounded-2xl border-2 flex items-start gap-3 cursor-pointer transition ${
-                                            formData.requires_prescription ? 'border-red-400 bg-red-50/50' : 'border-slate-200 hover:border-slate-300'
+                                    <div className="space-y-2 pt-2 border-t border-slate-100">
+                                        <label className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition ${
+                                            formData.requires_prescription ? 'border-red-400 bg-red-50/50' : 'border-slate-200 hover:bg-slate-50'
                                         }`}>
                                             <input
                                                 type="checkbox"
                                                 checked={formData.requires_prescription}
                                                 onChange={e => setFormData({ ...formData, requires_prescription: e.target.checked })}
-                                                className="mt-1 w-4 h-4 accent-red-600 rounded cursor-pointer"
+                                                className="w-4 h-4 accent-red-600 rounded cursor-pointer"
                                             />
                                             <div>
-                                                <p className="text-sm font-black text-red-700">℞ Prescription Only (POM)</p>
-                                                <p className="text-xs text-slate-500 mt-0.5">
-                                                    Locks dispensing at POS without a verified patient prescription number.
-                                                </p>
+                                                <p className="text-xs font-black text-red-700">℞ Prescription Only (POM)</p>
+                                                <p className="text-[10px] text-slate-500">Requires verified doctor prescription at POS</p>
                                             </div>
                                         </label>
 
-                                        <label className={`p-4 rounded-2xl border-2 flex items-start gap-3 cursor-pointer transition ${
-                                            formData.controlled_substance ? 'border-purple-400 bg-purple-50/50' : 'border-slate-200 hover:border-slate-300'
+                                        <label className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition ${
+                                            formData.controlled_substance ? 'border-purple-400 bg-purple-50/50' : 'border-slate-200 hover:bg-slate-50'
                                         }`}>
                                             <input
                                                 type="checkbox"
                                                 checked={formData.controlled_substance}
                                                 onChange={e => setFormData({ ...formData, controlled_substance: e.target.checked })}
-                                                className="mt-1 w-4 h-4 accent-purple-600 rounded cursor-pointer"
+                                                className="w-4 h-4 accent-purple-600 rounded cursor-pointer"
                                             />
                                             <div>
-                                                <p className="text-sm font-black text-purple-700">Controlled Substance</p>
-                                                <p className="text-xs text-slate-500 mt-0.5">
-                                                    Requires strict ledger tracking and Poison / Dangerous Drug Register sign-off.
-                                                </p>
+                                                <p className="text-xs font-black text-purple-700">Controlled Substance</p>
+                                                <p className="text-[10px] text-slate-500">Subject to poison book auditing and lock-box storage</p>
                                             </div>
                                         </label>
 
-                                        <label className={`p-4 rounded-2xl border-2 flex items-start gap-3 cursor-pointer transition ${
-                                            formData.show_in_pos ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 hover:border-slate-300'
+                                        <label className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition ${
+                                            formData.show_in_pos ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 hover:bg-slate-50'
                                         }`}>
                                             <input
                                                 type="checkbox"
                                                 checked={formData.show_in_pos}
                                                 onChange={e => setFormData({ ...formData, show_in_pos: e.target.checked })}
-                                                className="mt-1 w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+                                                className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
                                             />
                                             <div>
-                                                <p className="text-sm font-black text-emerald-700">POS Cashier Grid</p>
-                                                <p className="text-xs text-slate-500 mt-0.5">
-                                                    Show this item on the pharmacy touch POS quick-sell dashboard.
-                                                </p>
+                                                <p className="text-xs font-black text-emerald-700">Display on POS Cashier Screen</p>
+                                                <p className="text-[10px] text-slate-500">Quick-sell button enabled in cashier register</p>
                                             </div>
                                         </label>
                                     </div>
@@ -2710,16 +2912,16 @@ export default function ProductsPage() {
 
                             {/* ─── TAB 3: PACKAGING, PRICING & MARGIN ENGINE ─── */}
                             {modalTab === 'pricing' && (
-                                <div className="space-y-5 animate-fadeIn">
-                                    <div className="grid grid-cols-2 md:grid-cols-6 gap-3.5">
+                                <div className="space-y-4 animate-fadeIn">
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                         <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                            <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">
                                                 Purchase Unit
                                             </label>
                                             <select
                                                 value={formData.purchase_unit}
                                                 onChange={e => setFormData({ ...formData, purchase_unit: e.target.value })}
-                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800"
+                                                className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
                                             >
                                                 {units.map(u => (
                                                     <option key={u.unit_id} value={u.unit_name}>{u.unit_name}</option>
@@ -2728,13 +2930,13 @@ export default function ProductsPage() {
                                         </div>
 
                                         <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                            <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">
                                                 Dispensing Unit
                                             </label>
                                             <select
                                                 value={formData.sales_unit}
                                                 onChange={e => setFormData({ ...formData, sales_unit: e.target.value })}
-                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800"
+                                                className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
                                             >
                                                 {units.map(u => (
                                                     <option key={u.unit_id} value={u.unit_name}>{u.unit_name}</option>
@@ -2743,7 +2945,7 @@ export default function ProductsPage() {
                                         </div>
 
                                         <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                            <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">
                                                 Pieces / Pack
                                             </label>
                                             <input
@@ -2751,13 +2953,13 @@ export default function ProductsPage() {
                                                 min={1}
                                                 value={formData.pieces_per_package}
                                                 onChange={e => setFormData({ ...formData, pieces_per_package: Math.max(1, parseInt(e.target.value) || 1) })}
-                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-center text-slate-800"
+                                                className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-center"
                                             />
                                         </div>
 
                                         <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                                                Buying Cost (KES) <span className="text-red-500">*</span>
+                                            <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">
+                                                Buying Cost (KES) *
                                             </label>
                                             <input
                                                 type="number"
@@ -2765,13 +2967,13 @@ export default function ProductsPage() {
                                                 step={0.01}
                                                 value={formData.purchase_cost}
                                                 onChange={e => setFormData({ ...formData, purchase_cost: Math.max(0, parseFloat(e.target.value) || 0) })}
-                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-slate-800"
+                                                className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-black text-slate-800"
                                             />
                                         </div>
 
                                         <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                                                Selling Price (KES) <span className="text-red-500">*</span>
+                                            <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">
+                                                Retail Price (KES) *
                                             </label>
                                             <input
                                                 type="number"
@@ -2779,12 +2981,12 @@ export default function ProductsPage() {
                                                 step={0.01}
                                                 value={formData.sales_cost}
                                                 onChange={e => setFormData({ ...formData, sales_cost: Math.max(0, parseFloat(e.target.value) || 0) })}
-                                                className="w-full px-3 py-2 bg-emerald-50 border border-emerald-300 rounded-xl text-sm font-black text-emerald-800"
+                                                className="w-full px-2.5 py-2 bg-emerald-50 border border-emerald-300 rounded-xl text-xs font-black text-emerald-800"
                                             />
                                         </div>
 
                                         <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
+                                            <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">
                                                 Wholesale Price
                                             </label>
                                             <input
@@ -2793,139 +2995,46 @@ export default function ProductsPage() {
                                                 step={0.01}
                                                 value={formData.wholesale_price}
                                                 onChange={e => setFormData({ ...formData, wholesale_price: Math.max(0, parseFloat(e.target.value) || 0) })}
-                                                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800"
+                                                className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
                                             />
                                         </div>
                                     </div>
 
-                                    {/* Secondary Parameters: VAT & Reorder Threshold */}
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                                        <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                                                VAT / Tax Commodity
-                                            </label>
-                                            <select
-                                                value={formData.vat_commodity}
-                                                onChange={e => setFormData({ ...formData, vat_commodity: e.target.value })}
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800"
-                                            >
-                                                {VAT_OPTIONS.map(v => (
-                                                    <option key={v} value={v}>{v}</option>
-                                                ))}
-                                            </select>
+                                    {/* Live Financial Margin Breakdown Table */}
+                                    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+                                        <div className="px-3 py-2 bg-slate-100 border-b border-slate-200 flex items-center justify-between text-xs">
+                                            <span className="font-bold text-slate-800">Financial Calculations</span>
+                                            <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                                                computedMetrics.marginPerPiece >= 20 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                                            }`}>
+                                                {computedMetrics.marginPerPiece.toFixed(1)}% Gross Margin
+                                            </span>
                                         </div>
-
-                                        <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                                                Minimum Reorder Threshold (Pcs)
-                                            </label>
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                value={formData.reorder_point}
-                                                onChange={e => setFormData({ ...formData, reorder_point: Math.max(0, parseInt(e.target.value) || 0) })}
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800"
-                                            />
-                                        </div>
-
-                                        <div className="flex items-center gap-3 pt-6">
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={formData.active}
-                                                    onChange={e => setFormData({ ...formData, active: e.target.checked })}
-                                                    className="w-4 h-4 rounded accent-emerald-600 cursor-pointer"
-                                                />
-                                                <span className="text-sm font-black text-slate-700">Active Product</span>
-                                            </label>
-                                        </div>
-                                    </div>
-
-                                    {/* ─── LIVE FINANCIAL MARGIN BREAKDOWN MATRIX ─── */}
-                                    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-                                        <div className="px-4 py-2.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
-                                            <div className="flex items-center gap-2 text-xs font-black text-slate-800 uppercase tracking-wider">
-                                                <FiTrendingUp className="text-emerald-600" size={14} />
-                                                Live Financial Margin Breakdown
-                                            </div>
-                                            <div className="text-xs font-bold">
-                                                {computedMetrics.marginPerPiece >= 25 ? (
-                                                    <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
-                                                        ✓ High Profit Margin ({computedMetrics.marginPerPiece.toFixed(1)}%)
-                                                    </span>
-                                                ) : computedMetrics.marginPerPiece >= 10 ? (
-                                                    <span className="text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-                                                        ⚠️ Standard Margin ({computedMetrics.marginPerPiece.toFixed(1)}%)
-                                                    </span>
-                                                ) : computedMetrics.marginPerPiece > 0 ? (
-                                                    <span className="text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
-                                                        ⚠️ Low Margin ({computedMetrics.marginPerPiece.toFixed(1)}%)
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-red-700 bg-red-100 px-2 py-0.5 rounded-full">
-                                                        ❌ Loss-Making Price ({computedMetrics.marginPerPiece.toFixed(1)}%)
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-
                                         <table className="w-full text-xs">
                                             <thead>
                                                 <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100 text-[10px] uppercase">
-                                                    <th className="py-2.5 px-4 text-left">Level</th>
-                                                    <th className="py-2.5 px-4 text-right">Cost Price</th>
-                                                    <th className="py-2.5 px-4 text-right">Selling Price</th>
-                                                    <th className="py-2.5 px-4 text-right">Unit Profit</th>
-                                                    <th className="py-2.5 px-4 text-right">Gross Margin %</th>
-                                                    <th className="py-2.5 px-4 text-right">Markup %</th>
+                                                    <th className="py-2 px-3 text-left">Level</th>
+                                                    <th className="py-2 px-3 text-right">Cost</th>
+                                                    <th className="py-2 px-3 text-right">Sell</th>
+                                                    <th className="py-2 px-3 text-right">Unit Profit</th>
+                                                    <th className="py-2 px-3 text-right">Markup</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-100">
-                                                <tr className="hover:bg-slate-50">
-                                                    <td className="py-3 px-4 font-bold text-slate-800">
-                                                        📦 Per {formData.purchase_unit} (Pack)
-                                                    </td>
-                                                    <td className="py-3 px-4 text-right font-mono font-medium text-slate-700">
-                                                        KES {computedMetrics.costPerPkg.toLocaleString()}
-                                                    </td>
-                                                    <td className="py-3 px-4 text-right font-mono font-black text-slate-900">
-                                                        KES {computedMetrics.sellPerPkg.toLocaleString()}
-                                                    </td>
-                                                    <td className={`py-3 px-4 text-right font-mono font-black ${
-                                                        computedMetrics.profitPerPkg >= 0 ? 'text-emerald-700' : 'text-red-700'
-                                                    }`}>
-                                                        KES {computedMetrics.profitPerPkg.toLocaleString()}
-                                                    </td>
-                                                    <td className="py-3 px-4 text-right font-black text-slate-800">
-                                                        {computedMetrics.marginPerPiece.toFixed(1)}%
-                                                    </td>
-                                                    <td className="py-3 px-4 text-right text-slate-600">
-                                                        {computedMetrics.markupPerPiece.toFixed(1)}%
-                                                    </td>
+                                                <tr>
+                                                    <td className="py-2 px-3 font-bold text-slate-800">Per {formData.purchase_unit}</td>
+                                                    <td className="py-2 px-3 text-right font-mono">KES {computedMetrics.costPerPkg.toLocaleString()}</td>
+                                                    <td className="py-2 px-3 text-right font-mono font-bold text-slate-900">KES {computedMetrics.sellPerPkg.toLocaleString()}</td>
+                                                    <td className="py-2 px-3 text-right font-mono font-bold text-emerald-700">KES {computedMetrics.profitPerPkg.toLocaleString()}</td>
+                                                    <td className="py-2 px-3 text-right text-slate-600">{computedMetrics.markupPerPiece.toFixed(1)}%</td>
                                                 </tr>
-
                                                 {computedMetrics.isDiffUnit && (
-                                                    <tr className="bg-emerald-50/40">
-                                                        <td className="py-3 px-4 font-bold text-emerald-800">
-                                                            💊 Per {formData.sales_unit} (Dispensed)
-                                                        </td>
-                                                        <td className="py-3 px-4 text-right font-mono font-medium text-slate-700">
-                                                            KES {computedMetrics.costPerPiece.toFixed(2)}
-                                                        </td>
-                                                        <td className="py-3 px-4 text-right font-mono font-black text-emerald-800">
-                                                            KES {computedMetrics.sellPerPiece.toLocaleString()}
-                                                        </td>
-                                                        <td className={`py-3 px-4 text-right font-mono font-black ${
-                                                            computedMetrics.profitPerPiece >= 0 ? 'text-emerald-700' : 'text-red-700'
-                                                        }`}>
-                                                            KES {computedMetrics.profitPerPiece.toFixed(2)}
-                                                        </td>
-                                                        <td className="py-3 px-4 text-right font-black text-emerald-800">
-                                                            {computedMetrics.marginPerPiece.toFixed(1)}%
-                                                        </td>
-                                                        <td className="py-3 px-4 text-right text-slate-600">
-                                                            {computedMetrics.markupPerPiece.toFixed(1)}%
-                                                        </td>
+                                                    <tr className="bg-emerald-50/30">
+                                                        <td className="py-2 px-3 font-bold text-emerald-800">Per {formData.sales_unit}</td>
+                                                        <td className="py-2 px-3 text-right font-mono">KES {computedMetrics.costPerPiece.toFixed(2)}</td>
+                                                        <td className="py-2 px-3 text-right font-mono font-bold text-emerald-800">KES {computedMetrics.sellPerPiece.toLocaleString()}</td>
+                                                        <td className="py-2 px-3 text-right font-mono font-bold text-emerald-700">KES {computedMetrics.profitPerPiece.toFixed(2)}</td>
+                                                        <td className="py-2 px-3 text-right text-slate-600">{computedMetrics.markupPerPiece.toFixed(1)}%</td>
                                                     </tr>
                                                 )}
                                             </tbody>
@@ -2936,274 +3045,154 @@ export default function ProductsPage() {
 
                             {/* ─── TAB 4: DIRECT OPENING BATCHES ─── */}
                             {modalTab === 'batches' && (
-                                <div className="space-y-4 animate-fadeIn">
-                                    <div className="p-3 bg-purple-50 border border-purple-200 rounded-2xl flex items-center justify-between">
-                                        <div className="flex items-center gap-2.5">
-                                            <FiBox size={18} className="text-purple-600" />
+                                <div className="space-y-3.5 animate-fadeIn">
+                                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2.5">
+                                        <h4 className="text-[11px] font-black uppercase text-slate-700">+ Add Batch Item</h4>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                             <div>
-                                                <p className="text-xs font-black text-purple-900">Direct Batch Allocation</p>
-                                                <p className="text-[11px] text-purple-700">
-                                                    Assign opening stock directly into batch codes with strict expiry date monitoring.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Add Batch Inline Sub-Form */}
-                                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
-                                        <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">
-                                            + Add New Batch Record
-                                        </h4>
-                                        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-                                            <div className="col-span-2 md:col-span-1">
-                                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
-                                                    Batch # *
-                                                </label>
+                                                <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Batch # *</label>
                                                 <input
                                                     type="text"
                                                     value={newBatchRow.batch_number}
                                                     onChange={e => setNewBatchRow({ ...newBatchRow, batch_number: e.target.value })}
-                                                    placeholder="e.g. BAT-2611-102"
-                                                    className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
+                                                    placeholder="e.g. BAT-2611"
+                                                    className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold"
                                                 />
                                             </div>
-
                                             <div>
-                                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
-                                                    Expiry Date *
-                                                </label>
+                                                <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Expiry Date *</label>
                                                 <input
                                                     type="date"
                                                     value={newBatchRow.expiry_date}
                                                     onChange={e => setNewBatchRow({ ...newBatchRow, expiry_date: e.target.value })}
-                                                    className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold"
+                                                    className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold"
                                                 />
                                             </div>
-
                                             <div>
-                                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
-                                                    Quantity (Pcs) *
-                                                </label>
+                                                <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Quantity (Pcs) *</label>
                                                 <input
                                                     type="number"
                                                     min={1}
                                                     value={newBatchRow.quantity || ''}
                                                     onChange={e => setNewBatchRow({ ...newBatchRow, quantity: Math.max(0, parseInt(e.target.value) || 0) })}
                                                     placeholder="100"
-                                                    className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-center"
+                                                    className="w-full px-2 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-center"
                                                 />
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
-                                                    Batch Cost
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    value={newBatchRow.purchase_cost || ''}
-                                                    onChange={e => setNewBatchRow({ ...newBatchRow, purchase_cost: parseFloat(e.target.value) || 0 })}
-                                                    placeholder={String(formData.purchase_cost)}
-                                                    className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs"
-                                                />
-                                            </div>
-
-                                            <div>
-                                                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
-                                                    Batch Sell Price
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    value={newBatchRow.selling_price || ''}
-                                                    onChange={e => setNewBatchRow({ ...newBatchRow, selling_price: parseFloat(e.target.value) || 0 })}
-                                                    placeholder={String(formData.sales_cost)}
-                                                    className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold"
-                                                />
-                                            </div>
-
-                                            <div className="flex items-end">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        if (!newBatchRow.batch_number || !newBatchRow.expiry_date || newBatchRow.quantity <= 0) {
-                                                            toast.error('Batch #, expiry date and quantity are required');
-                                                            return;
-                                                        }
-                                                        setModalBatches(prev => [
-                                                            ...prev,
-                                                            {
-                                                                ...newBatchRow,
-                                                                purchase_cost: newBatchRow.purchase_cost || formData.purchase_cost,
-                                                                selling_price: newBatchRow.selling_price || formData.sales_cost,
-                                                                status: 'Active'
-                                                            }
-                                                        ]);
-                                                        setNewBatchRow({
-                                                            batch_number: generateBatchNumber(),
-                                                            expiry_date: '',
-                                                            manufacture_date: '',
-                                                            quantity: 0,
-                                                            purchase_cost: 0,
-                                                            selling_price: 0,
-                                                            purchase_invoice: ''
-                                                        });
-                                                        toast.success('Batch added to product');
-                                                    }}
-                                                    className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-xs transition shadow-sm"
-                                                >
-                                                    + Add Batch
-                                                </button>
                                             </div>
                                         </div>
 
-                                        {/* Quick Expiry Date Chips */}
-                                        <div className="flex items-center gap-1.5 pt-1">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase">Quick Expiry:</span>
-                                            {[
-                                                { label: '+6 Months', m: 6 },
-                                                { label: '+1 Year', m: 12 },
-                                                { label: '+2 Years', m: 24 },
-                                                { label: '+3 Years', m: 36 },
-                                                { label: '+5 Years', m: 60 },
-                                            ].map(chip => (
-                                                <button
-                                                    key={chip.label}
-                                                    type="button"
-                                                    onClick={() => setQuickExpiry(chip.m)}
-                                                    className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 hover:border-purple-300 hover:text-purple-600 text-[10px] font-bold transition"
-                                                >
-                                                    {chip.label}
-                                                </button>
-                                            ))}
+                                        <div className="flex items-center justify-between pt-1">
+                                            <div className="flex gap-1">
+                                                {[
+                                                    { label: '+1Y', m: 12 },
+                                                    { label: '+2Y', m: 24 },
+                                                    { label: '+3Y', m: 36 }
+                                                ].map(chip => (
+                                                    <button
+                                                        key={chip.label}
+                                                        type="button"
+                                                        onClick={() => setQuickExpiry(chip.m)}
+                                                        className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 hover:text-purple-600 text-[10px] font-bold"
+                                                    >
+                                                        {chip.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (!newBatchRow.batch_number || !newBatchRow.expiry_date || newBatchRow.quantity <= 0) {
+                                                        toast.error('Batch #, expiry date and quantity required');
+                                                        return;
+                                                    }
+                                                    setModalBatches(prev => [
+                                                        ...prev,
+                                                        {
+                                                            ...newBatchRow,
+                                                            purchase_cost: newBatchRow.purchase_cost || formData.purchase_cost,
+                                                            selling_price: newBatchRow.selling_price || formData.sales_cost,
+                                                            status: 'Active'
+                                                        }
+                                                    ]);
+                                                    setNewBatchRow({
+                                                        batch_number: generateBatchNumber(),
+                                                        expiry_date: '',
+                                                        manufacture_date: '',
+                                                        quantity: 0,
+                                                        purchase_cost: 0,
+                                                        selling_price: 0,
+                                                        purchase_invoice: ''
+                                                    });
+                                                    toast.success('Batch added');
+                                                }}
+                                                className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-xs shadow-sm"
+                                            >
+                                                + Add Batch
+                                            </button>
                                         </div>
                                     </div>
 
-                                    {/* Batches Table */}
-                                    {modalBatches.length > 0 ? (
-                                        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-                                            <table className="w-full text-xs">
-                                                <thead>
-                                                    <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100 text-[10px] uppercase">
-                                                        <th className="py-2.5 px-3 text-left">Batch Code</th>
-                                                        <th className="py-2.5 px-3 text-center">Expiry Date</th>
-                                                        <th className="py-2.5 px-3 text-center">Shelf Life</th>
-                                                        <th className="py-2.5 px-3 text-right">Units</th>
-                                                        <th className="py-2.5 px-3 text-right">Cost Price</th>
-                                                        <th className="py-2.5 px-3 text-right">Selling Price</th>
-                                                        <th className="py-2.5 px-3 text-center w-12">Action</th>
+                                    {modalBatches.length > 0 && (
+                                        <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
+                                            <table className="w-full">
+                                                <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase">
+                                                    <tr>
+                                                        <th className="py-2 px-2.5 text-left">Batch #</th>
+                                                        <th className="py-2 px-2.5 text-center">Expiry</th>
+                                                        <th className="py-2 px-2.5 text-right">Qty</th>
+                                                        <th className="py-2 px-2.5 text-center w-8"></th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-100">
-                                                    {modalBatches.map((b, bi) => {
-                                                        const d = getDaysUntilExpiry(b.expiry_date);
-                                                        return (
-                                                            <tr key={bi} className="hover:bg-slate-50">
-                                                                <td className="py-2.5 px-3 font-mono font-bold text-slate-800">
-                                                                    {b.batch_number}
-                                                                </td>
-                                                                <td className="py-2.5 px-3 text-center text-slate-600">
-                                                                    {b.expiry_date}
-                                                                </td>
-                                                                <td className="py-2.5 px-3 text-center">
-                                                                    {getExpiryBadge(d)}
-                                                                </td>
-                                                                <td className="py-2.5 px-3 text-right font-bold text-slate-800">
-                                                                    {b.quantity}
-                                                                </td>
-                                                                <td className="py-2.5 px-3 text-right text-slate-600">
-                                                                    KES {(b.purchase_cost || formData.purchase_cost || 0).toLocaleString()}
-                                                                </td>
-                                                                <td className="py-2.5 px-3 text-right font-black text-slate-900">
-                                                                    KES {(b.selling_price || formData.sales_cost || 0).toLocaleString()}
-                                                                </td>
-                                                                <td className="py-2.5 px-3 text-center">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setModalBatches(prev => prev.filter((_, i) => i !== bi))}
-                                                                        className="p-1 text-slate-400 hover:text-red-600 transition"
-                                                                        title="Remove batch"
-                                                                    >
-                                                                        <FiTrash2 size={13} />
-                                                                    </button>
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    })}
+                                                    {modalBatches.map((b, bi) => (
+                                                        <tr key={bi} className="hover:bg-slate-50">
+                                                            <td className="py-2 px-2.5 font-mono font-bold text-slate-800">{b.batch_number}</td>
+                                                            <td className="py-2 px-2.5 text-center text-slate-600">{b.expiry_date}</td>
+                                                            <td className="py-2 px-2.5 text-right font-bold text-slate-800">{b.quantity}</td>
+                                                            <td className="py-2 px-2.5 text-center">
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setModalBatches(prev => prev.filter((_, i) => i !== bi))}
+                                                                    className="text-slate-400 hover:text-red-600"
+                                                                >
+                                                                    <FiTrash2 size={12} />
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
                                                 </tbody>
                                             </table>
-                                        </div>
-                                    ) : (
-                                        <div className="py-8 text-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl">
-                                            <FiBox size={32} className="mx-auto mb-2 opacity-50" />
-                                            <p className="text-xs font-bold text-slate-600">No batches allocated yet</p>
-                                            <p className="text-[11px] text-slate-400 mt-0.5">
-                                                You can add initial batches above or receive them later via the Batches module.
-                                            </p>
                                         </div>
                                     )}
                                 </div>
                             )}
 
-                            {/* ─── TAB 5: POS DISPLAY & NOTES ─── */}
+                            {/* ─── TAB 5: POS DISPLAY ─── */}
                             {modalTab === 'media' && (
-                                <div className="space-y-4 animate-fadeIn">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                                                Product Photo URL
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={formData.photo || ''}
-                                                onChange={e => setFormData({ ...formData, photo: e.target.value })}
-                                                placeholder="https://example.com/product-image.jpg"
-                                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800"
-                                            />
-                                            {formData.photo && (
-                                                <div className="mt-3 w-28 h-28 rounded-2xl border border-slate-200 overflow-hidden bg-white p-1">
-                                                    <img
-                                                        src={formData.photo}
-                                                        alt="Preview"
-                                                        className="w-full h-full object-contain"
-                                                        onError={e => { (e.target as HTMLElement).style.display = 'none'; }}
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                                                POS Button Theme Gradient
-                                            </label>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                {COLOR_PRESETS.map(preset => (
-                                                    <button
-                                                        key={preset.name}
-                                                        type="button"
-                                                        onClick={() => setFormData({ ...formData, button_ui_color: preset.gradient })}
-                                                        className={`p-2 rounded-xl border flex items-center gap-2 transition ${
-                                                            formData.button_ui_color === preset.gradient
-                                                                ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-400/20'
-                                                                : 'border-slate-200 hover:border-slate-300'
-                                                        }`}
-                                                    >
-                                                        <div className={`w-5 h-5 rounded-lg bg-gradient-to-br ${preset.gradient} shadow-sm`} />
-                                                        <span className="text-xs font-bold text-slate-700">{preset.name}</span>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
+                                <div className="space-y-3.5 animate-fadeIn">
+                                    <div>
+                                        <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1">
+                                            Product Photo URL
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={formData.photo || ''}
+                                            onChange={e => setFormData({ ...formData, photo: e.target.value })}
+                                            placeholder="https://example.com/product.jpg"
+                                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-800"
+                                        />
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1.5">
-                                            Clinical Description & Patient Advisory Notes
+                                        <label className="block text-xs font-black uppercase tracking-wider text-slate-600 mb-1">
+                                            Clinical Description & Patient Advisory
                                         </label>
                                         <textarea
-                                            rows={4}
+                                            rows={3}
                                             value={formData.description || ''}
                                             onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                            placeholder="Dosage administration advice, precautions, food interactions, and contraindications..."
-                                            className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:border-emerald-500 focus:outline-none"
+                                            placeholder="Dosage administration advice, precautions, contraindications..."
+                                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800"
                                         />
                                     </div>
                                 </div>
@@ -3212,20 +3201,18 @@ export default function ProductsPage() {
                         </div>
 
                         {/* Modal Sticky Footer */}
-                        <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-between flex-shrink-0">
-                            <div className="flex items-center gap-4 text-xs font-bold text-slate-600">
+                        <div className="bg-slate-50 px-5 py-3.5 border-t border-slate-200 flex items-center justify-between flex-shrink-0">
+                            <div className="flex items-center gap-3 text-xs font-bold text-slate-600">
                                 <span>Profit/Pc: <b className="text-emerald-700 font-mono">KES {computedMetrics.profitPerPiece.toFixed(2)}</b></span>
                                 <span className="text-slate-300">|</span>
                                 <span>Margin: <b className="text-emerald-700 font-mono">{computedMetrics.marginPerPiece.toFixed(1)}%</b></span>
-                                <span className="text-slate-300">|</span>
-                                <span>Batches to save: <b className="text-purple-700">{modalBatches.length}</b></span>
                             </div>
 
                             <div className="flex items-center gap-2">
                                 <button
                                     type="button"
                                     onClick={() => setShowModal(false)}
-                                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-white transition"
+                                    className="px-3.5 py-2 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-white transition"
                                 >
                                     Cancel
                                 </button>
@@ -3233,12 +3220,12 @@ export default function ProductsPage() {
                                     type="button"
                                     onClick={handleSaveProduct}
                                     disabled={isSaving}
-                                    className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs shadow-md shadow-emerald-500/20 transition flex items-center gap-2 disabled:opacity-50"
+                                    className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs shadow-md shadow-emerald-500/20 transition flex items-center gap-1.5 disabled:opacity-50"
                                 >
                                     {isSaving ? (
                                         <>
                                             <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                            <span>Saving Record...</span>
+                                            <span>Saving...</span>
                                         </>
                                     ) : (
                                         <>
@@ -3253,494 +3240,458 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* ━━━ LABEL GENERATOR MODAL ━━━ */}
-            {showLabelModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-                        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 text-white flex items-center justify-between flex-shrink-0">
+            {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                SUPER MASSIVE ULTRA IMPORT MODAL (SELECT IMPORT, BATCHES, 0 QTY, OVERWRITE)
+               ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
+            {showImportModal && (
+                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 md:p-6 overflow-y-auto">
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-5xl max-h-[94vh] flex flex-col overflow-hidden animate-scaleUp">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-teal-600 px-6 py-4.5 text-white flex items-center justify-between flex-shrink-0">
                             <div className="flex items-center gap-3">
-                                <FiPrinter size={20} />
+                                <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center text-white text-lg">
+                                    <FiUpload size={20} />
+                                </div>
                                 <div>
-                                    <h3 className="font-bold text-base">Barcode & Price Label Generator</h3>
-                                    <p className="text-xs text-purple-200">
-                                        {labelProducts.length} selected &bull; {labelProducts.reduce((s, id) => s + (labelQty[id] || 1), 0)} total tags
+                                    <h3 className="font-black text-base tracking-tight">Super Ultra Pharmaceutical Import Suite</h3>
+                                    <p className="text-blue-100 text-xs mt-0.5">
+                                        Batch creation, selective import, 0 quantity catalog mode & overwrite protection
                                     </p>
                                 </div>
                             </div>
-                            <button onClick={() => setShowLabelModal(false)} className="p-1 hover:bg-white/20 rounded-lg">
+                            <button
+                                onClick={() => setShowImportModal(false)}
+                                className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 flex items-center justify-center text-white transition"
+                            >
                                 <FiX size={18} />
                             </button>
                         </div>
 
-                        <div className="flex flex-1 overflow-hidden">
-                            {/* Product List */}
-                            <div className="flex-1 p-4 border-r border-slate-200 overflow-y-auto space-y-2">
-                                <div className="relative mb-2">
-                                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                                    <input
-                                        type="text"
-                                        value={labelSearch}
-                                        onChange={e => setLabelSearch(e.target.value)}
-                                        placeholder="Search products for labels..."
-                                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
-                                    />
-                                </div>
-                                {filteredLabelProducts.map(p => {
-                                    const isSel = labelProducts.includes(p.pid);
-                                    return (
-                                        <div
-                                            key={p.pid}
-                                            onClick={() => {
-                                                if (isSel) setLabelProducts(labelProducts.filter(id => id !== p.pid));
-                                                else {
-                                                    setLabelProducts([...labelProducts, p.pid]);
-                                                    setLabelQty({ ...labelQty, [p.pid]: labelQty[p.pid] || 1 });
-                                                }
-                                            }}
-                                            className={`p-2.5 rounded-xl border flex items-center justify-between cursor-pointer transition ${
-                                                isSel ? 'border-purple-300 bg-purple-50/60' : 'border-slate-100 hover:bg-slate-50'
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-2.5">
-                                                <input type="checkbox" checked={isSel} readOnly className="accent-purple-600 rounded" />
-                                                <div>
-                                                    <p className="text-xs font-bold text-slate-800">{p.product_name}</p>
-                                                    <p className="text-[10px] text-slate-400 font-mono">{p.product_code} • KES {(p.sales_cost || 0).toLocaleString()}</p>
-                                                </div>
-                                            </div>
-                                            {isSel && (
-                                                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                                                    <button
-                                                        onClick={() => setLabelQty({ ...labelQty, [p.pid]: Math.max(1, (labelQty[p.pid] || 1) - 1) })}
-                                                        className="w-6 h-6 rounded bg-purple-200 text-purple-800 font-bold text-xs"
-                                                    >
-                                                        -
-                                                    </button>
-                                                    <span className="text-xs font-bold px-2">{labelQty[p.pid] || 1}</span>
-                                                    <button
-                                                        onClick={() => setLabelQty({ ...labelQty, [p.pid]: (labelQty[p.pid] || 1) + 1 })}
-                                                        className="w-6 h-6 rounded bg-purple-200 text-purple-800 font-bold text-xs"
-                                                    >
-                                                        +
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                        {/* Modal Body */}
+                        <div className="p-6 overflow-y-auto flex-1 space-y-5">
 
-                            {/* Label Controls & Print Button */}
-                            <div className="w-80 p-4 bg-slate-50 flex flex-col justify-between overflow-hidden">
-                                <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Label Tag Size</label>
-                                        <div className="grid grid-cols-3 gap-1 bg-white p-1 rounded-xl border border-slate-200">
-                                            {(['small', 'medium', 'large'] as const).map(sz => (
-                                                <button
-                                                    key={sz}
-                                                    onClick={() => setLabelSize(sz)}
-                                                    className={`py-1.5 text-xs font-bold rounded-lg capitalize transition ${
-                                                        labelSize === sz ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'
-                                                    }`}
-                                                >
-                                                    {sz}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="p-3 bg-white rounded-xl border border-slate-200 space-y-1.5 text-xs">
-                                        <div className="flex justify-between text-slate-500">
-                                            <span>Dimensions:</span>
-                                            <span className="font-bold text-slate-800">{labelSizes[labelSize].w} × {labelSizes[labelSize].h}</span>
-                                        </div>
-                                        <div className="flex justify-between text-slate-500">
-                                            <span>Total Labels:</span>
-                                            <span className="font-black text-purple-700">
-                                                {labelProducts.reduce((s, id) => s + (labelQty[id] || 1), 0)}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-2 pt-4">
-                                    <button
-                                        onClick={printLabels}
-                                        disabled={labelProducts.length === 0}
-                                        className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition disabled:opacity-40"
-                                    >
-                                        Print Barcode Labels
-                                    </button>
-                                    <button
-                                        onClick={() => setShowLabelModal(false)}
-                                        className="w-full py-2 bg-white border border-slate-200 text-slate-600 font-bold text-xs rounded-xl hover:bg-slate-50"
-                                    >
-                                        Close
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ━━━ FAST ITEM LOOKUP / SCANNER MODAL ━━━ */}
-            {showLookupModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-lg overflow-hidden">
-                        <div className="bg-gradient-to-r from-cyan-600 to-blue-600 px-6 py-4 text-white flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                                <FiEye size={20} />
-                                <h3 className="font-bold text-base">Rapid Drug Lookup / Barcode Scan</h3>
-                            </div>
-                            <button onClick={() => setShowLookupModal(false)} className="p-1 hover:bg-white/20 rounded-lg">
-                                <FiX size={18} />
-                            </button>
-                        </div>
-
-                        <div className="p-6 space-y-4">
-                            <div className="flex gap-2">
-                                <input
-                                    type="text"
-                                    value={lookupQuery}
-                                    onChange={e => setLookupQuery(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && doLookup()}
-                                    placeholder="Scan barcode or type drug name/code..."
-                                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:bg-white focus:border-cyan-500 outline-none"
-                                    autoFocus
-                                />
-                                <button
-                                    onClick={doLookup}
-                                    className="px-5 py-3 bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-sm rounded-xl transition"
-                                >
-                                    Lookup
-                                </button>
-                            </div>
-
-                            {lookupResult && (
-                                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-                                    <div>
-                                        <span className="font-mono text-xs font-bold text-cyan-600 bg-cyan-50 px-2 py-0.5 rounded">
-                                            {lookupResult.product_code}
-                                        </span>
-                                        <h4 className="text-base font-black text-slate-800 mt-1">{lookupResult.product_name}</h4>
-                                        <p className="text-xs text-slate-500 italic">{lookupResult.generic_name || 'No generic specification'}</p>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-2 text-xs">
-                                        <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                                            <span className="text-slate-400 text-[10px] uppercase font-bold">Sell Price</span>
-                                            <p className="text-sm font-black text-slate-800 mt-0.5">KES {(lookupResult.sales_cost || 0).toLocaleString()}</p>
-                                        </div>
-                                        <div className="bg-white p-2.5 rounded-xl border border-slate-200">
-                                            <span className="text-slate-400 text-[10px] uppercase font-bold">Stock Available</span>
-                                            <p className="text-sm font-black text-emerald-700 mt-0.5">{stockData[lookupResult.pid] || 0} {lookupResult.sales_unit || 'Pcs'}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-2 pt-2">
-                                        <button
-                                            onClick={() => { setShowLookupModal(false); openEditModal(lookupResult); }}
-                                            className="flex-1 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700"
-                                        >
-                                            Edit Full Record
-                                        </button>
-                                        <button
-                                            onClick={() => { setShowLookupModal(false); openStockAdjust(lookupResult); }}
-                                            className="flex-1 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold hover:bg-purple-700"
-                                        >
-                                            Adjust Stock
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ━━━ STOCK HISTORY LEDGER MODAL ━━━ */}
-            {showStockHistoryModal && stockHistoryProduct && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 text-white flex items-center justify-between flex-shrink-0">
-                            <div>
-                                <h3 className="font-bold text-base flex items-center gap-2">
-                                    <FiClock size={16} /> Stock Movement Audit Ledger
-                                </h3>
-                                <p className="text-xs text-blue-200">
-                                    {stockHistoryProduct.product_name} ({stockHistoryProduct.product_code})
-                                </p>
-                            </div>
-                            <button onClick={() => setShowStockHistoryModal(false)} className="p-1 hover:bg-white/20 rounded-lg">
-                                <FiX size={18} />
-                            </button>
-                        </div>
-
-                        <div className="p-6 overflow-y-auto flex-1">
-                            {stockHistory.length === 0 ? (
-                                <p className="text-center text-slate-400 py-12 text-xs">No movement history recorded yet</p>
-                            ) : (
-                                <table className="w-full text-xs">
-                                    <thead>
-                                        <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 text-[10px] uppercase">
-                                            <th className="py-2.5 px-3 text-left">Date</th>
-                                            <th className="py-2.5 px-3 text-left">Reference</th>
-                                            <th className="py-2.5 px-3 text-left">Type</th>
-                                            <th className="py-2.5 px-3 text-right text-emerald-600">Qty In</th>
-                                            <th className="py-2.5 px-3 text-right text-red-600">Qty Out</th>
-                                            <th className="py-2.5 px-3 text-right">Balance</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {stockHistory.map(r => (
-                                            <tr key={r.id} className="hover:bg-slate-50">
-                                                <td className="py-2.5 px-3 text-slate-600">{r.date}</td>
-                                                <td className="py-2.5 px-3 font-mono font-bold text-blue-600">{r.ref}</td>
-                                                <td className="py-2.5 px-3 text-slate-700">{r.type}</td>
-                                                <td className="py-2.5 px-3 text-right font-black text-emerald-700">{r.qty_in > 0 ? `+${r.qty_in}` : '-'}</td>
-                                                <td className="py-2.5 px-3 text-right font-black text-red-700">{r.qty_out > 0 ? `-${r.qty_out}` : '-'}</td>
-                                                <td className="py-2.5 px-3 text-right font-black text-slate-900">{r.balance}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ━━━ PRICE HISTORY AUDIT MODAL ━━━ */}
-            {showPriceHistoryModal && priceHistoryProduct && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden">
-                        <div className="bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-4 text-white flex items-center justify-between flex-shrink-0">
-                            <div>
-                                <h3 className="font-bold text-base flex items-center gap-2">
-                                    <FiTrendingUp size={16} /> Historical Price Change Audit
-                                </h3>
-                                <p className="text-xs text-amber-200">{priceHistoryProduct.product_name}</p>
-                            </div>
-                            <button onClick={() => setShowPriceHistoryModal(false)} className="p-1 hover:bg-white/20 rounded-lg">
-                                <FiX size={18} />
-                            </button>
-                        </div>
-
-                        <div className="p-6 overflow-y-auto flex-1">
-                            {priceHistory.length === 0 ? (
-                                <p className="text-center text-slate-400 py-12 text-xs">No price revisions logged yet</p>
-                            ) : (
-                                <table className="w-full text-xs">
-                                    <thead>
-                                        <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 text-[10px] uppercase">
-                                            <th className="py-2.5 px-3 text-left">Timestamp</th>
-                                            <th className="py-2.5 px-3 text-right">Old Buy</th>
-                                            <th className="py-2.5 px-3 text-right text-blue-600">New Buy</th>
-                                            <th className="py-2.5 px-3 text-right">Old Sell</th>
-                                            <th className="py-2.5 px-3 text-right text-emerald-600">New Sell</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {priceHistory.map(r => (
-                                            <tr key={r.id} className="hover:bg-slate-50">
-                                                <td className="py-2.5 px-3 text-slate-600">{r.date}</td>
-                                                <td className="py-2.5 px-3 text-right text-slate-400 line-through">KES {r.old_buy.toLocaleString()}</td>
-                                                <td className="py-2.5 px-3 text-right font-bold text-blue-600">KES {r.new_buy.toLocaleString()}</td>
-                                                <td className="py-2.5 px-3 text-right text-slate-400 line-through">KES {r.old_sell.toLocaleString()}</td>
-                                                <td className="py-2.5 px-3 text-right font-black text-emerald-700">KES {r.new_sell.toLocaleString()}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ━━━ STOCK ADJUSTMENT MODAL ━━━ */}
-            {showStockAdjustModal && adjustProduct && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-md overflow-hidden">
-                        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4 text-white flex items-center justify-between">
-                            <div>
-                                <h3 className="font-bold text-base flex items-center gap-2">
-                                    <FiSliders size={16} /> Physical Stock Reconciliation
-                                </h3>
-                                <p className="text-xs text-purple-200">{adjustProduct.product_name}</p>
-                            </div>
-                            <button onClick={() => setShowStockAdjustModal(false)} className="p-1 hover:bg-white/20 rounded-lg">
-                                <FiX size={18} />
-                            </button>
-                        </div>
-
-                        <div className="p-6 space-y-4">
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setAdjustType('add')}
-                                    className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition ${
-                                        adjustType === 'add' ? 'bg-emerald-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600'
-                                    }`}
-                                >
-                                    + Add Stock
-                                </button>
-                                <button
-                                    onClick={() => setAdjustType('remove')}
-                                    className={`flex-1 py-2.5 rounded-xl font-bold text-xs transition ${
-                                        adjustType === 'remove' ? 'bg-red-600 text-white shadow-sm' : 'bg-slate-100 text-slate-600'
-                                    }`}
-                                >
-                                    - Deduct Stock
-                                </button>
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">
-                                    Quantity in {adjustProduct.sales_unit || 'Pieces'}
-                                </label>
-                                <input
-                                    type="number"
-                                    min={1}
-                                    value={adjustPieces || ''}
-                                    onChange={e => setAdjustPieces(parseInt(e.target.value) || 0)}
-                                    placeholder="Enter units count"
-                                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base font-bold text-center"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-xs font-bold text-slate-600 mb-1">
-                                    Audit Reason / Memo
-                                </label>
-                                <input
-                                    type="text"
-                                    value={adjustReason}
-                                    onChange={e => setAdjustReason(e.target.value)}
-                                    placeholder="e.g. Physical count discrepancy, damaged blister pack"
-                                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs"
-                                />
-                            </div>
-
-                            <div className="flex gap-2 pt-2">
-                                <button
-                                    onClick={() => setShowStockAdjustModal(false)}
-                                    className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={submitStockAdjust}
-                                    className={`flex-1 py-2.5 text-white rounded-xl text-xs font-bold shadow-sm ${
-                                        adjustType === 'add' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-red-600 hover:bg-red-700'
-                                    }`}
-                                >
-                                    Confirm Adjustment
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ━━━ CSV IMPORT MODAL ━━━ */}
-            {showImportModal && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-xl overflow-hidden">
-                        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-4 text-white flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                                <FiUpload size={18} />
-                                <h3 className="font-bold text-base">Bulk Pharmaceutical CSV Import</h3>
-                            </div>
-                            <button onClick={() => setShowImportModal(false)} className="p-1 hover:bg-white/20 rounded-lg">
-                                <FiX size={18} />
-                            </button>
-                        </div>
-
-                        <div className="p-6 space-y-4">
-                            {importStatus === 'success' ? (
-                                <div className="text-center py-6">
-                                    <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                            {/* ─── STATUS: SUCCESS AUDIT ─── */}
+                            {importStatus === 'success' && (
+                                <div className="text-center py-6 space-y-4">
+                                    <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-md">
                                         <FiCheck size={32} />
                                     </div>
-                                    <h4 className="text-lg font-black text-slate-800">{importSuccessCount} Products Imported!</h4>
-                                    <p className="text-xs text-slate-500 mt-1">Catalog updated successfully.</p>
-                                    <button
-                                        onClick={() => setShowImportModal(false)}
-                                        className="mt-5 px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700"
-                                    >
-                                        Close
-                                    </button>
-                                </div>
-                            ) : (
-                                <>
                                     <div>
-                                        <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Select CSV File</label>
-                                        <input
-                                            type="file"
-                                            accept=".csv"
-                                            onChange={e => { if (e.target.files?.[0]) setImportFile(e.target.files[0]); }}
-                                            className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                        />
+                                        <h4 className="text-xl font-black text-slate-800">Pharmaceutical Import Complete!</h4>
+                                        <p className="text-xs text-slate-500 mt-1">Catalog and inventory registries have been updated.</p>
                                     </div>
 
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Import Mode</label>
-                                        <div className="space-y-1.5 text-xs">
-                                            {[
-                                                { id: 'add_new', label: 'Add New Products Only', desc: 'Skips items with duplicate names' },
-                                                { id: 'update', label: 'Update & Append', desc: 'Updates matching items, adds new ones' },
-                                            ].map(m => (
-                                                <label key={m.id} className="flex items-center gap-2 p-2 rounded-xl border border-slate-200 cursor-pointer">
-                                                    <input
-                                                        type="radio"
-                                                        name="importMode"
-                                                        value={m.id}
-                                                        checked={importMode === m.id}
-                                                        onChange={() => setImportMode(m.id as any)}
-                                                        className="accent-blue-600"
-                                                    />
-                                                    <div>
-                                                        <span className="font-bold text-slate-800">{m.label}</span>
-                                                        <span className="text-slate-400 block text-[10px]">{m.desc}</span>
-                                                    </div>
-                                                </label>
-                                            ))}
+                                    {/* Summary Stats Grid */}
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-2xl mx-auto pt-2">
+                                        <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-2xl">
+                                            <p className="text-[10px] font-bold text-emerald-600 uppercase">New Items Created</p>
+                                            <p className="text-2xl font-black text-emerald-800 mt-1">{importSuccessCount}</p>
+                                        </div>
+                                        <div className="bg-blue-50 border border-blue-200 p-3 rounded-2xl">
+                                            <p className="text-[10px] font-bold text-blue-600 uppercase">Existing Updated</p>
+                                            <p className="text-2xl font-black text-blue-800 mt-1">{importUpdatedCount}</p>
+                                        </div>
+                                        <div className="bg-purple-50 border border-purple-200 p-3 rounded-2xl">
+                                            <p className="text-[10px] font-bold text-purple-600 uppercase">Batches Created</p>
+                                            <p className="text-2xl font-black text-purple-800 mt-1">{importBatchCount}</p>
+                                        </div>
+                                        <div className="bg-slate-100 border border-slate-200 p-3 rounded-2xl">
+                                            <p className="text-[10px] font-bold text-slate-500 uppercase">Skipped / Unchanged</p>
+                                            <p className="text-2xl font-black text-slate-700 mt-1">{importSkippedCount}</p>
                                         </div>
                                     </div>
 
-                                    {importStatus === 'importing' && (
-                                        <div className="space-y-1">
-                                            <div className="flex justify-between text-xs text-slate-500">
-                                                <span>Importing: {importCurrentItem}</span>
-                                                <span>{importProgress} of {importTotal}</span>
-                                            </div>
-                                            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                                                <div
-                                                    className="bg-blue-600 h-2 transition-all duration-200"
-                                                    style={{ width: `${importTotal > 0 ? (importProgress / importTotal) * 100 : 0}%` }}
-                                                />
+                                    {/* Error log if any */}
+                                    {importErrors.length > 0 && (
+                                        <div className="max-w-2xl mx-auto bg-red-50 border border-red-200 rounded-2xl p-4 text-left max-h-40 overflow-y-auto">
+                                            <p className="text-xs font-bold text-red-700 mb-1">
+                                                {importErrors.length} Item(s) with Issues:
+                                            </p>
+                                            <div className="space-y-1">
+                                                {importErrors.map((e, idx) => (
+                                                    <p key={idx} className="text-[11px] text-red-600 font-medium">
+                                                        • Row {e.row} ({e.item}): {e.error}
+                                                    </p>
+                                                ))}
                                             </div>
                                         </div>
                                     )}
 
-                                    <div className="flex gap-2 pt-2">
+                                    <div className="pt-4">
                                         <button
                                             onClick={() => setShowImportModal(false)}
-                                            className="flex-1 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold"
+                                            className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition"
                                         >
-                                            Cancel
+                                            Done & View Updated Formulary
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ─── STATUS: IMPORTING IN PROGRESS ─── */}
+                            {importStatus === 'importing' && (
+                                <div className="py-12 text-center space-y-4">
+                                    <div className="w-14 h-14 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mx-auto" />
+                                    <div>
+                                        <h4 className="text-base font-black text-slate-800">Processing Pharmaceutical Import...</h4>
+                                        <p className="text-xs text-slate-500 mt-1">
+                                            {importProgress} of {importTotal} records processed
+                                        </p>
+                                    </div>
+                                    <div className="max-w-md mx-auto bg-slate-100 rounded-full h-3 overflow-hidden">
+                                        <div
+                                            className="bg-gradient-to-r from-blue-600 to-emerald-500 h-full transition-all duration-200"
+                                            style={{ width: `${importTotal > 0 ? (importProgress / importTotal) * 100 : 0}%` }}
+                                        />
+                                    </div>
+                                    <p className="text-xs font-mono font-bold text-blue-600 truncate max-w-sm mx-auto">
+                                        Current: {importCurrentItem || 'Initializing...'}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* ─── STATUS: IDLE (FILE PICKER & CONTROLS) ─── */}
+                            {importStatus === 'idle' && (
+                                <div className="space-y-5">
+                                    {/* Upload Dropzone */}
+                                    <div className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-3xl p-8 text-center bg-slate-50/50 hover:bg-blue-50/20 transition cursor-pointer relative">
+                                        <input
+                                            type="file"
+                                            accept=".csv,.txt"
+                                            onChange={e => {
+                                                if (e.target.files?.[0]) parseCSVFile(e.target.files[0]);
+                                            }}
+                                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                        />
+                                        <div className="w-14 h-14 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-3">
+                                            <FiUpload size={24} />
+                                        </div>
+                                        <h4 className="text-sm font-black text-slate-800">Click to upload or drag & drop CSV file</h4>
+                                        <p className="text-xs text-slate-400 mt-1">
+                                            Supports standard comma-separated pharmaceutical formulary files (.csv)
+                                        </p>
+                                    </div>
+
+                                    {/* Configuration Options Grid */}
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                                        {/* 1. Mode */}
+                                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
+                                            <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                                                <FiLayers size={13} className="text-blue-600" /> 1. Import Mode
+                                            </span>
+                                            <div className="space-y-1.5 text-xs">
+                                                {[
+                                                    { id: 'add_new', label: 'Append New Items Only', desc: 'Skip existing products by name/barcode' },
+                                                    { id: 'update', label: 'Update & Append', desc: 'Update prices of existing, add new' },
+                                                    { id: 'overwrite_all', label: '⚠️ Overwrite All', desc: 'Wipe catalog & re-import from fresh' }
+                                                ].map(m => (
+                                                    <label key={m.id} className={`flex items-start gap-2 p-2 rounded-xl border cursor-pointer transition ${
+                                                        importMode === m.id ? 'bg-white border-blue-400 shadow-xs' : 'border-transparent hover:bg-slate-100'
+                                                    }`}>
+                                                        <input
+                                                            type="radio"
+                                                            name="importMode"
+                                                            value={m.id}
+                                                            checked={importMode === m.id}
+                                                            onChange={() => setImportMode(m.id as any)}
+                                                            className="mt-0.5 accent-blue-600"
+                                                        />
+                                                        <div>
+                                                            <p className="font-bold text-slate-800">{m.label}</p>
+                                                            <p className="text-[10px] text-slate-400">{m.desc}</p>
+                                                        </div>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* 2. Stock Quantity Option */}
+                                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
+                                            <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                                                <FiBox size={13} className="text-emerald-600" /> 2. Quantity Handling
+                                            </span>
+                                            <div className="space-y-1.5 text-xs">
+                                                {[
+                                                    { id: 'with_qty', label: 'Import with Stock Quantities', desc: 'Adds on-shelf stock counts from CSV' },
+                                                    { id: 'zero_qty', label: 'Import as 0 Stock (Catalog Only)', desc: 'Formulary master only, recount later' }
+                                                ].map(q => (
+                                                    <label key={q.id} className={`flex items-start gap-2 p-2 rounded-xl border cursor-pointer transition ${
+                                                        importQtyHandling === q.id ? 'bg-white border-emerald-400 shadow-xs' : 'border-transparent hover:bg-slate-100'
+                                                    }`}>
+                                                        <input
+                                                            type="radio"
+                                                            name="importQty"
+                                                            value={q.id}
+                                                            checked={importQtyHandling === q.id}
+                                                            onChange={() => setImportQtyHandling(q.id as any)}
+                                                            className="mt-0.5 accent-emerald-600"
+                                                        />
+                                                        <div>
+                                                            <p className="font-bold text-slate-800">{q.label}</p>
+                                                            <p className="text-[10px] text-slate-400">{q.desc}</p>
+                                                        </div>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* 3. Batch Option */}
+                                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
+                                            <span className="text-xs font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                                                <FiCalendar size={13} className="text-purple-600" /> 3. Batch Registration
+                                            </span>
+                                            <div className="space-y-1.5 text-xs">
+                                                {[
+                                                    { id: 'import_batches', label: 'Register Batches & Expiry', desc: 'Create batch records from CSV' },
+                                                    { id: 'no_batches', label: 'Skip Batch Records', desc: 'Do not generate batches on import' }
+                                                ].map(b => (
+                                                    <label key={b.id} className={`flex items-start gap-2 p-2 rounded-xl border cursor-pointer transition ${
+                                                        importBatchesOption === b.id ? 'bg-white border-purple-400 shadow-xs' : 'border-transparent hover:bg-slate-100'
+                                                    }`}>
+                                                        <input
+                                                            type="radio"
+                                                            name="importBatches"
+                                                            value={b.id}
+                                                            checked={importBatchesOption === b.id}
+                                                            onChange={() => setImportBatchesOption(b.id as any)}
+                                                            className="mt-0.5 accent-purple-600"
+                                                        />
+                                                        <div>
+                                                            <p className="font-bold text-slate-800">{b.label}</p>
+                                                            <p className="text-[10px] text-slate-400">{b.desc}</p>
+                                                        </div>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Template Downloader Bar */}
+                                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                                        <div className="flex items-center gap-2.5">
+                                            <FiFileText size={20} className="text-emerald-600 flex-shrink-0" />
+                                            <div>
+                                                <p className="text-xs font-black text-emerald-900">Need the Standard Pharmacy CSV Template?</p>
+                                                <p className="text-[11px] text-emerald-700">Pre-populated with 8 real drug examples, batches, expiries & units</p>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={downloadPharmacyCSVTemplate}
+                                            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition whitespace-nowrap"
+                                        >
+                                            Download Master Template
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ─── STATUS: PARSED (DATA GRID PREVIEW & SELECTIVE IMPORT) ─── */}
+                            {importStatus === 'parsed' && (
+                                <div className="space-y-4">
+                                    {/* Preview Header & Stats */}
+                                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div className="flex flex-wrap items-center gap-3 text-xs">
+                                            <span className="font-bold text-slate-700">
+                                                Total Parsed: <b className="text-blue-600">{importParsedRows.length}</b>
+                                            </span>
+                                            <span className="text-slate-300">|</span>
+                                            <span className="font-bold text-slate-700">
+                                                Selected: <b className="text-emerald-700">{selectedImportCount}</b>
+                                            </span>
+                                            <span className="text-slate-300">|</span>
+                                            <span className="font-bold text-slate-700">
+                                                Valid: <b className="text-emerald-600">{importParsedRows.filter(r => r.valid).length}</b>
+                                            </span>
+                                            {importParsedRows.some(r => !r.valid) && (
+                                                <span className="font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+                                                    {importParsedRows.filter(r => !r.valid).length} with issues
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    setImportParsedRows(prev => prev.map(r => ({ ...r, selected: true })));
+                                                }}
+                                                className="px-2.5 py-1 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50"
+                                            >
+                                                Select All
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setImportParsedRows(prev => prev.map(r => ({ ...r, selected: false })));
+                                                }}
+                                                className="px-2.5 py-1 bg-white border border-slate-200 text-slate-700 rounded-lg text-xs font-bold hover:bg-slate-50"
+                                            >
+                                                Deselect All
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    setImportParsedRows(prev => prev.map(r => ({ ...r, selected: r.valid })));
+                                                }}
+                                                className="px-2.5 py-1 bg-white border border-emerald-300 text-emerald-700 rounded-lg text-xs font-bold hover:bg-emerald-50"
+                                            >
+                                                Valid Only
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Search within parsed rows */}
+                                    <div className="relative">
+                                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                                        <input
+                                            type="text"
+                                            value={importSearch}
+                                            onChange={e => setImportSearch(e.target.value)}
+                                            placeholder="Search within parsed import rows..."
+                                            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold"
+                                        />
+                                    </div>
+
+                                    {/* Data Grid Preview Table */}
+                                    <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-xs max-h-[38vh] overflow-y-auto">
+                                        <table className="w-full text-xs text-left">
+                                            <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase sticky top-0 z-10 border-b border-slate-200">
+                                                <tr>
+                                                    <th className="py-2.5 px-3 w-8 text-center">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedImportCount === importParsedRows.length && importParsedRows.length > 0}
+                                                            onChange={() => {
+                                                                const allSel = selectedImportCount === importParsedRows.length;
+                                                                setImportParsedRows(prev => prev.map(r => ({ ...r, selected: !allSel })));
+                                                            }}
+                                                            className="w-4 h-4 rounded accent-emerald-600"
+                                                        />
+                                                    </th>
+                                                    <th className="py-2.5 px-3">Status</th>
+                                                    <th className="py-2.5 px-3">Product Name</th>
+                                                    <th className="py-2.5 px-3">Generic (INN)</th>
+                                                    <th className="py-2.5 px-3">Category</th>
+                                                    <th className="py-2.5 px-3 text-right">Cost</th>
+                                                    <th className="py-2.5 px-3 text-right">Sell</th>
+                                                    <th className="py-2.5 px-3 text-right">Qty</th>
+                                                    <th className="py-2.5 px-3">Batch & Expiry</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {filteredImportRows.map(r => (
+                                                    <tr
+                                                        key={r._id}
+                                                        className={`hover:bg-slate-50 ${
+                                                            r.selected ? 'bg-emerald-50/20' : !r.valid ? 'bg-red-50/20' : ''
+                                                        }`}
+                                                    >
+                                                        <td className="py-2 px-3 text-center">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={r.selected}
+                                                                onChange={() => {
+                                                                    setImportParsedRows(prev =>
+                                                                        prev.map(item =>
+                                                                            item._id === r._id ? { ...item, selected: !item.selected } : item
+                                                                        )
+                                                                    );
+                                                                }}
+                                                                className="w-4 h-4 rounded accent-emerald-600 cursor-pointer"
+                                                            />
+                                                        </td>
+                                                        <td className="py-2 px-3">
+                                                            {r.valid ? (
+                                                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                                                    Ready ✓
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-[10px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-full border border-red-200" title={r.errors.join(', ')}>
+                                                                    ⚠️ {r.errors[0]}
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        <td className="py-2 px-3 font-bold text-slate-800">{r.product_name}</td>
+                                                        <td className="py-2 px-3 text-slate-500 italic">{r.generic_name || '-'}</td>
+                                                        <td className="py-2 px-3 text-slate-600">{r.category || 'General'}</td>
+                                                        <td className="py-2 px-3 text-right text-slate-700 font-mono">KES {r.purchase_cost}</td>
+                                                        <td className="py-2 px-3 text-right font-bold text-slate-900 font-mono">KES {r.sales_cost}</td>
+                                                        <td className="py-2 px-3 text-right font-bold text-emerald-700">{r.quantity} {r.sales_unit}</td>
+                                                        <td className="py-2 px-3 text-slate-500 font-mono text-[11px]">
+                                                            {r.batch_number || 'Auto'} {r.expiry_date ? `(${r.expiry_date})` : ''}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Overwrite Confirmation Checkbox */}
+                                    {importMode === 'overwrite_all' && (
+                                        <div className="p-3 bg-red-50 border border-red-300 rounded-2xl flex items-center gap-3">
+                                            <input
+                                                type="checkbox"
+                                                id="confirmOverwrite"
+                                                checked={confirmOverwrite}
+                                                onChange={e => setConfirmOverwrite(e.target.checked)}
+                                                className="w-5 h-5 accent-red-600 rounded cursor-pointer"
+                                            />
+                                            <label htmlFor="confirmOverwrite" className="text-xs font-black text-red-800 cursor-pointer">
+                                                I understand that &quot;Overwrite All&quot; will permanently delete existing catalog products and replace them with this import.
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                        </div>
+
+                        {/* Modal Footer Actions */}
+                        <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex items-center justify-between flex-shrink-0">
+                            {importStatus === 'parsed' ? (
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            setImportFile(null);
+                                            setImportParsedRows([]);
+                                            setImportStatus('idle');
+                                        }}
+                                        className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-100"
+                                    >
+                                        Choose Another File
+                                    </button>
+
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => executeImport(importParsedRows.filter(r => r.selected))}
+                                            disabled={selectedImportCount === 0 || (importMode === 'overwrite_all' && !confirmOverwrite)}
+                                            className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs rounded-xl shadow-md hover:from-emerald-700 hover:to-teal-700 transition disabled:opacity-40"
+                                        >
+                                            Import Selected ({selectedImportCount})
                                         </button>
                                         <button
-                                            onClick={importProducts}
-                                            disabled={!importFile || importStatus === 'importing'}
-                                            className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 disabled:opacity-40"
+                                            onClick={() => executeImport(importParsedRows)}
+                                            disabled={importParsedRows.length === 0 || (importMode === 'overwrite_all' && !confirmOverwrite)}
+                                            className="px-5 py-2.5 bg-blue-600 text-white font-bold text-xs rounded-xl shadow-md hover:bg-blue-700 transition disabled:opacity-40"
                                         >
-                                            {importStatus === 'importing' ? 'Importing...' : 'Start Import'}
+                                            Import All ({importParsedRows.length})
                                         </button>
                                     </div>
                                 </>
+                            ) : importStatus === 'idle' ? (
+                                <>
+                                    <span className="text-xs text-slate-400">Select a CSV file to inspect and select rows</span>
+                                    <button
+                                        onClick={() => setShowImportModal(false)}
+                                        className="px-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-white"
+                                    >
+                                        Close
+                                    </button>
+                                </>
+                            ) : (
+                                <button
+                                    onClick={() => setShowImportModal(false)}
+                                    className="px-5 py-2 bg-slate-800 text-white rounded-xl text-xs font-bold ml-auto"
+                                >
+                                    Close Window
+                                </button>
                             )}
                         </div>
                     </div>
