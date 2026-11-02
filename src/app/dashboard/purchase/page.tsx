@@ -1,771 +1,1937 @@
 'use client';
+// =====================================================================
+// Alpha Pharmacy - Super Massive Ultra Goods Received Note (GRN) & Purchase Engine v2.0
+// Ultra-Detailed Pharmaceutical Procurement, Live Batch & Expiry Tracking,
+// Margin & Markup Engine, Dual-Table Database Fallback, Quick Actions & GRN Receipt
+// =====================================================================
 
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { supabase, logActivity } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
-import { FiShoppingBag, FiPackage, FiX, FiPlus, FiTrash2, FiDollarSign, FiTruck, FiCalendar, FiHash, FiSave, FiCheckCircle, FiAlertTriangle, FiTrendingUp, FiSearch, FiRefreshCw, FiEdit3, FiArrowRight } from 'react-icons/fi';
 
-// ─── UNIT CONVERSIONS ───
-const UNIT_CONVERSIONS: Record<string, Record<string, number>> = {
-    'Box': { 'Piece': 1, 'Box': 1 }, 'Pack': { 'Piece': 1, 'Pack': 1 },
-    'Dozen': { 'Piece': 12, 'Dozen': 1 }, 'Kilogram': { 'Gram': 1000, 'Kilogram': 1 },
-    'Bag': { 'Kilogram': 1, 'Gram': 1000, 'Bag': 1 }, 'Liter': { 'Milliliter': 1000, 'Liter': 1 },
-};
-const ALL_UNITS = ['Piece', 'Box', 'Pack', 'Dozen', 'Kilogram', 'Gram', 'Bag', 'Liter', 'Milliliter', 'Carton', 'Bundle', 'Roll', 'Bottle', 'Sachet', 'Tablet', 'Strip'];
+// Unit conversion helpers
+const ALL_UNITS = [
+    'Box', 'Pack', 'Piece', 'Strip', 'Tablet', 'Capsule', 'Bottle',
+    'Carton', 'Sachet', 'Vial', 'Ampoule', 'Tube', 'Dozen', 'Kilogram', 'Gram', 'Liter', 'Milliliter'
+];
 
-interface Supplier {
-    supplier_id: number; supplier_code: string; supplier_name: string;
-    phone: string; contact_person: string;
+export interface Supplier {
+    supplier_id: number;
+    supplier_code: string;
+    supplier_name: string;
+    phone?: string;
+    contact_person?: string;
+    current_balance?: number;
+    payment_terms?: string;
 }
-interface Product {
-    pid: number; product_code: string; product_name: string;
-    purchase_unit: string; sales_unit: string; purchase_cost: number;
-    sales_cost: number; category: string; pieces_per_package: number;
-    barcode: string;
+
+export interface Product {
+    pid: number;
+    product_code: string;
+    product_name: string;
+    alias?: string;
+    category?: string;
+    purchase_unit?: string;
+    sales_unit?: string;
+    purchase_cost: number;
+    sales_cost: number;
+    pieces_per_package?: number;
+    barcode?: string;
+    storage_conditions?: string;
+    current_stock?: number;
 }
-interface PurchaseItem {
-    id: number; productId: number; productCode: string; productName: string;
+
+export interface PurchaseItem {
+    id: number;
+    productId: number;
+    productCode: string;
+    productName: string;
+    category?: string;
     purchaseUnit: string;
-    qty: number; price: number; total: number;
-    oldCost: number; oldSell: number; newCost: number; newSell: number;
-    updatePrices: boolean;
+    salesUnit: string;
+    qty: number;
     piecesPerPackage: number;
-    // Pharmacy batch/expiry
-    batchNumber: string; expiryDate: string; manufactureDate: string;
+    price: number; // Unit Purchase Cost
+    total: number; // Line Total Cost
+    oldCost: number;
+    oldSell: number;
+    newSellPrice: number;
+    updatePrices: boolean;
+    // Pharmacy Batch & Quality Fields
+    batchNumber: string;
+    expiryDate: string;
+    manufactureDate: string;
+    storageCondition: string;
 }
+
+export interface RecentInvoice {
+    purchase_id: number;
+    purchase_no: string;
+    purchase_date: string;
+    supplier_name: string;
+    grand_total: number;
+    payment_status: string;
+    created_at?: string;
+}
+
+const escapeXml = (unsafe: any): string => {
+    if (unsafe === null || unsafe === undefined) return '';
+    return String(unsafe)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+};
 
 export default function PurchaseEntryPage() {
     const { activeOutlet } = useOutlet();
     const outletId = activeOutlet?.outlet_id || 1;
+    const outletName = activeOutlet?.outlet_name || 'Alpha Pharmacy Main';
+
+    // Core Data
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
+    const [recentInvoices, setRecentInvoices] = useState<RecentInvoice[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [productSearch, setProductSearch] = useState('');
-    const [showProductDropdown, setShowProductDropdown] = useState(false);
+    const [activeSupplierTable, setActiveSupplierTable] = useState('suppliers');
 
-    // Form
+    // GRN Master Fields
     const [invoiceNo, setInvoiceNo] = useState('');
-    const [selectedSupplier, setSelectedSupplier] = useState<number>(0);
+    const [selectedSupplierId, setSelectedSupplierId] = useState<number>(0);
     const [supplierInvoiceNo, setSupplierInvoiceNo] = useState('');
     const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
-    const [items, setItems] = useState<PurchaseItem[]>([]);
-    const [paymentStatus, setPaymentStatus] = useState('Paid');
+    const [paymentStatus, setPaymentStatus] = useState<'Paid' | 'Unpaid' | 'Partial'>('Paid');
+    const [paymentMethod, setPaymentMethod] = useState('Bank Transfer');
     const [notes, setNotes] = useState('');
+    const [discountAmount, setDiscountAmount] = useState<number>(0);
+    const [vatPercent, setVatPercent] = useState<number>(0);
 
-    // Add item form
+    // Cart Line Items
+    const [items, setItems] = useState<PurchaseItem[]>([]);
+
+    // Product Search & Selection
+    const [productSearch, setProductSearch] = useState('');
+    const [showProductDropdown, setShowProductDropdown] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-    const [qty, setQty] = useState<number>(1);
-    const [price, setPrice] = useState<number>(0);
-    const [purchaseUnit, setPurchaseUnit] = useState<string>('');
-    const [availableQty, setAvailableQty] = useState<number>(0);
-    // Price change fields
-    const [newSellPrice, setNewSellPrice] = useState<number>(0);
-    const [shouldUpdatePrices, setShouldUpdatePrices] = useState(false);
-    const [priceChanged, setPriceChanged] = useState(false);
 
-    // Success state
-    const [showSuccess, setShowSuccess] = useState(false);
-    const [savedInvoice, setSavedInvoice] = useState('');
+    // Current Line Item Intake Fields
+    const [itemQty, setItemQty] = useState<number>(1);
+    const [itemUnit, setItemUnit] = useState<string>('Box');
+    const [itemCost, setItemCost] = useState<number>(0);
+    const [itemSell, setItemSell] = useState<number>(0);
+    const [itemPiecesPerPack, setItemPiecesPerPack] = useState<number>(1);
+    const [itemBatchNo, setItemBatchNo] = useState<string>('');
+    const [itemExpiryDate, setItemExpiryDate] = useState<string>('');
+    const [itemMfgDate, setItemMfgDate] = useState<string>('');
+    const [itemStorage, setItemStorage] = useState<string>('Room Temp (15-25°C)');
+    const [itemUpdateMasterPrice, setItemUpdateMasterPrice] = useState<boolean>(true);
 
-    // Price change confirmation modal
-    const [showPriceConfirm, setShowPriceConfirm] = useState(false);
+    // Modals
+    const [showAddProductModal, setShowAddProductModal] = useState(false);
+    const [showAddSupplierModal, setShowAddSupplierModal] = useState(false);
+    const [showRecentInvoicesModal, setShowRecentInvoicesModal] = useState(false);
+    const [showGrnPrintModal, setShowGrnPrintModal] = useState(false);
+    const [completedGrn, setCompletedGrn] = useState<any | null>(null);
+
+    // Quick Add Product Form State
+    const [newProdCode, setNewProdCode] = useState('');
+    const [newProdName, setNewProdName] = useState('');
+    const [newProdCategory, setNewProdCategory] = useState('Tablets & Capsules');
+    const [newProdCost, setNewProdCost] = useState<number>(0);
+    const [newProdSell, setNewProdSell] = useState<number>(0);
+    const [newProdBarcode, setNewProdBarcode] = useState('');
+    const [newProdPcs, setNewProdPcs] = useState<number>(1);
+    const [isSavingProd, setIsSavingProd] = useState(false);
+
+    // Quick Add Supplier Form State
+    const [newSuppName, setNewSuppName] = useState('');
+    const [newSuppPhone, setNewSuppPhone] = useState('');
+    const [newSuppContact, setNewSuppContact] = useState('');
+    const [newSuppTerms, setNewSuppTerms] = useState('Net 30');
+    const [newSuppKra, setNewSuppKra] = useState('');
+    const [isSavingSupp, setIsSavingSupp] = useState(false);
+
+    // =====================================================================
+    // LOAD LIVE DATA WITH DUAL-FALLBACK ARCHITECTURE
+    // =====================================================================
+    const loadMasterData = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            // 1. Fetch Suppliers (pharmacy_suppliers -> fallback to suppliers)
+            let suppList: Supplier[] = [];
+            let resolvedSuppTable = 'suppliers';
+
+            const { data: pSupp, error: pSuppErr } = await supabase
+                .from('pharmacy_suppliers')
+                .select('supplier_id, supplier_code, supplier_name, phone, contact_person, current_balance, payment_terms')
+                .order('supplier_name');
+
+            if (!pSuppErr && pSupp && pSupp.length > 0) {
+                suppList = pSupp;
+                resolvedSuppTable = 'pharmacy_suppliers';
+            } else {
+                const { data: bSupp, error: bSuppErr } = await supabase
+                    .from('suppliers')
+                    .select('supplier_id, supplier_code, supplier_name, phone, contact_person, current_balance, payment_terms')
+                    .order('supplier_name');
+
+                if (!bSuppErr && bSupp) {
+                    suppList = bSupp;
+                    resolvedSuppTable = 'suppliers';
+                }
+            }
+            setSuppliers(suppList);
+            setActiveSupplierTable(resolvedSuppTable);
+
+            // 2. Fetch Products (pharmacy_products merged with products)
+            let prodList: Product[] = [];
+            const { data: pProd } = await supabase
+                .from('pharmacy_products')
+                .select('pid, product_code, product_name, alias, category, purchase_unit, sales_unit, purchase_cost, sales_cost, pieces_per_package, barcode, storage_conditions');
+
+            if (pProd && pProd.length > 0) {
+                prodList = pProd.map((p) => ({
+                    pid: p.pid,
+                    product_code: p.product_code || `PRD-${p.pid}`,
+                    product_name: p.product_name,
+                    alias: p.alias,
+                    category: p.category || 'General Pharma',
+                    purchase_unit: p.purchase_unit || 'Box',
+                    sales_unit: p.sales_unit || 'Piece',
+                    purchase_cost: Number(p.purchase_cost) || 0,
+                    sales_cost: Number(p.sales_cost) || 0,
+                    pieces_per_package: Number(p.pieces_per_package) || 1,
+                    barcode: p.barcode,
+                    storage_conditions: p.storage_conditions || 'Room Temp (15-25°C)',
+                }));
+            }
+
+            // Fallback / merge from products if pharmacy_products has few or no items
+            const { data: bProd } = await supabase
+                .from('products')
+                .select('pid, product_code, product_name, alias, category, purchase_unit, sales_unit, purchase_cost, sales_cost, pieces_per_package, barcode');
+
+            if (bProd && bProd.length > 0) {
+                const existingCodes = new Set(prodList.map((p) => p.product_code));
+                bProd.forEach((p) => {
+                    if (!existingCodes.has(p.product_code)) {
+                        prodList.push({
+                            pid: p.pid,
+                            product_code: p.product_code || `PRD-${p.pid}`,
+                            product_name: p.product_name,
+                            alias: p.alias,
+                            category: p.category || 'General Pharma',
+                            purchase_unit: p.purchase_unit || 'Box',
+                            sales_unit: p.sales_unit || 'Piece',
+                            purchase_cost: Number(p.purchase_cost) || 0,
+                            sales_cost: Number(p.sales_cost) || 0,
+                            pieces_per_package: Number(p.pieces_per_package) || 1,
+                            barcode: p.barcode,
+                            storage_conditions: 'Room Temp (15-25°C)',
+                        });
+                    }
+                });
+            }
+            setProducts(prodList);
+
+            // 3. Fetch Recent Invoices
+            let recents: RecentInvoice[] = [];
+            const { data: pRec } = await supabase
+                .from('pharmacy_purchases')
+                .select('purchase_id, purchase_no, purchase_date, supplier_name, grand_total, payment_status, created_at')
+                .order('purchase_id', { ascending: false })
+                .limit(10);
+
+            if (pRec && pRec.length > 0) {
+                recents = pRec;
+            } else {
+                const { data: bRec } = await supabase
+                    .from('purchases')
+                    .select('purchase_id, purchase_no, purchase_date, supplier_name, grand_total, payment_status, created_at')
+                    .order('purchase_id', { ascending: false })
+                    .limit(10);
+                if (bRec) recents = bRec;
+            }
+            setRecentInvoices(recents);
+
+            // 4. Generate next Purchase / Invoice Number
+            await generateNextInvoiceNo();
+        } catch (err: any) {
+            console.error('Error initializing purchase entry:', err);
+            toast.error('Failed to load catalog data');
+        } finally {
+            setIsLoading(false);
+        }
+    }, [outletId]);
 
     useEffect(() => {
-        const loadData = async () => {
-            if (!activeOutlet) return; // Wait for outlet context
-            setIsLoading(true);
-            try {
-                // Products: try with outlet_id, fallback without
-                let prodData: any[] | null = null;
-                const r1 = await supabase.from('pharmacy_products').select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode').eq('active', true).eq('outlet_id', outletId).order('product_name');
-                if (r1.error) {
-                    const r2 = await supabase.from('pharmacy_products').select('pid, product_code, product_name, purchase_unit, sales_unit, purchase_cost, sales_cost, category, pieces_per_package, barcode').eq('active', true).order('product_name');
-                    prodData = r2.data;
-                } else {
-                    prodData = r1.data;
-                }
+        loadMasterData();
+    }, [loadMasterData]);
 
-                const [{ data: suppData }] = await Promise.all([
-                    supabase.from('pharmacy_suppliers').select('supplier_id, supplier_code, supplier_name, phone, contact_person').eq('active', true).order('supplier_name'),
-                ]);
-                setSuppliers(suppData || []); setProducts(prodData || []);
-                await generateInvoiceNo();
-            } catch { toast.error('Failed to load data'); }
-            setIsLoading(false);
-        };
-        loadData();
-    }, [activeOutlet, outletId]);
-
-    const generateInvoiceNo = async () => {
+    // Generate Next Sequential Invoice No (e.g. INV-04)
+    const generateNextInvoiceNo = async () => {
         try {
-            const { data } = await supabase.from('pharmacy_purchases').select('purchase_no').eq('outlet_id', outletId).order('purchase_id', { ascending: false }).limit(1);
-            let n = 1;
-            if (data?.[0]) { const m = data[0].purchase_no.match(/INV-(\d+)/); if (m) n = parseInt(m[1]) + 1; }
-            setInvoiceNo(`INV-${String(n).padStart(3, '0')}`);
-        } catch { setInvoiceNo(`INV-${Date.now().toString().slice(-4)}`); }
+            let maxNum = 0;
+            // Check pharmacy_purchases
+            const { data: pData } = await supabase
+                .from('pharmacy_purchases')
+                .select('purchase_no')
+                .order('purchase_id', { ascending: false })
+                .limit(20);
+
+            (pData || []).forEach((row) => {
+                const match = (row.purchase_no || '').match(/INV-(\d+)/i);
+                if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10));
+            });
+
+            // Check purchases
+            const { data: bData } = await supabase
+                .from('purchases')
+                .select('purchase_no')
+                .order('purchase_id', { ascending: false })
+                .limit(20);
+
+            (bData || []).forEach((row) => {
+                const match = (row.purchase_no || '').match(/INV-(\d+)/i);
+                if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10));
+            });
+
+            const nextNum = maxNum + 1;
+            setInvoiceNo(`INV-${String(nextNum).padStart(2, '0')}`);
+        } catch {
+            setInvoiceNo(`INV-${Date.now().toString().slice(-4)}`);
+        }
     };
 
-    // ─── PRODUCT SELECTION ───
-    const selectProduct = async (product: Product) => {
-        setSelectedProduct(product);
-        setProductSearch(product.product_name);
+    // Auto-generate Batch Number Suggestion
+    const generateSuggestedBatch = (prodName: string) => {
+        const clean = (prodName || 'LOT').replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase();
+        const rand = Math.floor(1000 + Math.random() * 9000);
+        return `${clean || 'BAT'}-${rand}`;
+    };
+
+    // Handle Product Selection
+    const handleSelectProduct = (p: Product) => {
+        setSelectedProduct(p);
+        setProductSearch(p.product_name);
         setShowProductDropdown(false);
-        setPurchaseUnit(product.purchase_unit || 'Piece');
-        setPrice(product.purchase_cost || 0);
-        setNewSellPrice(product.sales_cost || 0);
-        setShouldUpdatePrices(false);
-        setPriceChanged(false);
-        setQty(1);
-        // Load stock for this outlet
-        const { data: stockData } = await supabase.from('pharmacy_stock').select('qty').eq('pid', product.pid).eq('outlet_id', outletId);
-        setAvailableQty(stockData?.reduce((s, r: any) => s + (r.qty || 0), 0) || 0);
+
+        setItemUnit(p.purchase_unit || 'Box');
+        setItemCost(p.purchase_cost || 0);
+        setItemSell(p.sales_cost || 0);
+        setItemPiecesPerPack(p.pieces_per_package || 1);
+        setItemQty(1);
+
+        // Auto generate suggested batch & default 2-year expiry
+        setItemBatchNo(generateSuggestedBatch(p.product_name));
+
+        const now = new Date();
+        const twoYears = new Date(now.getFullYear() + 2, now.getMonth(), now.getDate());
+        setItemExpiryDate(twoYears.toISOString().split('T')[0]);
+
+        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, now.getDate());
+        setItemMfgDate(sixMonthsAgo.toISOString().split('T')[0]);
+
+        setItemStorage(p.storage_conditions || 'Room Temp (15-25°C)');
+        setItemUpdateMasterPrice(true);
     };
 
-    // Detect price change
-    const handlePriceChange = (newCost: number) => {
-        setPrice(newCost);
-        if (selectedProduct && newCost !== selectedProduct.purchase_cost) {
-            setPriceChanged(true);
-            // Auto-suggest new sell price maintaining the same margin
-            if (selectedProduct.purchase_cost > 0) {
-                const marginRatio = selectedProduct.sales_cost / selectedProduct.purchase_cost;
-                setNewSellPrice(Math.round(newCost * marginRatio));
-            }
-        } else {
-            setPriceChanged(false);
-        }
+    // Auto calculate markup and margin
+    const itemMargin = useMemo(() => {
+        if (itemSell <= 0) return { profit: 0, marginPct: 0, markupPct: 0 };
+        const profit = itemSell - itemCost;
+        const marginPct = (profit / itemSell) * 100;
+        const markupPct = itemCost > 0 ? (profit / itemCost) * 100 : 0;
+        return { profit, marginPct, markupPct };
+    }, [itemCost, itemSell]);
+
+    // Quick Markup Suggester
+    const applySuggestedMarkup = (markupPercent: number) => {
+        if (itemCost <= 0) return;
+        const calculatedSell = Math.round(itemCost * (1 + markupPercent / 100));
+        setItemSell(calculatedSell);
     };
 
-    // Get actual quantity in base units for stock
-    const getStockQty = (qty: number, unit: string, product: Product): number => {
-        const prodPurchaseUnit = product.purchase_unit || 'Piece';
-        if (unit === prodPurchaseUnit) return qty;
-
-        // Converting from smaller to base
-        // e.g., purchasing 2 Kgs of something that's normally bought in Bags (50kg bags)
-        const conv = UNIT_CONVERSIONS[prodPurchaseUnit];
-        if (conv && conv[unit]) {
-            // unit is a sub-unit of purchase_unit, so: qty / conversion
-            return qty / conv[unit];
-        }
-        // Check reverse
-        const revConv = UNIT_CONVERSIONS[unit];
-        if (revConv && revConv[prodPurchaseUnit]) {
-            return qty * revConv[prodPurchaseUnit];
-        }
-        return qty;
-    };
-
-    // Get available units for a product
-    const getAvailableUnits = (product: Product): string[] => {
-        const units = new Set<string>();
-        units.add(product.purchase_unit || 'Piece');
-        units.add(product.sales_unit || 'Piece');
-        // Add related conversion units
-        const conv = UNIT_CONVERSIONS[product.purchase_unit];
-        if (conv) Object.keys(conv).forEach(u => units.add(u));
-        const conv2 = UNIT_CONVERSIONS[product.sales_unit];
-        if (conv2) Object.keys(conv2).forEach(u => units.add(u));
-        // Always include these common ones
-        ALL_UNITS.forEach(u => units.add(u));
-        return Array.from(units);
-    };
-
-    // ─── ADD ITEM ───
-    const addItem = () => {
-        if (!selectedProduct || qty <= 0 || price <= 0) { toast.error('Select product, enter qty & price'); return; }
-        const existing = items.findIndex(i => i.productId === selectedProduct.pid && i.purchaseUnit === purchaseUnit);
-        if (existing >= 0) {
-            setItems(prev => prev.map((item, idx) => idx === existing ? { ...item, qty: item.qty + qty, total: (item.qty + qty) * item.price } : item));
-            toast.success('Quantity updated');
-        } else {
-            const newItem: PurchaseItem = {
-                id: Date.now(),
-                productId: selectedProduct.pid,
-                productCode: selectedProduct.product_code || '',
-                productName: selectedProduct.product_name,
-                purchaseUnit: purchaseUnit,
-                qty, price,
-                total: qty * price,
-                oldCost: selectedProduct.purchase_cost,
-                oldSell: selectedProduct.sales_cost,
-                newCost: price,
-                newSell: newSellPrice,
-                updatePrices: shouldUpdatePrices,
-                piecesPerPackage: selectedProduct.pieces_per_package || 1,
-                batchNumber: (document.getElementById('batchNo') as HTMLInputElement)?.value || '',
-                expiryDate: (document.getElementById('expiryDate') as HTMLInputElement)?.value || '',
-                manufactureDate: (document.getElementById('mfgDate') as HTMLInputElement)?.value || '',
-            };
-            setItems(prev => [...prev, newItem]);
-            toast.success('Item added');
-        }
-        setSelectedProduct(null); setQty(1); setPrice(0); setPurchaseUnit(''); setProductSearch('');
-        setPriceChanged(false); setShouldUpdatePrices(false);
-    };
-
-    // ─── TOGGLE PRICE UPDATE FOR AN ITEM ───
-    const toggleItemPriceUpdate = (itemId: number, update: boolean) => {
-        setItems(prev => prev.map(i => i.id === itemId ? { ...i, updatePrices: update } : i));
-    };
-
-    // ─── EDIT ITEM SELL PRICE ───
-    const editItemSellPrice = (itemId: number, newSell: number) => {
-        setItems(prev => prev.map(i => i.id === itemId ? { ...i, newSell } : i));
-    };
-
-    const subtotal = items.reduce((s, i) => s + i.total, 0);
-    const total = subtotal;
-
-    // Products filtered only when search has text
-    const filteredProducts = productSearch.trim().length >= 1
-        ? products.filter(p => {
-            const q = productSearch.toLowerCase();
-            return p.product_name.toLowerCase().includes(q) || p.product_code.toLowerCase().includes(q) || (p.barcode && p.barcode.includes(productSearch));
-        }).slice(0, 15)
-        : [];
-
-    // ─── SAVE PURCHASE ───
-    const savePurchase = async () => {
-        if (!selectedSupplier) { toast.error('Select a supplier'); return; }
-        if (items.length === 0) { toast.error('Add at least one item'); return; }
-        // Check for price updates
-        const priceUpdateItems = items.filter(i => i.updatePrices && (i.newCost !== i.oldCost || i.newSell !== i.oldSell));
-        if (priceUpdateItems.length > 0 && !showPriceConfirm) {
-            setShowPriceConfirm(true);
+    // Add Item to Receiving Cart
+    const handleAddItem = (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        if (!selectedProduct) {
+            toast.error('Please search and select a drug / product first');
             return;
         }
-        setShowPriceConfirm(false);
+        if (itemQty <= 0) {
+            toast.error('Quantity must be greater than 0');
+            return;
+        }
+        if (itemCost <= 0) {
+            toast.error('Unit purchase cost must be greater than 0');
+            return;
+        }
+        if (!itemBatchNo.trim()) {
+            toast.error('Batch / Lot number is required for pharmaceutical tracking');
+            return;
+        }
+        if (!itemExpiryDate) {
+            toast.error('Expiry date is mandatory for FEFO compliance');
+            return;
+        }
+
+        // Check if expiry is in past
+        if (new Date(itemExpiryDate).getTime() < new Date().getTime()) {
+            toast.error('Cannot receive an expired drug shipment!');
+            return;
+        }
+
+        const existingIdx = items.findIndex(
+            (i) => i.productId === selectedProduct.pid && i.batchNumber.trim().toUpperCase() === itemBatchNo.trim().toUpperCase()
+        );
+
+        const totalCost = Number(itemQty) * Number(itemCost);
+
+        if (existingIdx >= 0) {
+            setItems((prev) =>
+                prev.map((it, idx) =>
+                    idx === existingIdx
+                        ? {
+                              ...it,
+                              qty: it.qty + itemQty,
+                              price: itemCost,
+                              total: (it.qty + itemQty) * itemCost,
+                              newSellPrice: itemSell,
+                              piecesPerPackage: itemPiecesPerPack,
+                              updatePrices: itemUpdateMasterPrice,
+                          }
+                        : it
+                )
+            );
+            toast.success(`Updated quantity for ${selectedProduct.product_name}`);
+        } else {
+            const newItem: PurchaseItem = {
+                id: Date.now() + Math.random(),
+                productId: selectedProduct.pid,
+                productCode: selectedProduct.product_code,
+                productName: selectedProduct.product_name,
+                category: selectedProduct.category,
+                purchaseUnit: itemUnit,
+                salesUnit: selectedProduct.sales_unit || 'Piece',
+                qty: Number(itemQty),
+                piecesPerPackage: Number(itemPiecesPerPack) || 1,
+                price: Number(itemCost),
+                total: totalCost,
+                oldCost: selectedProduct.purchase_cost,
+                oldSell: selectedProduct.sales_cost,
+                newSellPrice: Number(itemSell),
+                updatePrices: itemUpdateMasterPrice,
+                batchNumber: itemBatchNo.trim().toUpperCase(),
+                expiryDate: itemExpiryDate,
+                manufactureDate: itemMfgDate,
+                storageCondition: itemStorage,
+            };
+            setItems((prev) => [...prev, newItem]);
+            toast.success(`Added ${selectedProduct.product_name} (${newItem.batchNumber})`);
+        }
+
+        // Reset form
+        setSelectedProduct(null);
+        setProductSearch('');
+        setItemQty(1);
+        setItemCost(0);
+        setItemSell(0);
+        setItemBatchNo('');
+        setItemExpiryDate('');
+        setItemMfgDate('');
+    };
+
+    // Remove item from cart
+    const handleRemoveItem = (id: number) => {
+        setItems((prev) => prev.filter((i) => i.id !== id));
+    };
+
+    // Financial Totals
+    const financials = useMemo(() => {
+        const totalItemsCount = items.length;
+        const totalUnits = items.reduce((sum, i) => sum + i.qty, 0);
+        const subtotal = items.reduce((sum, i) => sum + i.total, 0);
+
+        const discountVal = Math.min(subtotal, Math.max(0, Number(discountAmount) || 0));
+        const taxableAmount = Math.max(0, subtotal - discountVal);
+        const vatVal = (taxableAmount * (Number(vatPercent) || 0)) / 100;
+        const grandTotal = Math.round(taxableAmount + vatVal);
+
+        // Projected profit calculation
+        const projectedRevenue = items.reduce((sum, i) => sum + (i.qty * i.newSellPrice), 0);
+        const projectedProfit = projectedRevenue - subtotal;
+        const marginOverall = projectedRevenue > 0 ? (projectedProfit / projectedRevenue) * 100 : 0;
+
+        return {
+            totalItemsCount,
+            totalUnits,
+            subtotal,
+            discountVal,
+            vatVal,
+            grandTotal,
+            projectedRevenue,
+            projectedProfit,
+            marginOverall,
+        };
+    }, [items, discountAmount, vatPercent]);
+
+    // =====================================================================
+    // SAVE PURCHASE & COMMIT GOODS RECEIVED NOTE (GRN)
+    // =====================================================================
+    const handleCommitGrn = async () => {
+        if (!selectedSupplierId) {
+            toast.error('Please select the issuing supplier / distributor');
+            return;
+        }
+        if (items.length === 0) {
+            toast.error('Please add at least one drug item to the GRN');
+            return;
+        }
+
+        const supplier = suppliers.find((s) => Number(s.supplier_id) === Number(selectedSupplierId));
         setIsSaving(true);
+
         try {
-            const userData = localStorage.getItem('user');
+            const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
             const user = userData ? JSON.parse(userData) : null;
-            const supplier = suppliers.find(s => s.supplier_id === selectedSupplier);
-            const { data: purchaseData, error: pErr } = await supabase.from('pharmacy_purchases').insert({
-                purchase_no: invoiceNo, purchase_date: purchaseDate,
-                supplier_id: selectedSupplier, supplier_name: supplier?.supplier_name || '',
-                supplier_invoice: supplierInvoiceNo, sub_total: subtotal, discount:     0, vat: 0, grand_total: total,
-                status: 'Completed', payment_status: paymentStatus, created_by: user?.name || 'Unknown',
-                outlet_id: outletId
-            }).select().single();
-            if (pErr) throw pErr;
-            const pid = purchaseData.purchase_id;
+            const staffName = user?.name || 'Pharmacist Administrator';
 
-            // Insert purchase items with batch/expiry
-            const purchaseItemsData = items.map(i => ({
-                purchase_id: pid, product_id: i.productId, product_code: i.productCode,
-                product_name: i.productName, quantity: i.qty, unit: i.purchaseUnit,
-                rate: i.price, total: i.total,
-                batch_number: i.batchNumber || `B-${Date.now()}`,
-                expiry_date: i.expiryDate || null,
-                manufacture_date: i.manufactureDate || null,
-            }));
-            const { error: iErr } = await supabase.from('pharmacy_purchase_products').insert(purchaseItemsData);
-            if (iErr) throw iErr;
+            const invoicePayload = {
+                purchase_no: invoiceNo,
+                purchase_date: purchaseDate,
+                supplier_id: selectedSupplierId,
+                supplier_name: supplier?.supplier_name || 'Generic Distributor',
+                supplier_invoice: supplierInvoiceNo.trim() || null,
+                sub_total: financials.subtotal,
+                discount: financials.discountVal,
+                vat: financials.vatVal,
+                grand_total: financials.grandTotal,
+                status: 'Completed',
+                payment_status: paymentStatus,
+                notes: notes.trim() || `GRN received at ${outletName} by ${staffName}. Storage seals inspected.`,
+                created_by: staffName,
+                outlet_id: outletId,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            };
 
-            // Update stock & prices for each item
-            for (const item of items) {
-                const product = products.find(p => p.pid === item.productId);
-                const stockQty = product ? getStockQty(item.qty, item.purchaseUnit, product) : item.qty;
+            // 1. Insert Master Purchase Record (Try pharmacy_purchases, fallback purchases & retail_purchases)
+            let createdPurchaseId: number | null = null;
 
-                // Update stock
-                const { data: sData } = await supabase.from('pharmacy_stock').select('st_id, qty').eq('pid', item.productId).eq('outlet_id', outletId).single();
-                if (sData) {
-                    await supabase.from('pharmacy_stock').update({ qty: (sData.qty || 0) + stockQty, invoice_no: invoiceNo, updated_at: new Date().toISOString() }).eq('st_id', sData.st_id);
+            const { data: pPharm, error: pPharmErr } = await supabase
+                .from('pharmacy_purchases')
+                .insert(invoicePayload)
+                .select('purchase_id')
+                .single();
+
+            if (!pPharmErr && pPharm) {
+                createdPurchaseId = pPharm.purchase_id;
+            } else {
+                const { data: pBase, error: pBaseErr } = await supabase
+                    .from('purchases')
+                    .insert(invoicePayload)
+                    .select('purchase_id')
+                    .single();
+
+                if (!pBaseErr && pBase) {
+                    createdPurchaseId = pBase.purchase_id;
                 } else {
-                    await supabase.from('pharmacy_stock').insert({ pid: item.productId, invoice_no: invoiceNo, qty: stockQty, storage_type: 'Store', outlet_id: outletId });
-                }
-
-                // Create batch record for pharmacy
-                if (item.batchNumber && item.expiryDate) {
-                    await supabase.from('pharmacy_batches').insert({
-                        product_id: item.productId,
-                        batch_number: item.batchNumber,
-                        expiry_date: item.expiryDate,
-                        manufacture_date: item.manufactureDate || null,
-                        quantity: stockQty,
-                        remaining_qty: stockQty,
-                        purchase_cost: item.price,
-                        selling_price: item.newSell || item.oldSell,
-                        supplier_id: selectedSupplier || null,
-                        supplier_name: supplier?.supplier_name || '',
-                        purchase_invoice: invoiceNo,
-                        outlet_id: outletId,
-                        status: 'Active',
-                    });
-                }
-
-                // Update product prices if flagged
-                if (item.updatePrices && (item.newCost !== item.oldCost || item.newSell !== item.oldSell)) {
-                    const margin = item.newCost > 0 ? Math.round(((item.newSell - item.newCost) / item.newCost) * 10000) / 100 : 0;
-                    await supabase.from('pharmacy_products').update({
-                        purchase_cost: item.newCost,
-                        sales_cost: item.newSell,
-                        margin_per: margin,
-                    }).eq('pid', item.productId);
-
-                    try {
-                        await supabase.from('pharmacy_price_history').insert({
-                            pid: item.productId,
-                            old_purchase_cost: item.oldCost,
-                            new_purchase_cost: item.newCost,
-                            old_sales_cost: item.oldSell,
-                            new_sales_cost: item.newSell,
-                            changed_by: user?.name || 'Purchase Entry',
-                            reason: `Purchase ${invoiceNo} - Price update`,
-                        });
-                    } catch { /* price history table may not exist yet */ }
+                    // Try retail_purchases
+                    const { data: pRet, error: pRetErr } = await supabase
+                        .from('retail_purchases')
+                        .insert(invoicePayload)
+                        .select('purchase_id')
+                        .single();
+                    if (!pRetErr && pRet) createdPurchaseId = pRet.purchase_id;
+                    else throw pBaseErr || pPharmErr || new Error('Failed to save purchase header');
                 }
             }
 
-            setSavedInvoice(invoiceNo); setShowSuccess(true);
-            setItems([]); setSelectedSupplier(0); setSupplierInvoiceNo(''); setNotes('');
-            await generateInvoiceNo();
-        } catch (err: any) { toast.error(`Failed: ${err.message || 'Unknown error'}`); }
-        setIsSaving(false);
+            const pId = createdPurchaseId || Date.now();
+
+            // 2. Insert Line Items
+            for (const it of items) {
+                // Item record for retail_purchase_products
+                const lineItemPayload = {
+                    purchase_id: pId,
+                    product_id: it.productId,
+                    product_code: it.productCode,
+                    product_name: it.productName,
+                    quantity: it.qty,
+                    unit: it.purchaseUnit,
+                    pieces_per_package: it.piecesPerPackage || 1,
+                    rate: it.price,
+                    sales_cost: it.newSellPrice,
+                    total_amount: it.total,
+                    created_at: new Date().toISOString(),
+                };
+
+                // Try pharmacy_purchase_products then retail_purchase_products
+                const { error: ppErr } = await supabase.from('pharmacy_purchase_products').insert(lineItemPayload);
+                if (ppErr) {
+                    try {
+                        await supabase.from('retail_purchase_products').insert(lineItemPayload);
+                    } catch {
+                        // ignore secondary table failure
+                    }
+                }
+
+                // 3. Register lot into pharmacy_batches (FEFO engine)
+                const batchPayload = {
+                    product_id: it.productId,
+                    batch_number: it.batchNumber,
+                    expiry_date: it.expiryDate,
+                    manufacture_date: it.manufactureDate || null,
+                    quantity: it.qty,
+                    remaining_qty: it.qty,
+                    purchase_cost: it.price,
+                    selling_price: it.newSellPrice,
+                    supplier_id: selectedSupplierId,
+                    supplier_name: supplier?.supplier_name || null,
+                    purchase_invoice: invoiceNo,
+                    status: 'Active',
+                    outlet_id: outletId,
+                    notes: `Received via ${invoiceNo} on ${purchaseDate}. Storage: ${it.storageCondition}`,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                };
+
+                let batchId: number | null = null;
+                try {
+                    const { data: insertedBatch } = await supabase
+                        .from('pharmacy_batches')
+                        .insert(batchPayload)
+                        .select('batch_id')
+                        .single();
+                    batchId = insertedBatch?.batch_id || null;
+                } catch {
+                    // ignore if batches table not ready
+                }
+
+                // 4. Update Stock in pharmacy_stock & retail_stock
+                try {
+                    const stockPayload = {
+                        pid: it.productId,
+                        batch_id: batchId,
+                        invoice_no: invoiceNo,
+                        qty: it.qty,
+                        storage_type: it.storageCondition,
+                        expiry_date: it.expiryDate,
+                        outlet_id: outletId,
+                        notes: `GRN ${invoiceNo}`,
+                        created_at: new Date().toISOString(),
+                    };
+                    await supabase.from('pharmacy_stock').insert(stockPayload);
+                } catch {
+                    // ignore
+                }
+
+                try {
+                    await supabase.from('retail_stock').insert({
+                        pid: it.productId,
+                        invoice_no: invoiceNo,
+                        qty: it.qty,
+                        batch_no: it.batchNumber,
+                        expiry_date: it.expiryDate,
+                        mfg_date: it.manufactureDate || null,
+                        storage_type: it.storageCondition,
+                        outlet_id: outletId,
+                    });
+                } catch {
+                    // ignore
+                }
+
+                // 5. Update Master Catalog Prices if requested
+                if (it.updatePrices) {
+                    const priceUpdates = {
+                        purchase_cost: it.price,
+                        sales_cost: it.newSellPrice,
+                        updated_at: new Date().toISOString(),
+                    };
+                    try {
+                        await supabase.from('pharmacy_products').update(priceUpdates).eq('pid', it.productId);
+                    } catch {
+                        // ignore
+                    }
+                    try {
+                        await supabase.from('products').update(priceUpdates).eq('pid', it.productId);
+                    } catch {
+                        // ignore
+                    }
+                }
+            }
+
+            // 6. Update Supplier Balance if Unpaid or Partial
+            if (paymentStatus === 'Unpaid' || paymentStatus === 'Partial') {
+                const addDebt = paymentStatus === 'Unpaid' ? financials.grandTotal : Math.round(financials.grandTotal / 2);
+                const currentBal = Number(supplier?.current_balance) || 0;
+                const newBal = currentBal + addDebt;
+
+                try {
+                    await supabase
+                        .from(activeSupplierTable)
+                        .update({
+                            current_balance: newBal,
+                            updated_at: new Date().toISOString(),
+                        })
+                        .eq('supplier_id', selectedSupplierId);
+                } catch {
+                    // ignore
+                }
+            }
+
+            // 7. Log Activity
+            await logActivity(
+                'GRN Purchase Received',
+                `Committed ${invoiceNo} from ${supplier?.supplier_name} (${items.length} items, Total: Ksh ${financials.grandTotal.toLocaleString()})`
+            );
+
+            toast.success(`GRN ${invoiceNo} committed successfully! Items received into stock.`);
+
+            // Open GRN Print Preview Modal
+            setCompletedGrn({
+                ...invoicePayload,
+                purchase_id: pId,
+                supplier_code: supplier?.supplier_code || 'SUP',
+                items: [...items],
+                financials: { ...financials },
+                outlet_name: outletName,
+            });
+            setShowGrnPrintModal(true);
+
+            // Reset Form & Generate Next ID
+            setItems([]);
+            setSelectedSupplierId(0);
+            setSupplierInvoiceNo('');
+            setNotes('');
+            setDiscountAmount(0);
+            setVatPercent(0);
+            loadMasterData();
+        } catch (err: any) {
+            console.error('Failed to commit GRN:', err);
+            toast.error(`GRN commit failed: ${err.message || 'Database error'}`);
+        } finally {
+            setIsSaving(false);
+        }
     };
 
-    if (isLoading) return (
-        <div className="flex flex-col items-center justify-center h-96">
-            <div className="w-14 h-14 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-            <p className="mt-4 text-gray-500 font-medium text-sm">Loading purchase data...</p>
-        </div>
-    );
+    // Quick Add New Product directly from modal
+    const handleQuickAddProduct = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newProdName.trim()) {
+            toast.error('Product name is required');
+            return;
+        }
+
+        setIsSavingProd(true);
+        try {
+            const nextPid = Date.now();
+            const code = newProdCode.trim() || `DRG-${String(products.length + 1).padStart(4, '0')}`;
+            const payload = {
+                product_code: code,
+                product_name: newProdName.trim(),
+                category: newProdCategory,
+                purchase_cost: Number(newProdCost) || 0,
+                sales_cost: Number(newProdSell) || 0,
+                purchase_unit: 'Box',
+                sales_unit: 'Piece',
+                pieces_per_package: Number(newProdPcs) || 1,
+                barcode: newProdBarcode.trim() || null,
+                active: true,
+                outlet_id: outletId,
+                created_at: new Date().toISOString(),
+            };
+
+            // Try inserting into pharmacy_products & products
+            let createdProduct: any = null;
+            const { data: ppData } = await supabase.from('pharmacy_products').insert(payload).select().single();
+            if (ppData) createdProduct = ppData;
+
+            const { data: bpData } = await supabase.from('products').insert(payload).select().single();
+            if (!createdProduct && bpData) createdProduct = bpData;
+
+            const finalProd: Product = {
+                pid: createdProduct?.pid || nextPid,
+                product_code: code,
+                product_name: newProdName.trim(),
+                category: newProdCategory,
+                purchase_cost: Number(newProdCost) || 0,
+                sales_cost: Number(newProdSell) || 0,
+                purchase_unit: 'Box',
+                sales_unit: 'Piece',
+                pieces_per_package: Number(newProdPcs) || 1,
+                barcode: newProdBarcode.trim(),
+            };
+
+            setProducts((prev) => [finalProd, ...prev]);
+            handleSelectProduct(finalProd);
+
+            toast.success(`Registered & selected ${finalProd.product_name}!`);
+            setShowAddProductModal(false);
+
+            // Reset
+            setNewProdCode('');
+            setNewProdName('');
+            setNewProdCost(0);
+            setNewProdSell(0);
+            setNewProdBarcode('');
+        } catch (err: any) {
+            toast.error(`Failed to add product: ${err.message}`);
+        } finally {
+            setIsSavingProd(false);
+        }
+    };
+
+    // Quick Add New Supplier from modal
+    const handleQuickAddSupplier = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newSuppName.trim()) {
+            toast.error('Supplier name is required');
+            return;
+        }
+
+        setIsSavingSupp(true);
+        try {
+            const nextCode = `SUP-${String(suppliers.length + 1).padStart(2, '0')}`;
+            const payload = {
+                supplier_code: nextCode,
+                supplier_name: newSuppName.trim(),
+                phone: newSuppPhone.trim() || null,
+                contact_person: newSuppContact.trim() || null,
+                payment_terms: newSuppTerms,
+                kra_pin: newSuppKra.trim().toUpperCase() || null,
+                opening_balance: 0,
+                current_balance: 0,
+                active: true,
+                created_at: new Date().toISOString(),
+            };
+
+            let createdSupplier: any = null;
+            const { data: sData } = await supabase.from(activeSupplierTable).insert(payload).select().single();
+            if (sData) createdSupplier = sData;
+
+            const finalSupp: Supplier = {
+                supplier_id: createdSupplier?.supplier_id || Date.now(),
+                supplier_code: nextCode,
+                supplier_name: newSuppName.trim(),
+                phone: newSuppPhone.trim(),
+                contact_person: newSuppContact.trim(),
+                payment_terms: newSuppTerms,
+                current_balance: 0,
+            };
+
+            setSuppliers((prev) => [finalSupp, ...prev]);
+            setSelectedSupplierId(finalSupp.supplier_id);
+
+            toast.success(`Distributor ${finalSupp.supplier_name} registered!`);
+            setShowAddSupplierModal(false);
+
+            // Reset
+            setNewSuppName('');
+            setNewSuppPhone('');
+            setNewSuppContact('');
+            setNewSuppKra('');
+        } catch (err: any) {
+            toast.error(`Failed to add supplier: ${err.message}`);
+        } finally {
+            setIsSavingSupp(false);
+        }
+    };
+
+    // Export Draft to Super Bright Excel
+    const exportDraftExcel = () => {
+        if (items.length === 0) {
+            toast.error('Receiving cart is currently empty');
+            return;
+        }
+
+        const supp = suppliers.find((s) => Number(s.supplier_id) === Number(selectedSupplierId));
+        const genDate = new Date().toLocaleString('en-GB');
+
+        const xmlString = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#0f172a"/>
+  </Style>
+  <Style ss:ID="TitleBanner">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="15" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#00C853" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="Header">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#1E293B" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="CellText">
+   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+  </Style>
+  <Style ss:ID="CellNumber">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <NumberFormat ss:Format="#,##0"/>
+  </Style>
+  <Style ss:ID="CellCurrency">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <NumberFormat ss:Format="&quot;Ksh &quot;#,##0.00"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="GRN Draft">
+  <Table ss:DefaultRowHeight="20">
+   <Column ss:Width="70"/>
+   <Column ss:Width="160"/>
+   <Column ss:Width="90"/>
+   <Column ss:Width="85"/>
+   <Column ss:Width="65"/>
+   <Column ss:Width="80"/>
+   <Column ss:Width="95"/>
+   <Column ss:Width="95"/>
+   <Row ss:Height="30">
+    <Cell ss:MergeAcross="7" ss:StyleID="TitleBanner"><Data ss:Type="String">ALPHA PHARMACY - GOODS RECEIVED NOTE (GRN ${invoiceNo})</Data></Cell>
+   </Row>
+   <Row ss:Height="22">
+    <Cell ss:StyleID="Header"><Data ss:Type="String">CODE</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">DRUG NAME</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">BATCH #</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">EXPIRY</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">QTY</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">UNIT</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">UNIT COST</Data></Cell>
+    <Cell ss:StyleID="Header"><Data ss:Type="String">LINE TOTAL</Data></Cell>
+   </Row>
+   ${items
+       .map(
+           (i) => `<Row>
+    <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(i.productCode)}</Data></Cell>
+    <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(i.productName)}</Data></Cell>
+    <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(i.batchNumber)}</Data></Cell>
+    <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(i.expiryDate)}</Data></Cell>
+    <Cell ss:StyleID="CellNumber"><Data ss:Type="Number">${i.qty}</Data></Cell>
+    <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(i.purchaseUnit)}</Data></Cell>
+    <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${i.price}</Data></Cell>
+    <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${i.total}</Data></Cell>
+   </Row>`
+       )
+       .join('\n')}
+   <Row ss:Height="24">
+    <Cell ss:MergeAcross="6" ss:StyleID="Header"><Data ss:Type="String">NET GRAND TOTAL (KSH):</Data></Cell>
+    <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${financials.grandTotal}</Data></Cell>
+   </Row>
+  </Table>
+ </Worksheet>
+</Workbook>`;
+
+        const blob = new Blob([xmlString], { type: 'application/vnd.ms-excel;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `AlphaPharmacy_GRN_${invoiceNo}_${new Date().toISOString().split('T')[0]}.xls`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success('Downloaded GRN Draft in Super Bright Excel!');
+    };
+
+    // Filter Products for live search dropdown
+    const filteredSearchProducts = useMemo(() => {
+        if (!productSearch.trim()) return [];
+        const q = productSearch.toLowerCase();
+        return products
+            .filter(
+                (p) =>
+                    p.product_name.toLowerCase().includes(q) ||
+                    p.product_code.toLowerCase().includes(q) ||
+                    (p.barcode && p.barcode.includes(q)) ||
+                    (p.alias && p.alias.toLowerCase().includes(q))
+            )
+            .slice(0, 15);
+    }, [products, productSearch]);
+
+    // Selected Supplier details
+    const activeSupplier = suppliers.find((s) => Number(s.supplier_id) === Number(selectedSupplierId));
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center h-96" style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+                <div className="w-14 h-14 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+                <p className="mt-4 text-gray-900 font-bold text-base">Loading Goods Received Note Engine...</p>
+                <p className="text-xs text-gray-500 mt-1">Connecting to active drug catalog, batch registries &amp; verified vendors</p>
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-5" style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-
-            {/* ─── SUCCESS DIALOG ─── */}
-            {showSuccess && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50" onClick={() => setShowSuccess(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 text-center" onClick={e => e.stopPropagation()}>
-                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-emerald-300/40 animate-bounce">
-                            <FiCheckCircle className="text-white" size={36} />
-                        </div>
-                        <p className="text-2xl font-black text-gray-800">Purchase Saved!</p>
-                        <p className="text-sm text-gray-500 mt-2">Invoice <span className="font-bold text-indigo-600">{savedInvoice}</span> saved, stock updated.</p>
-                        <div className="flex gap-3 mt-6">
-                            <button onClick={() => setShowSuccess(false)} className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold rounded-xl text-sm">New Purchase</button>
-                            <a href="/dashboard/purchases" className="flex-1 px-4 py-3 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm text-center">View Records</a>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ─── PRICE CHANGE CONFIRMATION ─── */}
-            {showPriceConfirm && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md">
-                        <div className="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-4 text-white rounded-t-3xl flex items-center gap-3">
-                            <FiAlertTriangle size={20} />
-                            <h2 className="text-lg font-bold">Confirm Price Updates</h2>
-                        </div>
-                        <div className="p-5 space-y-4">
-                            <p className="text-sm text-gray-600">The following product prices will be updated <span className="font-bold text-amber-700">system-wide</span> (affects POS, product list, etc.):</p>
-                            <div className="space-y-2 max-h-48 overflow-y-auto">
-                                {items.filter(i => i.updatePrices && (i.newCost !== i.oldCost || i.newSell !== i.oldSell)).map(i => (
-                                    <div key={i.id} className="bg-amber-50 border border-amber-200 rounded-xl p-3">
-                                        <p className="text-sm font-bold text-gray-800">{i.productName}</p>
-                                        <div className="flex gap-4 mt-1 text-xs">
-                                            <span className="text-gray-500">Cost: <span className="line-through text-red-400">Ksh {i.oldCost}</span> <FiArrowRight className="inline" size={10} /> <span className="font-bold text-emerald-600">Ksh {i.newCost}</span></span>
-                                            <span className="text-gray-500">Sell: <span className="line-through text-red-400">Ksh {i.oldSell}</span> <FiArrowRight className="inline" size={10} /> <span className="font-bold text-emerald-600">Ksh {i.newSell}</span></span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="flex gap-3 pt-3 border-t">
-                                <button onClick={() => setShowPriceConfirm(false)} className="flex-1 px-4 py-3 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm">Cancel</button>
-                                <button onClick={savePurchase} className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold rounded-xl text-sm">Confirm & Save</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* ━━━ TOP BAR ━━━ */}
-            <div className="flex items-center justify-between">
+        <div className="w-full max-w-full space-y-4 px-1 md:px-2 pb-16" style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-300/40">
-                        <FiShoppingBag className="text-white" size={24} />
+                    <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg flex-shrink-0">
+                        📥
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-800">Purchase Entry</h1>
-                        <p className="text-gray-500 text-sm mt-1">Record purchases with unit conversion & price management</p>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Goods Received Note (GRN) &amp; Purchase Entry</h1>
+                            <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-900 rounded-full text-xs font-bold border border-emerald-200">
+                                FEFO Protected
+                            </span>
+                            <span className="px-2 py-0.5 bg-blue-50 text-blue-900 rounded-md text-[11px] font-bold border border-blue-200">
+                                DB: {activeSupplierTable}
+                            </span>
+                        </div>
+                        <p className="text-gray-600 text-xs mt-0.5">
+                            Active Outlet: <span className="font-bold text-gray-900">{outletName}</span> • Receiving pharmaceutical inventory, drug lot numbers, unit costs &amp; margin recalculation
+                        </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="px-4 py-2.5 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl flex items-center gap-2">
-                        <FiHash size={14} className="text-indigo-500" />
-                        <span className="text-sm font-bold text-indigo-700">{invoiceNo}</span>
-                        <span className="text-[10px] text-indigo-400">(auto)</span>
-                    </div>
-                    <a href="/dashboard/purchases" className="px-5 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-indigo-600 hover:border-indigo-300 transition-all text-sm font-semibold flex items-center gap-2 shadow-sm">
-                        <FiShoppingBag size={14} /> View Records
-                    </a>
+
+                <div className="flex items-center flex-wrap gap-2">
+                    {/* Quick Add Product */}
+                    <button
+                        onClick={() => setShowAddProductModal(true)}
+                        className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-xl font-bold shadow-xs transition-all flex items-center gap-1.5 text-xs"
+                    >
+                        <span>💊</span> Quick Add Drug
+                    </button>
+
+                    {/* Quick Add Supplier */}
+                    <button
+                        onClick={() => setShowAddSupplierModal(true)}
+                        className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-xl font-bold shadow-xs transition-all flex items-center gap-1.5 text-xs"
+                    >
+                        <span>🏢</span> New Vendor
+                    </button>
+
+                    {/* Recent Invoices */}
+                    <button
+                        onClick={() => setShowRecentInvoicesModal(true)}
+                        className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-xl font-bold shadow-xs transition-all flex items-center gap-1.5 text-xs"
+                    >
+                        <span>📋</span> Recent GRNs ({recentInvoices.length})
+                    </button>
+
+                    {/* Export Draft to Excel */}
+                    <button
+                        onClick={exportDraftExcel}
+                        className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-xl font-bold shadow-xs transition-all flex items-center gap-1.5 text-xs"
+                    >
+                        <span>📊</span> Super Excel
+                    </button>
+
+                    {/* Reset Form */}
+                    <button
+                        onClick={() => {
+                            if (items.length > 0 && !confirm('Clear current receiving cart?')) return;
+                            setItems([]);
+                            generateNextInvoiceNo();
+                            toast.success('Form cleared');
+                        }}
+                        className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold text-xs transition-all"
+                    >
+                        <span>🔄</span> Reset
+                    </button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-5">
-                {/* ━━━ LEFT PANEL ━━━ */}
-                <div className="col-span-2 space-y-5">
-
-                    {/* Supplier & Details */}
-                    <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                        <h2 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2 uppercase tracking-wider">
-                            <div className="w-7 h-7 rounded-lg bg-blue-100 flex items-center justify-center"><FiTruck className="text-blue-600" size={14} /></div>
-                            Supplier & Invoice Details
-                        </h2>
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Supplier *</label>
-                                <select value={selectedSupplier} onChange={e => setSelectedSupplier(Number(e.target.value))}
-                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none cursor-pointer">
-                                    <option value={0}>Select Supplier</option>
-                                    {suppliers.map(s => <option key={s.supplier_id} value={s.supplier_id}>{s.supplier_code} - {s.supplier_name}</option>)}
-                                </select>
-                                {suppliers.length === 0 && <p className="text-[10px] text-amber-600 mt-1 flex items-center gap-1"><FiAlertTriangle size={10} /> <a href="/dashboard/suppliers" className="text-blue-600 underline">Add Supplier</a></p>}
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Supplier Invoice</label>
-                                <input type="text" value={supplierInvoiceNo} onChange={e => setSupplierInvoiceNo(e.target.value)} placeholder="Supplier's invoice..."
-                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none" />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Date</label>
-                                <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)}
-                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none" />
-                            </div>
-                            <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Payment</label>
-                                <select value={paymentStatus} onChange={e => setPaymentStatus(e.target.value)}
-                                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none cursor-pointer">
-                                    <option value="Paid">Paid</option>
-                                    <option value="Unpaid">Unpaid / Credit</option>
-                                    <option value="Partial">Partial</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ━━━ ADD PRODUCT SECTION ━━━ */}
-                    <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                        <h2 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2 uppercase tracking-wider">
-                            <div className="w-7 h-7 rounded-lg bg-emerald-100 flex items-center justify-center"><FiPackage className="text-emerald-600" size={14} /></div>
-                            Add Products
-                        </h2>
-
-                        {/* Product Search (typing only) */}
-                        <div className="relative mb-4">
-                            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10" size={16} />
-                            <input type="text" value={productSearch}
-                                onChange={e => { setProductSearch(e.target.value); setShowProductDropdown(e.target.value.trim().length > 0); setSelectedProduct(null); }}
-                                onFocus={() => { if (productSearch.trim().length > 0) setShowProductDropdown(true); }}
-                                placeholder="Type to search products by name, code or barcode..."
-                                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none" />
-                            {/* Dropdown - only when typing */}
-                            {showProductDropdown && filteredProducts.length > 0 && (
-                                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                                    {filteredProducts.map(p => (
-                                        <button key={p.pid} onClick={() => selectProduct(p)}
-                                            className="w-full text-left px-4 py-2.5 hover:bg-indigo-50 transition-colors flex items-center justify-between border-b border-gray-50 last:border-b-0">
-                                            <div>
-                                                <span className="text-xs text-indigo-500 font-mono">{p.product_code}</span>
-                                                <span className="ml-2 text-sm font-semibold text-gray-800">{p.product_name}</span>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className="text-xs text-gray-400">{p.purchase_unit || 'Piece'}</span>
-                                                <span className="ml-2 text-xs font-bold text-emerald-600">Ksh {p.purchase_cost?.toLocaleString()}</span>
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                            {showProductDropdown && productSearch.trim().length > 0 && filteredProducts.length === 0 && (
-                                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg p-4 text-center text-gray-400 text-sm">No products found</div>
-                            )}
-                        </div>
-
-                        {/* Selected Product Details + Add */}
-                        {selectedProduct && (
-                            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 space-y-3">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-bold text-gray-800">{selectedProduct.product_name}</p>
-                                        <p className="text-xs text-gray-500">{selectedProduct.product_code} • Buy Unit: {selectedProduct.purchase_unit || 'Piece'} • Sell Unit: {selectedProduct.sales_unit || 'Piece'} {selectedProduct.pieces_per_package > 1 ? `• ${selectedProduct.pieces_per_package} pcs/pkg` : ''}</p>
-                                    </div>
-                                    <button onClick={() => { setSelectedProduct(null); setProductSearch(''); }} className="p-1.5 text-gray-400 hover:text-red-500"><FiX size={14} /></button>
-                                </div>
-
-                                <div className="grid grid-cols-12 gap-3 items-end">
-                                    {/* Purchase Unit */}
-                                    <div className="col-span-2">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Buy In</label>
-                                        <select value={purchaseUnit} onChange={e => {
-                                            const unit = e.target.value;
-                                            setPurchaseUnit(unit);
-                                            // Auto-adjust price based on unit
-                                            if (selectedProduct) {
-                                                const basePrice = selectedProduct.purchase_cost;
-                                                const basePU = selectedProduct.purchase_unit || 'Piece';
-                                                if (unit === basePU) { setPrice(basePrice); }
-                                                else {
-                                                    const conv = UNIT_CONVERSIONS[basePU];
-                                                    if (conv && conv[unit]) {
-                                                        // e.g., base is Bag (50kg = 6500), buying in Kgs: 6500/50 = 130/kg
-                                                        setPrice(Math.round(basePrice / conv[unit] * 100) / 100);
-                                                    }
-                                                }
-                                            }
-                                        }}
-                                            className="w-full px-2 py-2.5 bg-white border border-gray-200 rounded-xl text-xs focus:border-indigo-500 outline-none font-bold">
-                                            {getAvailableUnits(selectedProduct).map(u => <option key={u} value={u}>{u}</option>)}
-                                        </select>
-                                    </div>
-
-                                    {/* Qty */}
-                                    <div className="col-span-2">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Qty *</label>
-                                        <input type="number" value={qty} onChange={e => setQty(Number(e.target.value))} min={0.01} step={0.01}
-                                            className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-bold focus:border-indigo-500 outline-none text-center" />
-                                    </div>
-
-                                    {/* Cost Price */}
-                                    <div className="col-span-2">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">
-                                            Cost/Unit <span className="text-gray-300">(was {selectedProduct.purchase_cost})</span>
-                                        </label>
-                                        <input type="number" value={price} onChange={e => handlePriceChange(Number(e.target.value))} min={0} step={0.01}
-                                            className={`w-full px-3 py-2.5 border rounded-xl text-sm font-bold outline-none text-center ${priceChanged ? 'bg-amber-50 border-amber-400 text-amber-800' : 'bg-white border-gray-200'}`} />
-                                    </div>
-
-                                    {/* Line Total */}
-                                    <div className="col-span-2">
-                                        <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Line Total</label>
-                                        <div className="w-full px-3 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm font-black text-emerald-700 text-center">
-                                            Ksh {(qty * price).toLocaleString()}
-                                        </div>
-                                    </div>
-
-                                    {/* Stock Info */}
-                                    <div className="col-span-1 text-center">
-                                        <p className="text-[9px] text-gray-400 uppercase mb-1">Stock</p>
-                                        <p className="text-xs font-bold text-blue-600">{availableQty}</p>
-                                    </div>
-
-                                    {/* Add Button */}
-                                    <div className="col-span-1">
-                                        <button onClick={addItem} className="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-green-600 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center" title="Add Item">
-                                            <FiPlus size={18} />
-                                        </button>
-                                    </div>
-
-                                {/* Batch & Expiry Row */}
-                                <div className="grid grid-cols-12 gap-3 items-end mt-3 pt-3 border-t border-indigo-200">
-                                    <div className="col-span-3">
-                                        <label className="text-[10px] font-bold text-purple-500 uppercase mb-1 block">📦 Batch Number *</label>
-                                        <input id="batchNo" type="text" placeholder="e.g. B001, LOT-2024"
-                                            className="w-full px-3 py-2.5 bg-white border border-purple-200 rounded-xl text-sm focus:border-purple-500 outline-none font-mono font-bold" />
-                                    </div>
-                                    <div className="col-span-3">
-                                        <label className="text-[10px] font-bold text-red-500 uppercase mb-1 block">⏰ Expiry Date *</label>
-                                        <input id="expiryDate" type="date"
-                                            className="w-full px-3 py-2.5 bg-white border border-red-200 rounded-xl text-sm focus:border-red-500 outline-none" />
-                                    </div>
-                                    <div className="col-span-3">
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">🏭 Manufacture Date</label>
-                                        <input id="mfgDate" type="date"
-                                            className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-gray-400 outline-none" />
-                                    </div>
-                                    <div className="col-span-3 text-xs text-purple-600 bg-purple-50 border border-purple-200 rounded-xl p-2">
-                                        💡 Each purchase line creates a new batch for expiry tracking
-                                    </div>
-                                </div>
-                                </div>
-
-                                {/* ─── PRICE CHANGE WARNING ─── */}
-                                {priceChanged && (
-                                    <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-3 mt-2">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <FiAlertTriangle className="text-amber-600 flex-shrink-0" size={14} />
-                                            <p className="text-xs font-bold text-amber-700">Price differs from current product price!</p>
-                                        </div>
-                                        <p className="text-[11px] text-gray-600 mb-2">Current: Cost <span className="font-bold">Ksh {selectedProduct.purchase_cost}</span>, Sell <span className="font-bold">Ksh {selectedProduct.sales_cost}</span></p>
-                                        <div className="flex items-center gap-3">
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input type="checkbox" checked={shouldUpdatePrices} onChange={e => setShouldUpdatePrices(e.target.checked)} className="accent-amber-600" />
-                                                <span className="text-xs font-semibold text-amber-800">Update system prices</span>
-                                            </label>
-                                            {shouldUpdatePrices && (
-                                                <div className="flex items-center gap-2">
-                                                    <label className="text-[10px] text-gray-500 font-bold">New Sell Price:</label>
-                                                    <input type="number" value={newSellPrice} onChange={e => setNewSellPrice(Number(e.target.value))} min={0} step={0.01}
-                                                        className="w-24 px-2 py-1 bg-white border border-amber-300 rounded-lg text-xs font-bold text-amber-700 focus:border-amber-500 outline-none text-center" />
-                                                </div>
-                                            )}
-                                        </div>
-                                        {shouldUpdatePrices && (
-                                            <p className="text-[10px] text-amber-600 mt-1">
-                                                ✅ Cost: Ksh {selectedProduct.purchase_cost} → <span className="font-bold">Ksh {price}</span> | Sell: Ksh {selectedProduct.sales_cost} → <span className="font-bold">Ksh {newSellPrice}</span>
-                                                {price > 0 && ` | Margin: ${((newSellPrice - price) / price * 100).toFixed(1)}%`}
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    {/* ━━━ ITEMS LIST ━━━ */}
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                        <div className="px-5 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-between">
-                            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                                <FiPackage size={14} /> Purchase Items
-                                <span className="ml-2 px-2 py-0.5 bg-white/20 text-white text-xs rounded-full">{items.length}</span>
-                            </h2>
-                            {items.length > 0 && <button onClick={() => setItems([])} className="text-xs text-white/80 hover:text-white flex items-center gap-1"><FiTrash2 size={11} /> Clear</button>}
-                        </div>
-                        {items.length === 0 ? (
-                            <div className="text-center py-12 text-gray-400">
-                                <FiPackage size={40} className="mx-auto mb-3 opacity-30" />
-                                <p className="font-medium text-sm">No items added yet</p>
-                                <p className="text-xs">Search for products above to add</p>
-                            </div>
-                        ) : (
-                            <table className="w-full">
-                                <thead><tr className="bg-gray-50">
-                                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">#</th>
-                                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Code</th>
-                                    <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Product</th>
-                                    <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Unit</th>
-                                    <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Qty</th>
-                                    <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Cost</th>
-                                    <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Total</th>
-                                    <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Price Update</th>
-                                    <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-500 uppercase w-10"></th>
-                                </tr></thead>
-                                <tbody>
-                                    {items.map((item, idx) => (
-                                        <tr key={item.id} className={`border-b border-gray-50 hover:bg-emerald-50/40 transition-colors ${idx % 2 ? 'bg-gray-50/30' : ''}`}>
-                                            <td className="px-3 py-2 text-xs text-gray-400">{idx + 1}</td>
-                                            <td className="px-3 py-2 text-xs text-indigo-600 font-mono">{item.productCode}</td>
-                                            <td className="px-3 py-2 text-sm font-semibold text-gray-800">{item.productName}</td>
-                                            <td className="px-3 py-2 text-center"><span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-medium">{item.purchaseUnit}</span></td>
-                                            <td className="px-3 py-2 text-right text-sm font-bold text-gray-700">{item.qty}</td>
-                                            <td className="px-3 py-2 text-right text-xs text-gray-500">Ksh {item.price.toLocaleString()}</td>
-                                            <td className="px-3 py-2 text-right text-sm font-bold text-emerald-600">Ksh {item.total.toLocaleString()}</td>
-                                            <td className="px-3 py-2 text-center">
-                                                {item.newCost !== item.oldCost || item.newSell !== item.oldSell ? (
-                                                    <div className="flex items-center justify-center gap-1">
-                                                        <label className="flex items-center gap-1 cursor-pointer">
-                                                            <input type="checkbox" checked={item.updatePrices} onChange={e => toggleItemPriceUpdate(item.id, e.target.checked)} className="accent-amber-600" />
-                                                            <span className="text-[10px] text-amber-700 font-bold">Update</span>
-                                                        </label>
-                                                        {item.updatePrices && (
-                                                            <input type="number" value={item.newSell} onChange={e => editItemSellPrice(item.id, Number(e.target.value))}
-                                                                className="w-16 px-1 py-0.5 text-[10px] border border-amber-300 rounded text-center bg-amber-50 font-bold" title="New sell price" />
-                                                        )}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-[10px] text-gray-300">—</span>
-                                                )}
-                                            </td>
-                                            <td className="px-3 py-2 text-center">
-                                                <button onClick={() => setItems(prev => prev.filter(i => i.id !== item.id))} className="p-1 rounded-lg hover:bg-red-50 text-red-400 hover:text-red-600 transition-all"><FiTrash2 size={12} /></button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        )}
-                    </div>
+            {/* 6 Real-time KPI Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5 w-full">
+                {/* Total Lines */}
+                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-3.5 border border-indigo-100 shadow-xs relative overflow-hidden">
+                    <p className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">Receiving Cart</p>
+                    <p className="text-xl font-black text-indigo-950 mt-1">{financials.totalItemsCount} Products</p>
+                    <p className="text-[10px] text-gray-600 mt-0.5">{financials.totalUnits} Units Total</p>
                 </div>
 
-                {/* ━━━ RIGHT PANEL ━━━ */}
-                <div className="space-y-5">
-                    {/* Summary */}
-                    <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm sticky top-24">
-                        <h2 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2 uppercase tracking-wider">
-                            <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center"><FiDollarSign className="text-purple-600" size={14} /></div>
-                            Purchase Summary
-                        </h2>
-                        <div className="space-y-3 mb-5">
-                            <div className="flex justify-between"><span className="text-sm text-gray-500">Subtotal</span><span className="text-sm font-medium">Ksh {subtotal.toLocaleString()}</span></div>
-                            <div className="border-t border-gray-100" />
-                            <div className="flex justify-between"><span className="text-lg font-bold text-gray-700">Grand Total</span><span className="text-xl font-black text-emerald-600">Ksh {total.toLocaleString()}</span></div>
+                {/* Gross Amount */}
+                <div className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl p-3.5 border border-cyan-100 shadow-xs relative overflow-hidden">
+                    <p className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Gross Subtotal</p>
+                    <p className="text-base font-black text-blue-950 mt-1">Ksh {financials.subtotal.toLocaleString()}</p>
+                    <p className="text-[10px] text-gray-600 mt-0.5">Before discount &amp; tax</p>
+                </div>
+
+                {/* Trade Discount */}
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-3.5 border border-amber-100 shadow-xs relative overflow-hidden">
+                    <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Discounts</p>
+                    <p className="text-base font-black text-amber-950 mt-1">Ksh {financials.discountVal.toLocaleString()}</p>
+                    <p className="text-[10px] text-gray-600 mt-0.5">Supplier allowance</p>
+                </div>
+
+                {/* Estimated VAT */}
+                <div className="bg-gradient-to-br from-slate-50 to-gray-100 rounded-2xl p-3.5 border border-gray-200 shadow-xs relative overflow-hidden">
+                    <p className="text-[10px] font-bold text-gray-700 uppercase tracking-wider">VAT / Tax</p>
+                    <p className="text-base font-black text-gray-950 mt-1">Ksh {financials.vatVal.toLocaleString()}</p>
+                    <p className="text-[10px] text-gray-600 mt-0.5">{vatPercent}% VAT Rate</p>
+                </div>
+
+                {/* Grand Net Total */}
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-3.5 border border-emerald-200 shadow-xs relative overflow-hidden">
+                    <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">Net Grand Total</p>
+                    <p className="text-xl font-black text-emerald-950 mt-1">Ksh {financials.grandTotal.toLocaleString()}</p>
+                    <p className="text-[10px] text-emerald-800 font-bold mt-0.5">Total Shipment Cost</p>
+                </div>
+
+                {/* Expected Profit & Margin */}
+                <div className="bg-gradient-to-br from-rose-50 to-red-50 rounded-2xl p-3.5 border border-rose-100 shadow-xs relative overflow-hidden">
+                    <p className="text-[10px] font-bold text-rose-700 uppercase tracking-wider">Projected Margin</p>
+                    <p className="text-base font-black text-rose-950 mt-1">Ksh {financials.projectedProfit.toLocaleString()}</p>
+                    <p className="text-[10px] text-rose-800 font-bold mt-0.5">
+                        {financials.marginOverall.toFixed(1)}% Est Margin
+                    </p>
+                </div>
+            </div>
+
+            {/* GRN Master Header Configuration Panel */}
+            <div className="bg-white rounded-3xl p-5 border border-gray-200 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                    <h2 className="text-xs font-black uppercase tracking-wider text-gray-900 flex items-center gap-2">
+                        <span>📋</span> GRN Master Header &amp; Vendor Settlement
+                    </h2>
+                    <span className="text-[11px] font-mono font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+                        GRN #{invoiceNo}
+                    </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs font-bold text-gray-900">
+                    {/* Supplier Selector */}
+                    <div>
+                        <div className="flex items-center justify-between mb-1">
+                            <label>Distributor / Supplier *</label>
+                            <button
+                                type="button"
+                                onClick={() => setShowAddSupplierModal(true)}
+                                className="text-[11px] text-blue-600 hover:underline font-bold"
+                            >
+                                + New
+                            </button>
                         </div>
-
-                        {/* Supplier info */}
-                        {selectedSupplier > 0 && (() => {
-                            const sup = suppliers.find(s => s.supplier_id === selectedSupplier);
-                            return sup ? (
-                                <div className="p-3 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl mb-5">
-                                    <p className="text-[10px] font-bold text-indigo-500 uppercase">Supplier</p>
-                                    <p className="text-sm font-bold text-gray-800 mt-0.5">{sup.supplier_name}</p>
-                                    {sup.phone && <p className="text-xs text-gray-500">{sup.phone}</p>}
-                                </div>
-                            ) : null;
-                        })()}
-
-                        {/* Notes */}
-                        <div className="mb-5">
-                            <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Notes</label>
-                            <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Optional notes..."
-                                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none resize-none" rows={2} />
-                        </div>
-
-                        {/* Price updates summary */}
-                        {items.some(i => i.updatePrices) && (
-                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-5">
-                                <p className="text-[10px] font-bold text-amber-700 uppercase flex items-center gap-1"><FiEdit3 size={10} /> Price Updates Queued</p>
-                                <p className="text-xs text-amber-600 mt-1">{items.filter(i => i.updatePrices).length} product(s) will have prices updated system-wide</p>
-                            </div>
+                        <select
+                            value={selectedSupplierId}
+                            onChange={(e) => setSelectedSupplierId(Number(e.target.value))}
+                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:bg-white focus:border-emerald-600 outline-none"
+                        >
+                            <option value={0}>-- Select Registered Supplier --</option>
+                            {suppliers.map((s) => (
+                                <option key={s.supplier_id} value={s.supplier_id}>
+                                    {s.supplier_name} ({s.supplier_code}) {Number(s.current_balance) > 0 ? `• Debt: Ksh ${Number(s.current_balance).toLocaleString()}` : ''}
+                                </option>
+                            ))}
+                        </select>
+                        {activeSupplier && (
+                            <p className="text-[11px] text-gray-600 mt-1">
+                                Terms: <span className="font-bold text-gray-900">{activeSupplier.payment_terms || 'Cash'}</span> • Phone: {activeSupplier.phone || 'N/A'}
+                            </p>
                         )}
-
-                        {/* Action Buttons */}
-                        <div className="space-y-3">
-                            <button onClick={savePurchase} disabled={items.length === 0 || isSaving}
-                                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-300/30 hover:shadow-xl disabled:opacity-40 disabled:cursor-not-allowed">
-                                {isSaving ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Saving...</>) : (<><FiSave size={16} /> Save Purchase</>)}
-                            </button>
-                            <button onClick={() => setItems([])} className="w-full py-3 border-2 border-gray-200 text-gray-500 rounded-xl font-semibold hover:bg-gray-50 transition-all text-sm flex items-center justify-center gap-2">
-                                <FiTrash2 size={14} /> Clear All
-                            </button>
-                        </div>
                     </div>
 
-                    {/* Quick Stats */}
-                    <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-                        <h3 className="text-xs font-bold text-gray-500 mb-3 uppercase tracking-wider flex items-center gap-2"><FiTrendingUp size={12} /> Quick Stats</h3>
-                        <div className="space-y-2">
-                            {[
-                                { label: 'Line Items', value: String(items.length), color: 'text-indigo-600' },
-                                { label: 'Total Qty', value: items.reduce((s, i) => s + i.qty, 0).toLocaleString(), color: 'text-blue-600' },
-                                { label: 'Avg. Unit Price', value: `Ksh ${items.length > 0 ? Math.round(total / items.reduce((s, i) => s + i.qty, 0) || 0).toLocaleString() : '0'}`, color: 'text-emerald-600' },
-                                { label: 'Price Updates', value: String(items.filter(i => i.updatePrices).length), color: 'text-amber-600' },
-                            ].map((s, i) => (
-                                <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
-                                    <span className="text-xs text-gray-500">{s.label}</span>
-                                    <span className={`text-sm font-bold ${s.color}`}>{s.value}</span>
-                                </div>
+                    {/* Supplier's Delivery / Invoice # */}
+                    <div>
+                        <label className="block mb-1">Supplier Delivery Note / Inv #</label>
+                        <input
+                            type="text"
+                            value={supplierInvoiceNo}
+                            onChange={(e) => setSupplierInvoiceNo(e.target.value)}
+                            placeholder="e.g. DN-90281 / INV-4821"
+                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-mono font-bold text-gray-900 focus:bg-white focus:border-emerald-600 outline-none"
+                        />
+                    </div>
+
+                    {/* Receiving Date */}
+                    <div>
+                        <label className="block mb-1">Receiving / Delivery Date</label>
+                        <input
+                            type="date"
+                            value={purchaseDate}
+                            onChange={(e) => setPurchaseDate(e.target.value)}
+                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:bg-white focus:border-emerald-600 outline-none"
+                        />
+                    </div>
+
+                    {/* Payment Status */}
+                    <div>
+                        <label className="block mb-1">Payment &amp; Terms Status</label>
+                        <div className="grid grid-cols-3 gap-1">
+                            {(['Paid', 'Unpaid', 'Partial'] as const).map((st) => (
+                                <button
+                                    key={st}
+                                    type="button"
+                                    onClick={() => setPaymentStatus(st)}
+                                    className={`py-2 px-1 rounded-xl text-xs font-bold transition-all border ${
+                                        paymentStatus === st
+                                            ? st === 'Paid'
+                                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                                                : st === 'Unpaid'
+                                                ? 'bg-red-600 text-white border-red-600 shadow-xs'
+                                                : 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                                            : 'bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100'
+                                    }`}
+                                >
+                                    {st === 'Paid' ? 'Paid' : st === 'Unpaid' ? 'Credit' : 'Partial'}
+                                </button>
                             ))}
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    {/* Unit Conversion Help */}
-                    <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-                        <h3 className="text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">Unit Conversion Guide</h3>
-                        <div className="space-y-1 text-[10px] text-gray-400">
-                            <p>📦 <span className="text-gray-600 font-medium">Box → Pieces</span>: Uses pcs/package setting</p>
-                            <p>⚖️ <span className="text-gray-600 font-medium">Bag/Kg → Grams</span>: 1 Kg = 1000 Grams</p>
-                            <p>🧴 <span className="text-gray-600 font-medium">Liter → ML</span>: 1 Liter = 1000 ML</p>
-                            <p>📏 <span className="text-gray-600 font-medium">Dozen → Pieces</span>: 1 Dozen = 12 Pcs</p>
-                            <p className="text-amber-500 mt-2">💡 Price auto-adjusts when you change the buy unit</p>
+            {/* Pharmaceutical Item Receiving Suite (Intake Panel) */}
+            <div className="bg-white rounded-3xl p-5 border border-gray-200 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                    <h2 className="text-xs font-black uppercase tracking-wider text-gray-900 flex items-center gap-2">
+                        <span>💊</span> Pharmaceutical Drug Lot Receiving &amp; Margin Engine
+                    </h2>
+                    {selectedProduct && (
+                        <span className="text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                            Selected: {selectedProduct.product_name}
+                        </span>
+                    )}
+                </div>
+
+                {/* Omni Product Search Bar */}
+                <div className="relative">
+                    <label className="block text-xs font-black text-gray-900 mb-1">
+                        Search Drug to Receive (by Name, Generic, Code or Barcode) *
+                    </label>
+                    <div className="relative">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">🔍</span>
+                        <input
+                            type="text"
+                            value={productSearch}
+                            onChange={(e) => {
+                                setProductSearch(e.target.value);
+                                setShowProductDropdown(true);
+                            }}
+                            onFocus={() => setShowProductDropdown(true)}
+                            placeholder="Type to search e.g. Panadol, Amoxicillin, Ciprofloxacin, DRG-0001..."
+                            className="w-full pl-9 pr-9 py-2.5 bg-gray-50 border border-gray-300 rounded-2xl text-xs font-bold text-gray-900 focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 outline-none transition-all placeholder:text-gray-500"
+                        />
+                        {productSearch && (
+                            <button
+                                onClick={() => {
+                                    setProductSearch('');
+                                    setShowProductDropdown(false);
+                                }}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black font-bold text-xs"
+                            >
+                                ✕
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Dropdown Suggestions */}
+                    {showProductDropdown && filteredSearchProducts.length > 0 && (
+                        <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-gray-200 rounded-2xl shadow-xl z-40 max-h-64 overflow-y-auto divide-y divide-gray-100 animate-fadeIn">
+                            {filteredSearchProducts.map((p) => (
+                                <div
+                                    key={p.pid}
+                                    onClick={() => handleSelectProduct(p)}
+                                    className="p-3 hover:bg-emerald-50/60 cursor-pointer flex items-center justify-between text-xs transition-colors"
+                                >
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-900 flex items-center justify-center font-bold text-xs">
+                                            💊
+                                        </div>
+                                        <div>
+                                            <p className="font-black text-gray-900">{p.product_name}</p>
+                                            <p className="text-[10px] text-gray-500">
+                                                Code: <span className="font-mono font-bold text-gray-800">{p.product_code}</span> • Cat: {p.category} • Pack: {p.pieces_per_package || 1} pcs
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-bold text-gray-900">Cost: Ksh {p.purchase_cost} | Sell: Ksh {p.sales_cost}</p>
+                                        <span className="text-[10px] text-blue-600 font-bold">Select ➔</span>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
+                    )}
+                </div>
+
+                {/* Line Item Intake Inputs Form */}
+                <form onSubmit={handleAddItem} className="space-y-4 pt-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-xs font-bold text-gray-900">
+                        {/* Packaging Unit */}
+                        <div>
+                            <label className="block mb-1">Packaging Unit</label>
+                            <select
+                                value={itemUnit}
+                                onChange={(e) => setItemUnit(e.target.value)}
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:bg-white focus:border-emerald-600 outline-none"
+                            >
+                                {ALL_UNITS.map((u) => (
+                                    <option key={u} value={u}>{u}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Received Quantity */}
+                        <div>
+                            <label className="block mb-1">Received Qty *</label>
+                            <input
+                                type="number"
+                                min="1"
+                                step="any"
+                                required
+                                value={itemQty}
+                                onChange={(e) => setItemQty(parseFloat(e.target.value) || 0)}
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-mono font-black text-gray-900 focus:bg-white focus:border-emerald-600 outline-none"
+                            />
+                        </div>
+
+                        {/* Pieces per Package */}
+                        <div>
+                            <label className="block mb-1">Pieces per Package</label>
+                            <input
+                                type="number"
+                                min="1"
+                                value={itemPiecesPerPack}
+                                onChange={(e) => setItemPiecesPerPack(parseInt(e.target.value, 10) || 1)}
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-mono text-gray-900 focus:bg-white focus:border-emerald-600 outline-none"
+                            />
+                        </div>
+
+                        {/* Unit Purchase Cost */}
+                        <div>
+                            <label className="block mb-1">Unit Cost (Ksh) *</label>
+                            <input
+                                type="number"
+                                step="any"
+                                required
+                                value={itemCost}
+                                onChange={(e) => setItemCost(parseFloat(e.target.value) || 0)}
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-mono font-black text-blue-900 focus:bg-white focus:border-emerald-600 outline-none"
+                            />
+                        </div>
+
+                        {/* Unit Selling Price */}
+                        <div>
+                            <div className="flex items-center justify-between mb-1">
+                                <label>Selling Price (Ksh)</label>
+                                <span className="text-[10px] text-emerald-800 font-bold">
+                                    +{itemMargin.markupPct.toFixed(0)}%
+                                </span>
+                            </div>
+                            <input
+                                type="number"
+                                step="any"
+                                value={itemSell}
+                                onChange={(e) => setItemSell(parseFloat(e.target.value) || 0)}
+                                className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-mono font-black text-emerald-900 focus:bg-white focus:border-emerald-600 outline-none"
+                            />
+                        </div>
+
+                        {/* Line Total Cost */}
+                        <div className="bg-gray-100 p-2 rounded-xl flex flex-col justify-center">
+                            <span className="text-[10px] text-gray-600 font-bold uppercase">Total Line Cost</span>
+                            <span className="text-sm font-black text-gray-900 font-mono">
+                                Ksh {(Number(itemQty) * Number(itemCost)).toLocaleString()}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Batch / Expiry / Quality Controls Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs font-bold text-gray-900 p-3 bg-gray-50 rounded-2xl border border-gray-200">
+                        {/* Batch Number */}
+                        <div>
+                            <label className="block mb-1 text-gray-900">
+                                Batch / Lot # * (FEFO)
+                            </label>
+                            <input
+                                type="text"
+                                required
+                                value={itemBatchNo}
+                                onChange={(e) => setItemBatchNo(e.target.value.toUpperCase())}
+                                placeholder="e.g. LOT-49821"
+                                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs font-mono font-black text-gray-900 focus:border-emerald-600 outline-none uppercase"
+                            />
+                        </div>
+
+                        {/* Expiry Date */}
+                        <div>
+                            <label className="block mb-1 text-gray-900">
+                                Expiry Date * (Mandatory)
+                            </label>
+                            <input
+                                type="date"
+                                required
+                                value={itemExpiryDate}
+                                onChange={(e) => setItemExpiryDate(e.target.value)}
+                                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:border-emerald-600 outline-none"
+                            />
+                        </div>
+
+                        {/* Manufacture Date */}
+                        <div>
+                            <label className="block mb-1 text-gray-900">Manufacture Date</label>
+                            <input
+                                type="date"
+                                value={itemMfgDate}
+                                onChange={(e) => setItemMfgDate(e.target.value)}
+                                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:border-emerald-600 outline-none"
+                            />
+                        </div>
+
+                        {/* Storage Conditions */}
+                        <div>
+                            <label className="block mb-1 text-gray-900">Storage Specification</label>
+                            <select
+                                value={itemStorage}
+                                onChange={(e) => setItemStorage(e.target.value)}
+                                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:border-emerald-600 outline-none"
+                            >
+                                <option value="Room Temp (15-25°C)">Room Temp (15-25°C)</option>
+                                <option value="Cool Storage (8-15°C)">Cool Storage (8-15°C)</option>
+                                <option value="Cold Chain / Fridge (2-8°C)">Cold Chain / Fridge (2-8°C)</option>
+                                <option value="Controlled Substance Locker">Controlled Substance Locker</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Quick Markup Presets & Add Line Button */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                        <div className="flex items-center gap-2 flex-wrap text-xs">
+                            <span className="text-gray-600 font-bold">Markup Presets:</span>
+                            {[20, 25, 33, 40, 50].map((pct) => (
+                                <button
+                                    key={pct}
+                                    type="button"
+                                    onClick={() => applySuggestedMarkup(pct)}
+                                    className="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-bold text-[11px]"
+                                >
+                                    +{pct}%
+                                </button>
+                            ))}
+                            <label className="flex items-center gap-1.5 ml-2 cursor-pointer font-bold text-gray-800">
+                                <input
+                                    type="checkbox"
+                                    checked={itemUpdateMasterPrice}
+                                    onChange={(e) => setItemUpdateMasterPrice(e.target.checked)}
+                                    className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                                />
+                                <span>Update Master Drug Pricing</span>
+                            </label>
+                        </div>
+
+                        <button
+                            type="submit"
+                            className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs font-black shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                        >
+                            <span>➕</span> Add Drug to Receiving Cart
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {/* Goods Received Note (GRN) Items DataGrid Table */}
+            <div className="bg-white rounded-3xl border border-gray-200 shadow-xs overflow-hidden space-y-0">
+                <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <span className="text-base">📦</span>
+                        <h3 className="font-black text-gray-900 text-xs uppercase tracking-wider">
+                            Received Items Cart ({items.length} Lines)
+                        </h3>
+                    </div>
+                    {items.length > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (confirm('Clear all items from this receiving note?')) setItems([]);
+                            }}
+                            className="text-xs text-red-600 hover:underline font-bold"
+                        >
+                            Clear All
+                        </button>
+                    )}
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr className="bg-gray-50/80 border-b border-gray-200 text-[10px] font-black uppercase text-gray-900 tracking-wider">
+                                <th className="p-3 w-8">#</th>
+                                <th className="p-3">Drug / Product Name</th>
+                                <th className="p-3">Batch # / Lot</th>
+                                <th className="p-3">Expiry Date</th>
+                                <th className="p-3 text-center">Packaging</th>
+                                <th className="p-3 text-right">Received Qty</th>
+                                <th className="p-3 text-right">Unit Cost</th>
+                                <th className="p-3 text-right">Total Cost</th>
+                                <th className="p-3 text-right">Selling Price</th>
+                                <th className="p-3 text-center">Catalog Update</th>
+                                <th className="p-3 text-center w-16">Remove</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 text-gray-900 font-medium">
+                            {items.length === 0 ? (
+                                <tr>
+                                    <td colSpan={11} className="p-12 text-center text-gray-500">
+                                        <div className="text-4xl mb-2">📥</div>
+                                        <p className="font-bold text-gray-800 text-sm">Receiving cart is currently empty</p>
+                                        <p className="text-xs text-gray-500 mt-1">Search drugs above, fill quantity and batch lots to begin receiving</p>
+                                    </td>
+                                </tr>
+                            ) : (
+                                items.map((it, idx) => {
+                                    const daysToExpiry = Math.ceil((new Date(it.expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                                    const isExpiryShort = daysToExpiry < 180;
+
+                                    return (
+                                        <tr key={it.id} className="hover:bg-emerald-50/30 transition-colors">
+                                            <td className="p-3 text-gray-400 font-bold">{idx + 1}</td>
+                                            <td className="p-3">
+                                                <p className="font-bold text-gray-900">{it.productName}</p>
+                                                <span className="text-[10px] font-mono text-gray-500">{it.productCode}</span>
+                                            </td>
+                                            <td className="p-3 whitespace-nowrap">
+                                                <span className="px-2 py-0.5 bg-indigo-50 text-indigo-900 rounded font-mono font-bold text-[11px] border border-indigo-200">
+                                                    {it.batchNumber}
+                                                </span>
+                                            </td>
+                                            <td className="p-3 whitespace-nowrap">
+                                                <span className={`px-2 py-0.5 rounded text-[11px] font-bold border ${
+                                                    isExpiryShort
+                                                        ? 'bg-red-50 text-red-800 border-red-200'
+                                                        : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                                }`}>
+                                                    {it.expiryDate} ({daysToExpiry}d)
+                                                </span>
+                                            </td>
+                                            <td className="p-3 text-center whitespace-nowrap">
+                                                <span className="text-[11px] text-gray-700 font-semibold">
+                                                    {it.purchaseUnit} ({it.piecesPerPackage} pcs)
+                                                </span>
+                                            </td>
+                                            <td className="p-3 text-right font-mono font-bold text-gray-900 whitespace-nowrap">
+                                                {it.qty} {it.purchaseUnit}
+                                            </td>
+                                            <td className="p-3 text-right font-mono font-bold text-blue-900 whitespace-nowrap">
+                                                Ksh {it.price.toLocaleString()}
+                                            </td>
+                                            <td className="p-3 text-right font-mono font-black text-gray-900 whitespace-nowrap">
+                                                Ksh {it.total.toLocaleString()}
+                                            </td>
+                                            <td className="p-3 text-right font-mono font-bold text-emerald-900 whitespace-nowrap">
+                                                Ksh {it.newSellPrice.toLocaleString()}
+                                            </td>
+                                            <td className="p-3 text-center whitespace-nowrap">
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                                    it.updatePrices ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'
+                                                }`}>
+                                                    {it.updatePrices ? '✓ Master' : 'Lot Only'}
+                                                </span>
+                                            </td>
+                                            <td className="p-3 text-center whitespace-nowrap">
+                                                <button
+                                                    onClick={() => handleRemoveItem(it.id)}
+                                                    className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
+                                                    title="Remove item"
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {/* Bottom Commitment & Settlement Footer Panel */}
+            <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                    {/* Notes & Quality Observations */}
+                    <div className="space-y-2">
+                        <label className="block text-xs font-black text-gray-900">
+                            Quality Remarks &amp; Cold Chain Inspection Notes
+                        </label>
+                        <textarea
+                            rows={3}
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            placeholder="e.g. All cartons received sealed and dry. Fridge data logger verified at 4.2°C. Verified against Delivery Note."
+                            className="w-full p-3 bg-gray-50 border border-gray-300 rounded-2xl text-xs text-gray-900 focus:bg-white focus:border-emerald-600 outline-none"
+                        />
+                    </div>
+
+                    {/* Tax & Discounts Controls */}
+                    <div className="space-y-3 bg-gray-50 p-4 rounded-2xl border border-gray-200 text-xs font-bold text-gray-900">
+                        <div className="flex items-center justify-between">
+                            <span>Supplier Trade Discount (Ksh):</span>
+                            <input
+                                type="number"
+                                min="0"
+                                value={discountAmount}
+                                onChange={(e) => setDiscountAmount(parseFloat(e.target.value) || 0)}
+                                className="w-28 px-2 py-1 bg-white border border-gray-300 rounded-lg text-right font-mono"
+                            />
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span>VAT Tax Rate (%):</span>
+                            <div className="flex items-center gap-1">
+                                {[0, 8, 16].map((rate) => (
+                                    <button
+                                        key={rate}
+                                        type="button"
+                                        onClick={() => setVatPercent(rate)}
+                                        className={`px-2 py-0.5 rounded-lg text-xs font-bold ${
+                                            vatPercent === rate ? 'bg-blue-600 text-white' : 'bg-white border text-gray-700'
+                                        }`}
+                                    >
+                                        {rate}%
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Grand Total & Final Commit Action */}
+                    <div className="text-right space-y-3">
+                        <div>
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Payable Commitment</p>
+                            <p className="text-3xl font-black text-emerald-950 tracking-tight font-mono">
+                                Ksh {financials.grandTotal.toLocaleString()}
+                            </p>
+                            <p className="text-[11px] text-gray-600 mt-0.5">
+                                Terms: <span className="font-bold text-gray-900">{paymentStatus}</span> ({paymentMethod})
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={handleCommitGrn}
+                            disabled={isSaving || items.length === 0}
+                            className="w-full sm:w-auto px-8 py-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-2xl font-black text-sm shadow-lg hover:shadow-xl transition-all disabled:opacity-40 active:scale-95 flex items-center justify-center gap-2"
+                        >
+                            <span>💾</span>
+                            <span>{isSaving ? 'Committing to Database...' : 'Confirm & Commit GRN Shipment'}</span>
+                        </button>
                     </div>
                 </div>
             </div>
+
+            {/* =====================================================================
+                MODAL 1: QUICK ADD DRUG / PRODUCT
+            ===================================================================== */}
+            {showAddProductModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 w-full max-w-lg overflow-hidden">
+                        <div className="p-5 bg-gradient-to-r from-blue-600 to-indigo-700 text-white flex items-center justify-between">
+                            <h3 className="font-black text-base flex items-center gap-2">
+                                <span>💊</span> Register New Medicine
+                            </h3>
+                            <button onClick={() => setShowAddProductModal(false)} className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center font-bold">✕</button>
+                        </div>
+                        <form onSubmit={handleQuickAddProduct} className="p-6 space-y-3 text-xs font-bold text-gray-900">
+                            <div>
+                                <label className="block mb-1">Drug / Product Name *</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={newProdName}
+                                    onChange={(e) => setNewProdName(e.target.value)}
+                                    placeholder="e.g. Paracetamol Extra 500mg"
+                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block mb-1">Product Code</label>
+                                    <input
+                                        type="text"
+                                        value={newProdCode}
+                                        onChange={(e) => setNewProdCode(e.target.value)}
+                                        placeholder="Auto (DRG-XXXX)"
+                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl font-mono"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block mb-1">Category</label>
+                                    <select
+                                        value={newProdCategory}
+                                        onChange={(e) => setNewProdCategory(e.target.value)}
+                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl"
+                                    >
+                                        <option value="Tablets & Capsules">Tablets &amp; Capsules</option>
+                                        <option value="Syrups & Suspensions">Syrups &amp; Suspensions</option>
+                                        <option value="Injections & Infusions">Injections &amp; Infusions</option>
+                                        <option value="Eye & Ear Drops">Eye &amp; Ear Drops</option>
+                                        <option value="Creams & Ointments">Creams &amp; Ointments</option>
+                                        <option value="General Retail">General Retail</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label className="block mb-1">Purchase Cost</label>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        value={newProdCost}
+                                        onChange={(e) => setNewProdCost(parseFloat(e.target.value) || 0)}
+                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl font-mono"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block mb-1">Selling Price</label>
+                                    <input
+                                        type="number"
+                                        step="any"
+                                        value={newProdSell}
+                                        onChange={(e) => setNewProdSell(parseFloat(e.target.value) || 0)}
+                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl font-mono text-emerald-900"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block mb-1">Pieces / Box</label>
+                                    <input
+                                        type="number"
+                                        value={newProdPcs}
+                                        onChange={(e) => setNewProdPcs(parseInt(e.target.value, 10) || 1)}
+                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl font-mono"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block mb-1">Barcode (Optional)</label>
+                                <input
+                                    type="text"
+                                    value={newProdBarcode}
+                                    onChange={(e) => setNewProdBarcode(e.target.value)}
+                                    placeholder="Scan or enter barcode"
+                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl font-mono"
+                                />
+                            </div>
+                            <div className="pt-3 border-t border-gray-200 flex items-center justify-between">
+                                <button type="button" onClick={() => setShowAddProductModal(false)} className="px-4 py-2 bg-gray-100 rounded-xl">Cancel</button>
+                                <button type="submit" disabled={isSavingProd} className="px-5 py-2 bg-blue-600 text-white rounded-xl font-bold">
+                                    {isSavingProd ? 'Saving...' : 'Register & Select Drug'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* =====================================================================
+                MODAL 2: QUICK ADD SUPPLIER
+            ===================================================================== */}
+            {showAddSupplierModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 w-full max-w-lg overflow-hidden">
+                        <div className="p-5 bg-gradient-to-r from-emerald-600 to-teal-700 text-white flex items-center justify-between">
+                            <h3 className="font-black text-base flex items-center gap-2">
+                                <span>🏢</span> Register New Distributor / Vendor
+                            </h3>
+                            <button onClick={() => setShowAddSupplierModal(false)} className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center font-bold">✕</button>
+                        </div>
+                        <form onSubmit={handleQuickAddSupplier} className="p-6 space-y-3 text-xs font-bold text-gray-900">
+                            <div>
+                                <label className="block mb-1">Company / Supplier Name *</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={newSuppName}
+                                    onChange={(e) => setNewSuppName(e.target.value)}
+                                    placeholder="e.g. Laborex Kenya / Harleys Pharma"
+                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl"
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block mb-1">Primary Phone</label>
+                                    <input
+                                        type="text"
+                                        value={newSuppPhone}
+                                        onChange={(e) => setNewSuppPhone(e.target.value)}
+                                        placeholder="0712345678"
+                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl font-mono"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block mb-1">Contact Person</label>
+                                    <input
+                                        type="text"
+                                        value={newSuppContact}
+                                        onChange={(e) => setNewSuppContact(e.target.value)}
+                                        placeholder="Sales Representative"
+                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl"
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block mb-1">Payment Terms</label>
+                                    <select
+                                        value={newSuppTerms}
+                                        onChange={(e) => setNewSuppTerms(e.target.value)}
+                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl"
+                                    >
+                                        <option value="Cash">Cash on Delivery</option>
+                                        <option value="Net 15">Net 15 Days</option>
+                                        <option value="Net 30">Net 30 Days</option>
+                                        <option value="Net 60">Net 60 Days</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block mb-1">KRA PIN Number</label>
+                                    <input
+                                        type="text"
+                                        value={newSuppKra}
+                                        onChange={(e) => setNewSuppKra(e.target.value.toUpperCase())}
+                                        placeholder="P051234567X"
+                                        className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl font-mono uppercase"
+                                    />
+                                </div>
+                            </div>
+                            <div className="pt-3 border-t border-gray-200 flex items-center justify-between">
+                                <button type="button" onClick={() => setShowAddSupplierModal(false)} className="px-4 py-2 bg-gray-100 rounded-xl">Cancel</button>
+                                <button type="submit" disabled={isSavingSupp} className="px-5 py-2 bg-emerald-600 text-white rounded-xl font-bold">
+                                    {isSavingSupp ? 'Registering...' : 'Register & Select'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* =====================================================================
+                MODAL 3: OFFICIAL GRN PRINT & RECEIPT DOCUMENT
+            ===================================================================== */}
+            {showGrnPrintModal && completedGrn && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
+                        <div className="p-4 bg-emerald-600 text-white flex items-center justify-between">
+                            <h3 className="font-black text-sm">Official Goods Received Note (GRN) Document</h3>
+                            <button onClick={() => setShowGrnPrintModal(false)} className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center font-bold">✕</button>
+                        </div>
+                        <div className="p-6 overflow-y-auto space-y-4 text-xs font-medium text-gray-900" id="printableGrn">
+                            <div className="border-b border-gray-200 pb-3 flex items-start justify-between">
+                                <div>
+                                    <h2 className="text-lg font-black text-gray-900">ALPHA PHARMACY</h2>
+                                    <p className="text-[11px] text-gray-600">{completedGrn.outlet_name} • Licensed Pharmacy</p>
+                                    <p className="text-[11px] text-gray-600">Goods Received Note / Delivery Inspection</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="font-mono font-black text-base text-blue-700">{completedGrn.purchase_no}</p>
+                                    <p className="text-[11px] text-gray-600">Date: {completedGrn.purchase_date}</p>
+                                    <p className="text-[11px] text-gray-600">Status: {completedGrn.payment_status}</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-xl">
+                                <div>
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase">Distributor / Supplier</p>
+                                    <p className="font-black text-gray-900 text-xs">{completedGrn.supplier_name}</p>
+                                    <p className="text-[11px] text-gray-600">Supplier Inv: {completedGrn.supplier_invoice || 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase">Received By</p>
+                                    <p className="font-black text-gray-900 text-xs">{completedGrn.created_by}</p>
+                                    <p className="text-[11px] text-gray-600">{completedGrn.notes}</p>
+                                </div>
+                            </div>
+                            <table className="w-full border-collapse border border-gray-200 text-xs">
+                                <thead className="bg-gray-100 font-black text-[10px] uppercase">
+                                    <tr>
+                                        <th className="border p-2 text-left">Item Description</th>
+                                        <th className="border p-2 text-left">Batch #</th>
+                                        <th className="border p-2 text-left">Expiry</th>
+                                        <th className="border p-2 text-right">Qty</th>
+                                        <th className="border p-2 text-right">Cost</th>
+                                        <th className="border p-2 text-right">Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {completedGrn.items?.map((it: any, idx: number) => (
+                                        <tr key={idx} className="border-b">
+                                            <td className="border p-2 font-bold">{it.productName}</td>
+                                            <td className="border p-2 font-mono">{it.batchNumber}</td>
+                                            <td className="border p-2">{it.expiryDate}</td>
+                                            <td className="border p-2 text-right font-mono">{it.qty} {it.purchaseUnit}</td>
+                                            <td className="border p-2 text-right font-mono">Ksh {it.price.toLocaleString()}</td>
+                                            <td className="border p-2 text-right font-mono font-bold">Ksh {it.total.toLocaleString()}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                                <tfoot>
+                                    <tr className="bg-gray-50 font-black">
+                                        <td colSpan={5} className="border p-2 text-right">NET GRAND TOTAL:</td>
+                                        <td className="border p-2 text-right text-emerald-900 font-mono">
+                                            Ksh {completedGrn.financials?.grandTotal?.toLocaleString()}
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                            <div className="grid grid-cols-2 gap-8 pt-8 text-[11px] text-gray-600">
+                                <div>
+                                    <div className="border-t border-gray-400 pt-1 font-bold">Verified &amp; Inspected By</div>
+                                    <p>{completedGrn.created_by}</p>
+                                </div>
+                                <div className="text-right">
+                                    <div className="border-t border-gray-400 pt-1 font-bold">Supplier Driver / Agent Signature</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                            <button onClick={() => window.print()} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold">
+                                🖨️ Print GRN Note
+                            </button>
+                            <button onClick={() => setShowGrnPrintModal(false)} className="px-6 py-2 bg-gray-900 text-white rounded-xl text-xs font-bold">
+                                Done
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* =====================================================================
+                MODAL 4: RECENT INVOICES DRAWER
+            ===================================================================== */}
+            {showRecentInvoicesModal && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 w-full max-w-xl max-h-[85vh] flex flex-col overflow-hidden">
+                        <div className="p-4 bg-gray-900 text-white flex items-center justify-between">
+                            <h3 className="font-black text-sm">Recent Received Invoices (Live Database)</h3>
+                            <button onClick={() => setShowRecentInvoicesModal(false)} className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center font-bold">✕</button>
+                        </div>
+                        <div className="p-4 overflow-y-auto flex-1 divide-y divide-gray-100 text-xs">
+                            {recentInvoices.length === 0 ? (
+                                <p className="text-center p-8 text-gray-500 font-bold">No purchase records found in database</p>
+                            ) : (
+                                recentInvoices.map((inv) => (
+                                    <div key={inv.purchase_id} className="py-3 flex items-center justify-between hover:bg-gray-50 px-2 rounded-xl">
+                                        <div>
+                                            <p className="font-mono font-bold text-blue-700">{inv.purchase_no}</p>
+                                            <p className="font-black text-gray-900">{inv.supplier_name}</p>
+                                            <p className="text-[10px] text-gray-500">{inv.purchase_date}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-black text-emerald-950 font-mono">Ksh {Number(inv.grand_total).toLocaleString()}</p>
+                                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                                {inv.payment_status || 'Paid'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        <div className="p-4 bg-gray-50 border-t border-gray-200 text-right">
+                            <button onClick={() => setShowRecentInvoicesModal(false)} className="px-6 py-2 bg-gray-900 text-white rounded-xl text-xs font-bold">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
