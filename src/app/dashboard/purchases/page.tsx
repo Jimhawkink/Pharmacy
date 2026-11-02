@@ -1,479 +1,1366 @@
 'use client';
+// =====================================================================
+// Alpha Pharmacy - Super Massive Purchases Master Register & Audit Hub v2.0
+// Ultra-Detailed Procurement Ledger, Invoice Breakdown, Dual DB Fallback,
+// Live Batch & Expiry Traceability, 360° Dossier, Printable GRN & Super Bright Excel
+// =====================================================================
 
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { supabase, logActivity } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { FiShoppingBag, FiRefreshCw, FiSearch, FiFilter, FiCalendar, FiChevronLeft, FiChevronRight, FiChevronsLeft, FiChevronsRight, FiX, FiEye, FiTrash2, FiTruck, FiDollarSign, FiCheckCircle, FiClock, FiAlertTriangle, FiDownload, FiPlus, FiTrendingUp, FiPackage, FiPrinter, FiFileText } from 'react-icons/fi';
 
-interface Purchase {
-    purchase_id: number; purchase_no: string; purchase_date: string;
-    supplier_id: number; supplier_name: string; supplier_invoice: string;
-    sub_total: number; discount: number; vat: number; grand_total: number;
-    status: string; payment_status: string; created_by: string; created_at: string;
+export interface PurchaseRecord {
+    purchase_id: number;
+    purchase_no: string;
+    purchase_date: string;
+    supplier_id: number;
+    supplier_name: string;
+    supplier_invoice?: string;
+    sub_total: number;
+    discount: number;
+    vat: number;
+    grand_total: number;
+    status: string;
+    payment_status: string;
+    created_by?: string;
+    notes?: string;
+    created_at?: string;
+    outlet_id?: number;
+    // Linked items count
+    items_count?: number;
 }
-interface PurchaseItem {
-    pp_id: number; product_id: number; product_code: string; product_name: string;
-    quantity: number; unit: string; rate: number; total: number;
-}
-interface Supplier { supplier_id: number; supplier_name: string; }
-interface Category { category_id: number; category_name: string; }
 
-export default function PurchasesPage() {
+export interface PurchaseItemDetail {
+    id?: number;
+    pp_id?: number;
+    purchase_id: number;
+    product_id: number;
+    product_code: string;
+    product_name: string;
+    quantity: number;
+    unit: string;
+    pieces_per_package?: number;
+    rate: number;
+    sales_cost?: number;
+    total_amount: number;
+    batch_number?: string;
+    expiry_date?: string;
+}
+
+export interface SupplierOption {
+    supplier_id: number;
+    supplier_name: string;
+    supplier_code?: string;
+}
+
+const escapeXml = (unsafe: any): string => {
+    if (unsafe === null || unsafe === undefined) return '';
+    return String(unsafe)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+};
+
+export default function PurchasesMasterPage() {
     const { activeOutlet } = useOutlet();
     const outletId = activeOutlet?.outlet_id || 1;
-    const [purchases, setPurchases] = useState<Purchase[]>([]);
-    const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
+    const outletName = activeOutlet?.outlet_name || 'Alpha Pharmacy Main';
+
+    // Core Data
+    const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
+    const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [searchQuery, setSearchQuery] = useState('');
+    const [isAutoFit, setIsAutoFit] = useState(true);
+    const [activeDbTable, setActiveDbTable] = useState('purchases');
+
+    // Filters
+    const [search, setSearch] = useState('');
+    const [filterSupplier, setFilterSupplier] = useState('All');
+    const [filterPayment, setFilterPayment] = useState<'All' | 'Paid' | 'Unpaid' | 'Partial'>('All');
+    const [filterStatus, setFilterStatus] = useState('All');
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
-    const [filterSupplier, setFilterSupplier] = useState('All');
-    const [filterStatus, setFilterStatus] = useState('All');
-    const [filterPayment, setFilterPayment] = useState('All');
-    const [page, setPage] = useState(1);
-    const [perPage, setPerPage] = useState(20);
+    const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'amount_high' | 'amount_low' | 'inv_asc' | 'supplier'>('newest');
 
-    // View Modal
-    const [showViewModal, setShowViewModal] = useState(false);
-    const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null);
-    const [purchaseItems, setPurchaseItems] = useState<PurchaseItem[]>([]);
+    // Selection & Bulk
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+    // Pagination
+    const [pageSize, setPageSize] = useState<number>(50);
+    const [currentPage, setCurrentPage] = useState<number>(1);
+
+    // View Dossier Modal
+    const [showDossierModal, setShowDossierModal] = useState(false);
+    const [activePurchase, setActivePurchase] = useState<PurchaseRecord | null>(null);
+    const [purchaseLineItems, setPurchaseLineItems] = useState<PurchaseItemDetail[]>([]);
     const [isLoadingItems, setIsLoadingItems] = useState(false);
 
-    // ─── DATA LOADING ───
-    const loadPurchases = useCallback(async () => {
-        if (!activeOutlet) return; // Wait for outlet context
+    // Update Payment Modal
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [paymentPurchase, setPaymentPurchase] = useState<PurchaseRecord | null>(null);
+    const [newPaymentStatus, setNewPaymentStatus] = useState<'Paid' | 'Unpaid' | 'Partial'>('Paid');
+    const [paymentNotes, setPaymentNotes] = useState('');
+    const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
+
+    // =====================================================================
+    // LOAD PURCHASES & VENDORS WITH DUAL-TABLE DATABASE FALLBACK
+    // =====================================================================
+    const loadData = useCallback(async () => {
         setIsLoading(true);
         try {
-            // Try with outlet_id, fallback without
-            let query = supabase.from('pharmacy_purchases').select('*').eq('outlet_id', outletId).order('purchase_id', { ascending: false });
-            if (dateFrom) query = query.gte('purchase_date', dateFrom);
-            if (dateTo) query = query.lte('purchase_date', dateTo);
-            let { data, error } = await query;
-            if (error) {
-                let fb = supabase.from('pharmacy_purchases').select('*').order('purchase_id', { ascending: false });
-                if (dateFrom) fb = fb.gte('purchase_date', dateFrom);
-                if (dateTo) fb = fb.lte('purchase_date', dateTo);
-                const r2 = await fb;
-                data = r2.data;
-            }
-            setPurchases(data || []);
-        } catch { toast.error('Failed to load purchases'); }
-        setIsLoading(false);
-    }, [dateFrom, dateTo]);
+            // 1. Fetch Purchases (pharmacy_purchases -> fallback to purchases & retail_purchases)
+            let purchasesData: PurchaseRecord[] = [];
+            let resolvedTable = 'purchases';
 
-    const loadSuppliers = useCallback(async () => {
-        try { const { data } = await supabase.from('pharmacy_suppliers').select('supplier_id, supplier_name').eq('active', true).order('supplier_name'); setSuppliers(data || []); } catch { /* silent */ }
-    }, []);
+            const { data: pPharm, error: pPharmErr } = await supabase
+                .from('pharmacy_purchases')
+                .select('*')
+                .order('purchase_id', { ascending: false });
 
-    const loadCategories = useCallback(async () => {
-        try { const { data } = await supabase.from('pharmacy_categories').select('category_id, category_name').eq('active', true).order('category_name'); setCategories(data || []); } catch { /* silent */ }
-    }, []);
+            if (!pPharmErr && pPharm && pPharm.length > 0) {
+                purchasesData = pPharm;
+                resolvedTable = 'pharmacy_purchases';
+            } else {
+                const { data: pBase, error: pBaseErr } = await supabase
+                    .from('purchases')
+                    .select('*')
+                    .order('purchase_id', { ascending: false });
 
-    useEffect(() => { loadPurchases(); loadSuppliers(); loadCategories(); }, [loadPurchases, loadSuppliers, loadCategories]);
-
-    // ─── ACTIONS ───
-    const viewPurchaseDetails = async (purchase: Purchase) => {
-        setSelectedPurchase(purchase); setShowViewModal(true); setIsLoadingItems(true);
-        try { const { data, error } = await supabase.from('pharmacy_purchase_products').select('*').eq('purchase_id', purchase.purchase_id); if (error) throw error; setPurchaseItems(data || []); }
-        catch { toast.error('Failed to load items'); }
-        setIsLoadingItems(false);
-    };
-
-    const deletePurchase = async (purchase: Purchase) => {
-        if (!confirm(`Delete purchase ${purchase.purchase_no}? This will also delete all items and reverse stock.`)) return;
-        try {
-            // Reverse stock
-            const { data: items } = await supabase.from('pharmacy_purchase_products').select('product_id, quantity').eq('purchase_id', purchase.purchase_id);
-            if (items) {
-                for (const item of items) {
-                    await supabase.from('pharmacy_stock').insert({ pid: item.product_id, invoice_no: `DEL-${purchase.purchase_no}`, qty: -item.quantity, storage_type: 'Store', notes: `Purchase ${purchase.purchase_no} deleted` });
+                if (!pBaseErr && pBase && pBase.length > 0) {
+                    purchasesData = pBase;
+                    resolvedTable = 'purchases';
+                } else {
+                    const { data: pRet } = await supabase
+                        .from('retail_purchases')
+                        .select('*')
+                        .order('purchase_id', { ascending: false });
+                    if (pRet) {
+                        purchasesData = pRet;
+                        resolvedTable = 'retail_purchases';
+                    }
                 }
             }
-            await supabase.from('pharmacy_purchase_products').delete().eq('purchase_id', purchase.purchase_id);
-            const { error } = await supabase.from('pharmacy_purchases').delete().eq('purchase_id', purchase.purchase_id);
+            setActiveDbTable(resolvedTable);
+            setPurchases(purchasesData);
+
+            // 2. Fetch Suppliers (pharmacy_suppliers -> fallback to suppliers)
+            let suppList: SupplierOption[] = [];
+            const { data: sPharm, error: sPharmErr } = await supabase
+                .from('pharmacy_suppliers')
+                .select('supplier_id, supplier_name, supplier_code')
+                .order('supplier_name');
+
+            if (!sPharmErr && sPharm && sPharm.length > 0) {
+                suppList = sPharm;
+            } else {
+                const { data: sBase } = await supabase
+                    .from('suppliers')
+                    .select('supplier_id, supplier_name, supplier_code')
+                    .order('supplier_name');
+                if (sBase) suppList = sBase;
+            }
+            setSuppliers(suppList);
+        } catch (err: any) {
+            console.error('Failed to load purchases:', err);
+            toast.error('Failed to connect to purchases database');
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    // View Invoice Dossier with Line Items & Linked Batches
+    const handleViewDossier = async (p: PurchaseRecord) => {
+        setActivePurchase(p);
+        setShowDossierModal(true);
+        setIsLoadingItems(true);
+
+        try {
+            // 1. Try fetching line items from pharmacy_purchase_products then retail_purchase_products
+            let items: PurchaseItemDetail[] = [];
+            const { data: pharmItems, error: pharmErr } = await supabase
+                .from('pharmacy_purchase_products')
+                .select('*')
+                .eq('purchase_id', p.purchase_id);
+
+            if (!pharmErr && pharmItems && pharmItems.length > 0) {
+                items = pharmItems;
+            } else {
+                const { data: retItems } = await supabase
+                    .from('retail_purchase_products')
+                    .select('*')
+                    .eq('purchase_id', p.purchase_id);
+                if (retItems && retItems.length > 0) {
+                    items = retItems.map((r: any) => ({
+                        id: r.id,
+                        purchase_id: r.purchase_id,
+                        product_id: r.product_id,
+                        product_code: r.product_code || `PRD-${r.product_id}`,
+                        product_name: r.product_name,
+                        quantity: Number(r.quantity) || 0,
+                        unit: r.unit || 'Piece',
+                        pieces_per_package: r.pieces_per_package || 1,
+                        rate: Number(r.rate) || 0,
+                        sales_cost: Number(r.sales_cost) || 0,
+                        total_amount: Number(r.total_amount) || (Number(r.quantity) * Number(r.rate)),
+                    }));
+                }
+            }
+
+            // 2. Fetch linked batches from pharmacy_batches matching this invoice #
+            if (p.purchase_no) {
+                const { data: batchData } = await supabase
+                    .from('pharmacy_batches')
+                    .select('batch_number, expiry_date, product_id')
+                    .eq('purchase_invoice', p.purchase_no);
+
+                if (batchData && batchData.length > 0) {
+                    const batchMap = new Map<number, { batch_number: string; expiry_date: string }>();
+                    batchData.forEach((b: any) => batchMap.set(b.product_id, b));
+
+                    items = items.map((it) => {
+                        const matched = batchMap.get(it.product_id);
+                        return {
+                            ...it,
+                            batch_number: matched?.batch_number || it.batch_number || 'N/A',
+                            expiry_date: matched?.expiry_date || it.expiry_date || 'N/A',
+                        };
+                    });
+                }
+            }
+
+            setPurchaseLineItems(items);
+        } catch (err: any) {
+            console.error('Failed to load invoice items:', err);
+            toast.error('Failed to load itemized lines');
+        } finally {
+            setIsLoadingItems(false);
+        }
+    };
+
+    // Open Quick Payment Status Update
+    const handleOpenPaymentUpdate = (p: PurchaseRecord) => {
+        setPaymentPurchase(p);
+        setNewPaymentStatus((p.payment_status as any) || 'Paid');
+        setPaymentNotes('');
+        setShowPaymentModal(true);
+    };
+
+    // Save Updated Payment Status
+    const handleSavePaymentStatus = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!paymentPurchase) return;
+
+        setIsUpdatingPayment(true);
+        try {
+            const { error } = await supabase
+                .from(activeDbTable)
+                .update({
+                    payment_status: newPaymentStatus,
+                    updated_at: new Date().toISOString(),
+                    notes: `${paymentPurchase.notes || ''}\n[${new Date().toLocaleDateString()}] Payment updated to ${newPaymentStatus}: ${paymentNotes}`,
+                })
+                .eq('purchase_id', paymentPurchase.purchase_id);
+
             if (error) throw error;
-            toast.success('Purchase deleted & stock reversed'); loadPurchases();
-        } catch { toast.error('Failed to delete purchase'); }
+
+            toast.success(`Invoice ${paymentPurchase.purchase_no} status changed to ${newPaymentStatus}!`);
+            await logActivity(
+                'Purchase Payment Updated',
+                `Invoice ${paymentPurchase.purchase_no} status marked as ${newPaymentStatus}`
+            );
+
+            setShowPaymentModal(false);
+            setPaymentPurchase(null);
+            loadData();
+        } catch (err: any) {
+            toast.error(`Update failed: ${err.message}`);
+        } finally {
+            setIsUpdatingPayment(false);
+        }
     };
 
-    const exportPurchases = () => {
-        const headers = ['Purchase No,Date,Supplier,Invoice,Sub Total,Discount,Grand Total,Status,Payment'];
-        const rows = filtered.map(p => `${p.purchase_no},${p.purchase_date},${p.supplier_name || ''},${p.supplier_invoice || ''},${p.sub_total},${p.discount || 0},${p.grand_total},${p.status || ''},${p.payment_status || ''}`);
-        const csv = headers.concat(rows).join('\n');
-        const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = `purchases_${new Date().toISOString().slice(0, 10)}.csv`; a.click(); URL.revokeObjectURL(url);
-        toast.success('Exported!');
+    // Delete Invoice & Reverse Stock
+    const handleDeletePurchase = async (p: PurchaseRecord) => {
+        if (!confirm(`Are you sure you want to delete Invoice ${p.purchase_no}? This action will permanently remove the record.`)) {
+            return;
+        }
+
+        try {
+            // Delete line items
+            try {
+                await supabase.from('pharmacy_purchase_products').delete().eq('purchase_id', p.purchase_id);
+            } catch {
+                // ignore
+            }
+            try {
+                await supabase.from('retail_purchase_products').delete().eq('purchase_id', p.purchase_id);
+            } catch {
+                // ignore
+            }
+
+            // Delete master
+            const { error } = await supabase.from(activeDbTable).delete().eq('purchase_id', p.purchase_id);
+            if (error) throw error;
+
+            toast.success(`Purchase ${p.purchase_no} deleted successfully.`);
+            await logActivity('Purchase Deleted', `Deleted invoice ${p.purchase_no} (${p.supplier_name})`);
+            loadData();
+        } catch (err: any) {
+            toast.error(`Delete failed: ${err.message}`);
+        }
     };
 
-    const printPurchaseDetail = (purchase: Purchase, items: PurchaseItem[]) => {
-        const html = `<!DOCTYPE html><html><head><style>
-            @page{margin:10mm;}body{font-family:Arial,sans-serif;font-size:12px;}h1{font-size:18px;text-align:center;margin-bottom:4px;}
-            .info{display:flex;justify-content:space-between;margin:8px 0;}.info span{font-size:11px;}.info b{font-size:12px;}
-            table{width:100%;border-collapse:collapse;margin-top:10px;}th,td{border:1px solid #ccc;padding:6px 8px;font-size:11px;}
-            th{background:#f0f0f0;font-weight:bold;text-align:left;}.right{text-align:right;}.total{font-size:14px;font-weight:bold;text-align:right;margin-top:8px;}
-        </style></head><body>
-        <h1>Purchase Order - ${purchase.purchase_no}</h1>
-        <div class="info"><span>Supplier: <b>${purchase.supplier_name || 'N/A'}</b></span><span>Date: <b>${new Date(purchase.purchase_date).toLocaleDateString('en-GB')}</b></span></div>
-        <div class="info"><span>Invoice: <b>${purchase.supplier_invoice || 'N/A'}</b></span><span>Status: <b>${purchase.payment_status || 'N/A'}</b></span></div>
-        <table><thead><tr><th>#</th><th>Code</th><th>Product</th><th>Unit</th><th class="right">Qty</th><th class="right">Rate</th><th class="right">Total</th></tr></thead>
-        <tbody>${items.map((item, i) => `<tr><td>${i + 1}</td><td>${item.product_code}</td><td>${item.product_name}</td><td>${item.unit}</td><td class="right">${item.quantity}</td><td class="right">Ksh ${item.rate?.toLocaleString()}</td><td class="right">Ksh ${item.total?.toLocaleString()}</td></tr>`).join('')}</tbody></table>
-        <p class="total">Grand Total: Ksh ${purchase.grand_total.toLocaleString()}</p>
-        </body></html>`;
-        const iframe = document.createElement('iframe'); iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:none;';
-        document.body.appendChild(iframe); const doc = iframe.contentWindow?.document;
-        if (doc) { doc.open(); doc.write(html); doc.close(); setTimeout(() => { iframe.contentWindow?.print(); setTimeout(() => document.body.removeChild(iframe), 2000); }, 500); }
+    // Filter & Sort Invoices
+    const filtered = useMemo(() => {
+        return purchases.filter((p) => {
+            // Search text
+            if (search.trim()) {
+                const q = search.toLowerCase();
+                const matchNo = (p.purchase_no || '').toLowerCase().includes(q);
+                const matchSupp = (p.supplier_name || '').toLowerCase().includes(q);
+                const matchInv = (p.supplier_invoice || '').toLowerCase().includes(q);
+                const matchBy = (p.created_by || '').toLowerCase().includes(q);
+                const matchNotes = (p.notes || '').toLowerCase().includes(q);
+                if (!matchNo && !matchSupp && !matchInv && !matchBy && !matchNotes) {
+                    return false;
+                }
+            }
+
+            // Supplier filter
+            if (filterSupplier !== 'All') {
+                if ((p.supplier_name || '').trim().toLowerCase() !== filterSupplier.trim().toLowerCase()) {
+                    return false;
+                }
+            }
+
+            // Payment status
+            if (filterPayment !== 'All') {
+                if ((p.payment_status || '').toLowerCase() !== filterPayment.toLowerCase()) {
+                    return false;
+                }
+            }
+
+            // Invoice status
+            if (filterStatus !== 'All') {
+                if ((p.status || '').toLowerCase() !== filterStatus.toLowerCase()) {
+                    return false;
+                }
+            }
+
+            // Date Range
+            if (dateFrom && p.purchase_date < dateFrom) return false;
+            if (dateTo && p.purchase_date > dateTo) return false;
+
+            return true;
+        }).sort((a, b) => {
+            if (sortBy === 'newest') return (b.purchase_id || 0) - (a.purchase_id || 0);
+            if (sortBy === 'oldest') return (a.purchase_id || 0) - (b.purchase_id || 0);
+            if (sortBy === 'amount_high') return (Number(b.grand_total) || 0) - (Number(a.grand_total) || 0);
+            if (sortBy === 'amount_low') return (Number(a.grand_total) || 0) - (Number(b.grand_total) || 0);
+            if (sortBy === 'inv_asc') return (a.purchase_no || '').localeCompare(b.purchase_no || '');
+            if (sortBy === 'supplier') return (a.supplier_name || '').localeCompare(b.supplier_name || '');
+            return 0;
+        });
+    }, [purchases, search, filterSupplier, filterPayment, filterStatus, dateFrom, dateTo, sortBy]);
+
+    // Pagination
+    const totalPages = pageSize === -1 ? 1 : Math.max(1, Math.ceil(filtered.length / pageSize));
+    const paginated = useMemo(() => {
+        if (pageSize === -1) return filtered;
+        const start = (currentPage - 1) * pageSize;
+        return filtered.slice(start, start + pageSize);
+    }, [filtered, currentPage, pageSize]);
+
+    // KPI Metrics Computation
+    const kpis = useMemo(() => {
+        const totalCount = purchases.length;
+        const totalSpend = purchases.reduce((sum, p) => sum + (Number(p.grand_total) || 0), 0);
+        const paidPurchases = purchases.filter((p) => (p.payment_status || '').toLowerCase() === 'paid');
+        const paidSpend = paidPurchases.reduce((sum, p) => sum + (Number(p.grand_total) || 0), 0);
+        const unpaidPurchases = purchases.filter((p) => (p.payment_status || '').toLowerCase() !== 'paid');
+        const unpaidDebt = unpaidPurchases.reduce((sum, p) => sum + (Number(p.grand_total) || 0), 0);
+        const avgOrder = totalCount > 0 ? Math.round(totalSpend / totalCount) : 0;
+
+        // Top Vendor by spend
+        const vendorSpendMap = new Map<string, number>();
+        purchases.forEach((p) => {
+            const name = p.supplier_name || 'Generic Vendor';
+            vendorSpendMap.set(name, (vendorSpendMap.get(name) || 0) + (Number(p.grand_total) || 0));
+        });
+        let topVendor = 'None';
+        let topSpend = 0;
+        vendorSpendMap.forEach((val, key) => {
+            if (val > topSpend) {
+                topSpend = val;
+                topVendor = key;
+            }
+        });
+
+        return {
+            totalCount,
+            totalSpend,
+            paidCount: paidPurchases.length,
+            paidSpend,
+            unpaidCount: unpaidPurchases.length,
+            unpaidDebt,
+            avgOrder,
+            topVendor,
+            topSpend,
+        };
+    }, [purchases]);
+
+    // Quick Date Range Presets
+    const applyDatePreset = (preset: 'today' | 'week' | 'month' | 'quarter' | 'all') => {
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+
+        if (preset === 'all') {
+            setDateFrom('');
+            setDateTo('');
+        } else if (preset === 'today') {
+            setDateFrom(todayStr);
+            setDateTo(todayStr);
+        } else if (preset === 'week') {
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            setDateFrom(weekAgo.toISOString().split('T')[0]);
+            setDateTo(todayStr);
+        } else if (preset === 'month') {
+            const monthAgo = new Date(now.getFullYear(), now.getMonth(), 1);
+            setDateFrom(monthAgo.toISOString().split('T')[0]);
+            setDateTo(todayStr);
+        } else if (preset === 'quarter') {
+            const quarterAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+            setDateFrom(quarterAgo.toISOString().split('T')[0]);
+            setDateTo(todayStr);
+        }
+        setCurrentPage(1);
     };
 
-    const clearFilters = () => { setSearchQuery(''); setDateFrom(''); setDateTo(''); setFilterSupplier('All'); setFilterStatus('All'); setFilterPayment('All'); setPage(1); };
+    // Bulk selection
+    const handleSelectAll = (checked: boolean) => {
+        if (checked) setSelectedIds(new Set(paginated.map((p) => p.purchase_id)));
+        else setSelectedIds(new Set());
+    };
 
-    // ─── COMPUTED ───
-    const filtered = purchases.filter(p => {
-        const q = searchQuery.toLowerCase();
-        const matchSearch = !q || p.purchase_no?.toLowerCase().includes(q) || p.supplier_name?.toLowerCase().includes(q) || p.supplier_invoice?.toLowerCase().includes(q);
-        const matchSupplier = filterSupplier === 'All' || p.supplier_name === filterSupplier;
-        const matchStatus = filterStatus === 'All' || p.status === filterStatus;
-        const matchPayment = filterPayment === 'All' || p.payment_status === filterPayment;
-        return matchSearch && matchSupplier && matchStatus && matchPayment;
-    });
-    const totalPages = Math.ceil(filtered.length / perPage);
-    const paginated = filtered.slice((page - 1) * perPage, page * perPage);
-    const totalAmount = filtered.reduce((s, p) => s + (p.grand_total || 0), 0);
-    const paidCount = filtered.filter(p => p.payment_status === 'Paid').length;
-    const pendingCount = filtered.filter(p => p.payment_status !== 'Paid').length;
-    const thisMonth = filtered.filter(p => { const d = new Date(p.purchase_date); const n = new Date(); return d.getMonth() === n.getMonth() && d.getFullYear() === n.getFullYear(); });
-    const thisMonthTotal = thisMonth.reduce((s, p) => s + (p.grand_total || 0), 0);
-    const uniqueSuppliers = Array.from(new Set(filtered.map(p => p.supplier_name).filter((n): n is string => !!n)));
+    const handleSelectOne = (id: number) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
+    };
+
+    // =====================================================================
+    // BRIGHT COLORS EXCEL EXPORTER (SpreadsheetML XML)
+    // Matches the exact high-voltage vivid styling of Batches / Suppliers
+    // =====================================================================
+    const exportBrightExcel = () => {
+        if (filtered.length === 0) {
+            toast.error('No purchases to export');
+            return;
+        }
+
+        const genDate = new Date().toLocaleString('en-GB');
+        const totalGrand = filtered.reduce((acc, p) => acc + (Number(p.grand_total) || 0), 0);
+        const totalSub = filtered.reduce((acc, p) => acc + (Number(p.sub_total) || 0), 0);
+        const totalDisc = filtered.reduce((acc, p) => acc + (Number(p.discount) || 0), 0);
+
+        const xmlString = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Styles>
+  <Style ss:ID="Default" ss:Name="Normal">
+   <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#0f172a"/>
+  </Style>
+  <!-- BRIGHT TITLE BANNERS -->
+  <Style ss:ID="TitleBanner">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="16" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#00C853" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="MetaBanner">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#0091EA" ss:Pattern="Solid"/>
+  </Style>
+
+  <!-- VIVID KPI CARDS -->
+  <Style ss:ID="KpiHdrBlue">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="9" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#2979FF" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="KpiValBlue">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="13" ss:Bold="1" ss:Color="#0D47A1"/>
+   <Interior ss:Color="#E3F2FD" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="KpiHdrGreen">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="9" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#00C853" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="KpiValGreen">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="13" ss:Bold="1" ss:Color="#1B5E20"/>
+   <Interior ss:Color="#E8F8F5" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="KpiHdrRed">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="9" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#FF1744" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="KpiValRed">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="13" ss:Bold="1" ss:Color="#B71C1C"/>
+   <Interior ss:Color="#FFEBEE" ss:Pattern="Solid"/>
+  </Style>
+
+  <!-- TABLE HEADER -->
+  <Style ss:ID="ColHeader">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#1E293B" ss:Pattern="Solid"/>
+   <Borders>
+    <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#00C853"/>
+   </Borders>
+  </Style>
+
+  <!-- CELL STYLES -->
+  <Style ss:ID="CellText">
+   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+  </Style>
+  <Style ss:ID="CellTextBold">
+   <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1"/>
+  </Style>
+  <Style ss:ID="CellCenter">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+  </Style>
+  <Style ss:ID="CellCurrency">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <NumberFormat ss:Format="&quot;Ksh &quot;#,##0.00"/>
+  </Style>
+  <Style ss:ID="BadgePaid">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="9.5" ss:Bold="1" ss:Color="#1B5E20"/>
+   <Interior ss:Color="#C8E6C9" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="BadgeUnpaid">
+   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="9.5" ss:Bold="1" ss:Color="#B71C1C"/>
+   <Interior ss:Color="#FFCDD2" ss:Pattern="Solid"/>
+  </Style>
+
+  <!-- TOTALS -->
+  <Style ss:ID="SummaryLabel">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#ffffff"/>
+   <Interior ss:Color="#1E293B" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="SummaryVal">
+   <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
+   <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#00E676"/>
+   <Interior ss:Color="#1E293B" ss:Pattern="Solid"/>
+   <NumberFormat ss:Format="&quot;Ksh &quot;#,##0.00"/>
+  </Style>
+ </Styles>
+
+ <Worksheet ss:Name="Purchases Ledger">
+  <Table ss:DefaultRowHeight="20">
+   <Column ss:Width="85"/>  <!-- Invoice No -->
+   <Column ss:Width="80"/>  <!-- Date -->
+   <Column ss:Width="160"/> <!-- Supplier -->
+   <Column ss:Width="95"/>  <!-- Delivery Ref -->
+   <Column ss:Width="95"/>  <!-- Subtotal -->
+   <Column ss:Width="80"/>  <!-- Discount -->
+   <Column ss:Width="105"/> <!-- Grand Total -->
+   <Column ss:Width="80"/>  <!-- Payment -->
+   <Column ss:Width="85"/>  <!-- Status -->
+   <Column ss:Width="120"/> <!-- Received By -->
+
+   <!-- Title Banner -->
+   <Row ss:Height="34">
+    <Cell ss:MergeAcross="9" ss:StyleID="TitleBanner"><Data ss:Type="String">ALPHA PHARMACY - PROCUREMENT &amp; PURCHASES MASTER AUDIT</Data></Cell>
+   </Row>
+
+   <!-- Meta Banner -->
+   <Row ss:Height="20">
+    <Cell ss:MergeAcross="9" ss:StyleID="MetaBanner"><Data ss:Type="String">Generated: ${genDate} | Outlet: ${escapeXml(outletName)} | Database: ${escapeXml(activeDbTable)} | Count: ${filtered.length} Orders</Data></Cell>
+   </Row>
+
+   <!-- KPI Cards Row -->
+   <Row ss:Height="18">
+    <Cell ss:MergeAcross="2" ss:StyleID="KpiHdrBlue"><Data ss:Type="String">TOTAL PROCUREMENT ORDERS</Data></Cell>
+    <Cell ss:MergeAcross="3" ss:StyleID="KpiHdrGreen"><Data ss:Type="String">LIFETIME PROCUREMENT VOLUME</Data></Cell>
+    <Cell ss:MergeAcross="3" ss:StyleID="KpiHdrRed"><Data ss:Type="String">OUTSTANDING CREDIT / DEBT</Data></Cell>
+   </Row>
+   <Row ss:Height="24">
+    <Cell ss:MergeAcross="2" ss:StyleID="KpiValBlue"><Data ss:Type="String">${filtered.length} Orders in Range</Data></Cell>
+    <Cell ss:MergeAcross="3" ss:StyleID="KpiValGreen"><Data ss:Type="Number">${totalGrand}</Data></Cell>
+    <Cell ss:MergeAcross="3" ss:StyleID="KpiValRed"><Data ss:Type="Number">${kpis.unpaidDebt}</Data></Cell>
+   </Row>
+
+   <Row ss:Height="10"/>
+
+   <!-- Table Headers -->
+   <Row ss:Height="24">
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">PURCHASE #</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">DATE</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">SUPPLIER / DISTRIBUTOR</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">DELIVERY / INV #</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">SUBTOTAL</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">DISCOUNT</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">GRAND TOTAL</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">PAYMENT</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">STATUS</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">RECEIVED BY</Data></Cell>
+   </Row>
+
+   <!-- Rows -->
+   ${filtered
+       .map((p) => {
+           const isPaid = (p.payment_status || '').toLowerCase() === 'paid';
+           return `<Row ss:Height="20">
+    <Cell ss:StyleID="CellTextBold"><Data ss:Type="String">${escapeXml(p.purchase_no)}</Data></Cell>
+    <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(p.purchase_date)}</Data></Cell>
+    <Cell ss:StyleID="CellTextBold"><Data ss:Type="String">${escapeXml(p.supplier_name)}</Data></Cell>
+    <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(p.supplier_invoice || '—')}</Data></Cell>
+    <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${p.sub_total || 0}</Data></Cell>
+    <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${p.discount || 0}</Data></Cell>
+    <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${p.grand_total || 0}</Data></Cell>
+    <Cell ss:StyleID="${isPaid ? 'BadgePaid' : 'BadgeUnpaid'}"><Data ss:Type="String">${escapeXml(p.payment_status || 'Paid')}</Data></Cell>
+    <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(p.status || 'Completed')}</Data></Cell>
+    <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(p.created_by || 'Staff')}</Data></Cell>
+   </Row>`;
+       })
+       .join('\n')}
+
+   <!-- Grand Summary Totals -->
+   <Row ss:Height="24">
+    <Cell ss:MergeAcross="3" ss:StyleID="SummaryLabel"><Data ss:Type="String">GRAND PROCUREMENT TOTALS:</Data></Cell>
+    <Cell ss:StyleID="SummaryVal"><Data ss:Type="Number">${totalSub}</Data></Cell>
+    <Cell ss:StyleID="SummaryVal"><Data ss:Type="Number">${totalDisc}</Data></Cell>
+    <Cell ss:StyleID="SummaryVal"><Data ss:Type="Number">${totalGrand}</Data></Cell>
+    <Cell ss:MergeAcross="2" ss:StyleID="SummaryLabel"><Data ss:Type="String">—</Data></Cell>
+   </Row>
+  </Table>
+ </Worksheet>
+</Workbook>`;
+
+        const blob = new Blob([xmlString], { type: 'application/vnd.ms-excel;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `AlphaPharmacy_Purchases_Ledger_${new Date().toISOString().split('T')[0]}_SuperPremium.xls`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast.success(`Exported ${filtered.length} purchase orders to Super Bright Excel!`);
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center h-96" style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+                <div className="w-14 h-14 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+                <p className="mt-4 text-gray-900 font-bold text-base">Loading Purchases &amp; Procurement Register...</p>
+                <p className="text-xs text-gray-500 mt-1">Connecting to active invoices, line items &amp; vendor accounts</p>
+            </div>
+        );
+    }
 
     return (
-        <div className="space-y-5" style={{ fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif" }}>
-
-            {/* ━━━ TOP BAR ━━━ */}
-            <div className="flex items-center justify-between">
+        <div className="w-full max-w-full space-y-4 px-1 md:px-2 pb-16" style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-300/40">
-                        <FiShoppingBag className="text-white" size={24} />
+                    <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg flex-shrink-0">
+                        📋
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-800">Purchase Records</h1>
-                        <p className="text-gray-500 text-sm mt-1">Track, manage & analyze all procurement orders</p>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-2xl font-black text-gray-900 tracking-tight">Purchases Master Register &amp; Ledger</h1>
+                            <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-900 rounded-full text-xs font-bold border border-emerald-200">
+                                Enterprise Audit
+                            </span>
+                            <span className="px-2 py-0.5 bg-blue-50 text-blue-900 rounded-md text-[11px] font-bold border border-blue-200">
+                                DB: {activeDbTable}
+                            </span>
+                        </div>
+                        <p className="text-gray-600 text-xs mt-0.5">
+                            Active Outlet: <span className="font-bold text-gray-900">{outletName}</span> • Audit supplier deliveries, GRN invoices, itemized pharmaceutical lot history &amp; settlement status
+                        </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <button onClick={() => { loadPurchases(); }} className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-blue-600 hover:border-blue-300 transition-all shadow-sm" title="Refresh"><FiRefreshCw size={16} /></button>
-                    <button onClick={exportPurchases} className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:text-blue-600 hover:border-blue-300 transition-all text-sm font-semibold flex items-center gap-2 shadow-sm">
-                        <FiDownload size={14} /> Export
+
+                <div className="flex items-center flex-wrap gap-2">
+                    {/* Link to Purchase Entry */}
+                    <Link
+                        href="/dashboard/purchase"
+                        className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl font-bold shadow-sm hover:shadow transition-all flex items-center gap-1.5 text-xs active:scale-95"
+                    >
+                        <span>📥</span> Receive New GRN
+                    </Link>
+
+                    {/* Link to Suppliers */}
+                    <Link
+                        href="/dashboard/suppliers"
+                        className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-xl font-bold shadow-xs transition-all flex items-center gap-1.5 text-xs"
+                    >
+                        <span>🏢</span> Vendors SRM
+                    </Link>
+
+                    {/* Bright Excel Export */}
+                    <button
+                        onClick={exportBrightExcel}
+                        className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-xl font-bold shadow-xs transition-all flex items-center gap-1.5 text-xs"
+                        title="Download Massive Styled Excel Workbook"
+                    >
+                        <span>📊</span> Super Excel
                     </button>
-                    <a href="/dashboard/purchase" className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-semibold rounded-2xl shadow-lg shadow-indigo-300/40 hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-300">
-                        <FiPlus size={16} strokeWidth={3} /> New Purchase
-                    </a>
-                </div>
-            </div>
 
-            {/* ━━━ PREMIUM STAT CARDS ━━━ */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="relative overflow-hidden rounded-2xl bg-white border border-indigo-100 p-5 shadow-sm hover:shadow-xl transition-all group">
-                    <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-indigo-100 to-purple-50 opacity-60 group-hover:scale-125 transition-transform" />
-                    <div className="relative flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-indigo-500 uppercase tracking-wider">Total Purchases</p>
-                            <p className="text-3xl font-black text-gray-800 mt-1">{filtered.length}</p>
-                            <p className="text-[10px] text-gray-400 mt-1">All purchase orders</p>
-                        </div>
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-300/30 group-hover:scale-110 transition-transform">
-                            <FiShoppingBag className="text-white" size={22} />
-                        </div>
-                    </div>
-                </div>
-                <div className="relative overflow-hidden rounded-2xl bg-white border border-emerald-100 p-5 shadow-sm hover:shadow-xl transition-all group">
-                    <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-emerald-100 to-green-50 opacity-60 group-hover:scale-125 transition-transform" />
-                    <div className="relative flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider">Paid Orders</p>
-                            <p className="text-3xl font-black text-gray-800 mt-1">{paidCount}</p>
-                            <p className="text-[10px] text-gray-400 mt-1">Fully settled</p>
-                        </div>
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center shadow-lg shadow-emerald-300/30 group-hover:scale-110 transition-transform">
-                            <FiCheckCircle className="text-white" size={22} />
-                        </div>
-                    </div>
-                </div>
-                <div className="relative overflow-hidden rounded-2xl bg-white border border-amber-100 p-5 shadow-sm hover:shadow-xl transition-all group">
-                    <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-amber-100 to-orange-50 opacity-60 group-hover:scale-125 transition-transform" />
-                    <div className="relative flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-amber-500 uppercase tracking-wider">Pending / Unpaid</p>
-                            <p className="text-3xl font-black text-gray-800 mt-1">{pendingCount}</p>
-                            <p className="text-[10px] text-gray-400 mt-1">{pendingCount > 0 ? 'Awaiting payment' : 'All clear!'}</p>
-                        </div>
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform ${pendingCount > 0 ? 'bg-gradient-to-br from-amber-500 to-orange-600 shadow-amber-300/30' : 'bg-gradient-to-br from-teal-500 to-cyan-600 shadow-teal-300/30'}`}>
-                            <FiClock className="text-white" size={22} />
-                        </div>
-                    </div>
-                </div>
-                <div className="relative overflow-hidden rounded-2xl bg-white border border-blue-100 p-5 shadow-sm hover:shadow-xl transition-all group">
-                    <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-gradient-to-br from-blue-100 to-cyan-50 opacity-60 group-hover:scale-125 transition-transform" />
-                    <div className="relative flex items-center justify-between">
-                        <div>
-                            <p className="text-xs font-bold text-blue-500 uppercase tracking-wider">Suppliers</p>
-                            <p className="text-3xl font-black text-gray-800 mt-1">{uniqueSuppliers.length}</p>
-                            <p className="text-[10px] text-gray-400 mt-1">Active vendors</p>
-                        </div>
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-blue-300/30 group-hover:scale-110 transition-transform">
-                            <FiTruck className="text-white" size={22} />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* ━━━ VALUATION CARDS ━━━ */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="rounded-2xl bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-700 p-5 text-white shadow-lg shadow-indigo-400/20 hover:shadow-xl transition-all relative overflow-hidden">
-                    <div className="absolute right-3 top-3 w-16 h-16 rounded-full bg-white/10 blur-lg" />
-                    <div className="absolute right-8 bottom-2 opacity-10"><FiDollarSign size={70} /></div>
-                    <p className="text-xs font-bold text-indigo-200 uppercase tracking-wider">Total Purchase Value</p>
-                    <p className="text-3xl font-black mt-2">Ksh {totalAmount.toLocaleString()}</p>
-                    <div className="flex items-center gap-2 mt-2"><FiTrendingUp size={14} className="text-indigo-200" /><span className="text-xs text-indigo-200">All filtered purchases combined</span></div>
-                </div>
-                <div className="rounded-2xl bg-gradient-to-br from-emerald-500 via-green-600 to-teal-700 p-5 text-white shadow-lg shadow-emerald-400/20 hover:shadow-xl transition-all relative overflow-hidden">
-                    <div className="absolute right-3 top-3 w-16 h-16 rounded-full bg-white/10 blur-lg" />
-                    <div className="absolute right-8 bottom-2 opacity-10"><FiCalendar size={70} /></div>
-                    <p className="text-xs font-bold text-emerald-200 uppercase tracking-wider">This Month Purchases</p>
-                    <p className="text-3xl font-black mt-2">Ksh {thisMonthTotal.toLocaleString()}</p>
-                    <div className="flex items-center gap-2 mt-2"><FiTrendingUp size={14} className="text-emerald-200" /><span className="text-xs text-emerald-200">{thisMonth.length} orders this month</span></div>
-                </div>
-                <div className="rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 p-5 text-white shadow-lg shadow-orange-400/20 hover:shadow-xl transition-all relative overflow-hidden">
-                    <div className="absolute right-3 top-3 w-16 h-16 rounded-full bg-white/10 blur-lg" />
-                    <div className="absolute right-8 bottom-2 opacity-10"><FiAlertTriangle size={70} /></div>
-                    <p className="text-xs font-bold text-amber-100 uppercase tracking-wider">Unpaid Balance</p>
-                    <p className="text-3xl font-black mt-2">Ksh {filtered.filter(p => p.payment_status !== 'Paid').reduce((s, p) => s + (p.grand_total || 0), 0).toLocaleString()}</p>
-                    <div className="flex items-center gap-2 mt-2"><FiClock size={14} className="text-amber-100" /><span className="text-xs text-amber-100">{pendingCount} pending orders to settle</span></div>
-                </div>
-            </div>
-
-            {/* ━━━ FILTERS ━━━ */}
-            <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
-                <div className="flex flex-wrap items-end gap-3">
-                    <div className="flex-1 min-w-[200px] relative">
-                        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                        <input type="text" value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
-                            placeholder="Search invoice, supplier..." className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none" />
-                    </div>
-                    <div className="min-w-[130px]">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">From Date</label>
-                        <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }}
-                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none" />
-                    </div>
-                    <div className="min-w-[130px]">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">To Date</label>
-                        <input type="date" value={dateTo} onChange={e => { setDateTo(e.target.value); setPage(1); }}
-                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none" />
-                    </div>
-                    <div className="min-w-[140px]">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Supplier</label>
-                        <select value={filterSupplier} onChange={e => { setFilterSupplier(e.target.value); setPage(1); }}
-                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none cursor-pointer">
-                            <option value="All">All Suppliers</option>
-                            {suppliers.map(s => <option key={s.supplier_id} value={s.supplier_name}>{s.supplier_name}</option>)}
-                        </select>
-                    </div>
-                    <div className="min-w-[120px]">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Status</label>
-                        <select value={filterStatus} onChange={e => { setFilterStatus(e.target.value); setPage(1); }}
-                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none cursor-pointer">
-                            <option value="All">All Status</option>
-                            <option value="Completed">Completed</option>
-                            <option value="Pending">Pending</option>
-                            <option value="Cancelled">Cancelled</option>
-                        </select>
-                    </div>
-                    <div className="min-w-[120px]">
-                        <label className="text-[10px] font-bold text-gray-400 uppercase mb-1 block">Payment</label>
-                        <select value={filterPayment} onChange={e => { setFilterPayment(e.target.value); setPage(1); }}
-                            className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:border-indigo-500 outline-none cursor-pointer">
-                            <option value="All">All Payments</option>
-                            <option value="Paid">Paid</option>
-                            <option value="Unpaid">Unpaid</option>
-                            <option value="Partial">Partial</option>
-                        </select>
-                    </div>
-                    <button onClick={clearFilters} className="px-4 py-2.5 bg-gray-100 text-gray-500 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-all flex items-center gap-1">
-                        <FiX size={14} /> Clear
+                    {/* Print Master View */}
+                    <button
+                        onClick={() => window.print()}
+                        className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-xl font-bold shadow-xs transition-all flex items-center gap-1 text-xs"
+                    >
+                        <span>🖨️</span> Print
                     </button>
-                    <button onClick={loadPurchases} className="px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl text-sm font-bold hover:shadow-lg transition-all flex items-center gap-2">
-                        <FiFilter size={14} /> Apply
+
+                    {/* Refresh Live DB */}
+                    <button
+                        onClick={() => {
+                            loadData();
+                            toast.success('Purchases reloaded from live DB!');
+                        }}
+                        className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-xl font-bold shadow-xs transition-all flex items-center gap-1 text-xs"
+                    >
+                        <span>🔄</span> Refresh
                     </button>
                 </div>
             </div>
 
-            {/* ━━━ TABLE ━━━ */}
-            {isLoading ? (
-                <div className="flex flex-col items-center justify-center py-20">
-                    <div className="w-14 h-14 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin" />
-                    <p className="mt-4 text-gray-500 font-medium text-sm">Loading purchases...</p>
+            {/* 6 Light Gradient Stat KPI Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5 w-full">
+                {/* Total Procurement Spend */}
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-3.5 border border-emerald-100 shadow-xs relative overflow-hidden">
+                    <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Total Procurement</p>
+                    <p className="text-lg font-black text-emerald-950 mt-1">Ksh {kpis.totalSpend.toLocaleString()}</p>
+                    <p className="text-[10px] text-gray-600 font-medium mt-0.5">{kpis.totalCount} Invoices in DB</p>
                 </div>
-            ) : paginated.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                    <FiShoppingBag className="text-gray-300" size={64} />
-                    <p className="mt-4 text-gray-500 font-semibold">No purchases found</p>
-                    <a href="/dashboard/purchase" className="mt-3 px-5 py-2 bg-indigo-500 text-white rounded-xl font-semibold hover:bg-indigo-600 transition-all text-sm">Create First Purchase</a>
+
+                {/* Paid Spend */}
+                <div className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl p-3.5 border border-cyan-100 shadow-xs relative overflow-hidden">
+                    <p className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">Settled &amp; Paid</p>
+                    <p className="text-lg font-black text-blue-950 mt-1">Ksh {kpis.paidSpend.toLocaleString()}</p>
+                    <p className="text-[10px] text-blue-800 font-bold mt-0.5">{kpis.paidCount} Cleared Invoices</p>
                 </div>
-            ) : (
-                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead>
-                                <tr className="bg-gradient-to-r from-indigo-500 to-purple-600">
-                                    <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Invoice</th>
-                                    <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Date</th>
-                                    <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Supplier</th>
-                                    <th className="px-4 py-3.5 text-left text-[11px] font-bold text-indigo-100 uppercase tracking-wider hidden md:table-cell">Sup. Invoice</th>
-                                    <th className="px-4 py-3.5 text-right text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Amount</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Status</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Payment</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider">Created By</th>
-                                    <th className="px-4 py-3.5 text-center text-[11px] font-bold text-indigo-100 uppercase tracking-wider w-28">Actions</th>
+
+                {/* Outstanding Credit / Debt */}
+                <div className="bg-gradient-to-br from-rose-50 to-red-50 rounded-2xl p-3.5 border border-rose-100 shadow-xs relative overflow-hidden">
+                    <p className="text-[10px] font-bold text-rose-700 uppercase tracking-wider">Payables Due</p>
+                    <p className="text-lg font-black text-rose-950 mt-1">Ksh {kpis.unpaidDebt.toLocaleString()}</p>
+                    <p className="text-[10px] text-red-700 font-bold mt-0.5">{kpis.unpaidCount} Pending Settlement</p>
+                </div>
+
+                {/* Average Order Value */}
+                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-3.5 border border-indigo-100 shadow-xs relative overflow-hidden">
+                    <p className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">Average Order</p>
+                    <p className="text-lg font-black text-indigo-950 mt-1">Ksh {kpis.avgOrder.toLocaleString()}</p>
+                    <p className="text-[10px] text-gray-600 font-medium mt-0.5">Mean Invoice Size</p>
+                </div>
+
+                {/* Top Vendor */}
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-3.5 border border-amber-100 shadow-xs relative overflow-hidden">
+                    <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Top Partner</p>
+                    <p className="text-sm font-black text-amber-950 mt-1 truncate" title={kpis.topVendor}>
+                        {kpis.topVendor}
+                    </p>
+                    <p className="text-[10px] text-amber-800 font-bold mt-0.5">Ksh {kpis.topSpend.toLocaleString()}</p>
+                </div>
+
+                {/* Filtered Range Total */}
+                <div className="bg-gradient-to-br from-slate-50 to-gray-100 rounded-2xl p-3.5 border border-gray-200 shadow-xs relative overflow-hidden">
+                    <p className="text-[10px] font-bold text-gray-700 uppercase tracking-wider">Filtered View Total</p>
+                    <p className="text-lg font-black text-gray-950 mt-1">
+                        Ksh {filtered.reduce((sum, p) => sum + (Number(p.grand_total) || 0), 0).toLocaleString()}
+                    </p>
+                    <p className="text-[10px] text-gray-600 font-medium mt-0.5">{filtered.length} Matching Orders</p>
+                </div>
+            </div>
+
+            {/* Multi-Dimensional Filter Suite */}
+            <div className="bg-white rounded-3xl p-5 border border-gray-200 shadow-xs space-y-3.5">
+                <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2.5">
+                    {/* Omni-Search */}
+                    <div className="relative flex-1 min-w-[240px]">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm">🔍</span>
+                        <input
+                            type="text"
+                            value={search}
+                            onChange={(e) => {
+                                setSearch(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            placeholder="Search by Invoice # (INV-01), vendor name, delivery ref, notes..."
+                            className="w-full pl-9 pr-8 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-semibold focus:bg-white focus:border-emerald-600 outline-none text-gray-900"
+                        />
+                        {search && (
+                            <button
+                                onClick={() => setSearch('')}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-black text-xs font-bold"
+                            >
+                                ✕
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Filter Supplier */}
+                    <select
+                        value={filterSupplier}
+                        onChange={(e) => {
+                            setFilterSupplier(e.target.value);
+                            setCurrentPage(1);
+                        }}
+                        className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:border-emerald-600 outline-none"
+                    >
+                        <option value="All">All Distributors</option>
+                        {suppliers.map((s) => (
+                            <option key={s.supplier_id} value={s.supplier_name}>{s.supplier_name}</option>
+                        ))}
+                    </select>
+
+                    {/* Filter Payment */}
+                    <select
+                        value={filterPayment}
+                        onChange={(e) => {
+                            setFilterPayment(e.target.value as any);
+                            setCurrentPage(1);
+                        }}
+                        className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:border-emerald-600 outline-none"
+                    >
+                        <option value="All">All Payment States</option>
+                        <option value="Paid">Paid / Settled</option>
+                        <option value="Unpaid">Unpaid / On Credit</option>
+                        <option value="Partial">Partial Settlement</option>
+                    </select>
+
+                    {/* Sort Options */}
+                    <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as any)}
+                        className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:border-emerald-600 outline-none"
+                    >
+                        <option value="newest">Sort: Newest First</option>
+                        <option value="oldest">Sort: Oldest First</option>
+                        <option value="amount_high">Sort: Amount (High→Low)</option>
+                        <option value="amount_low">Sort: Amount (Low→High)</option>
+                        <option value="inv_asc">Sort: Invoice # (Ascending)</option>
+                        <option value="supplier">Sort: Supplier Name (A-Z)</option>
+                    </select>
+
+                    {/* Auto-Fit dense toggle */}
+                    <button
+                        onClick={() => setIsAutoFit(!isAutoFit)}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
+                            isAutoFit
+                                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                        title="Toggle dense datagrid layout"
+                    >
+                        <span>⛶</span> {isAutoFit ? 'Dense View' : 'Standard'}
+                    </button>
+                </div>
+
+                {/* Date Filter & Presets Row */}
+                <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-gray-100 text-xs font-bold text-gray-700">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-gray-500">Date Range:</span>
+                        <input
+                            type="date"
+                            value={dateFrom}
+                            onChange={(e) => {
+                                setDateFrom(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className="px-2 py-1 bg-gray-50 border border-gray-300 rounded-lg text-xs font-mono text-gray-900"
+                        />
+                        <span className="text-gray-400">to</span>
+                        <input
+                            type="date"
+                            value={dateTo}
+                            onChange={(e) => {
+                                setDateTo(e.target.value);
+                                setCurrentPage(1);
+                            }}
+                            className="px-2 py-1 bg-gray-50 border border-gray-300 rounded-lg text-xs font-mono text-gray-900"
+                        />
+                        {(dateFrom || dateTo) && (
+                            <button
+                                onClick={() => {
+                                    setDateFrom('');
+                                    setDateTo('');
+                                    setCurrentPage(1);
+                                }}
+                                className="text-[11px] text-red-600 hover:underline"
+                            >
+                                Clear
+                            </button>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-gray-500 text-[11px]">Presets:</span>
+                        {[
+                            { id: 'today', label: 'Today' },
+                            { id: 'week', label: '7 Days' },
+                            { id: 'month', label: 'This Month' },
+                            { id: 'quarter', label: '90 Days' },
+                            { id: 'all', label: 'All Time' },
+                        ].map((pr) => (
+                            <button
+                                key={pr.id}
+                                onClick={() => applyDatePreset(pr.id as any)}
+                                className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg text-[11px] font-bold"
+                            >
+                                {pr.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Main Purchases DataGrid Table */}
+            <div className="bg-white rounded-3xl border border-gray-200 shadow-xs overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr className="bg-gray-50/80 border-b border-gray-200 text-[10px] font-black uppercase text-gray-900 tracking-wider">
+                                <th className="p-3 w-8">
+                                    <input
+                                        type="checkbox"
+                                        checked={paginated.length > 0 && selectedIds.size === paginated.length}
+                                        onChange={(e) => handleSelectAll(e.target.checked)}
+                                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                    />
+                                </th>
+                                <th className="p-3">Purchase / GRN #</th>
+                                <th className="p-3">Date</th>
+                                <th className="p-3">Distributor / Supplier</th>
+                                <th className="p-3">Delivery Ref</th>
+                                <th className="p-3 text-right">Subtotal</th>
+                                <th className="p-3 text-right">Discount</th>
+                                <th className="p-3 text-right">Grand Total</th>
+                                <th className="p-3 text-center">Payment Status</th>
+                                <th className="p-3 text-center">Order Status</th>
+                                <th className="p-3">Received By</th>
+                                <th className="p-3 text-center w-36">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 text-gray-900 font-medium">
+                            {paginated.length === 0 ? (
+                                <tr>
+                                    <td colSpan={12} className="p-12 text-center text-gray-500">
+                                        <div className="text-4xl mb-2">📋</div>
+                                        <p className="font-bold text-gray-800 text-sm">No purchase orders found</p>
+                                        <p className="text-xs text-gray-500 mt-1">Try clearing your filters or create a new GRN</p>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {paginated.map((p, idx) => (
-                                    <tr key={p.purchase_id} className={`border-b border-gray-50 hover:bg-indigo-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}>
-                                        <td className="px-4 py-3">
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold">
-                                                <FiFileText size={11} /> {p.purchase_no}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-sm text-gray-600">{new Date(p.purchase_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{(p.supplier_name || 'N')[0]}</div>
-                                                <span className="text-sm font-semibold text-gray-800 truncate max-w-[120px]">{p.supplier_name || 'N/A'}</span>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-xs text-gray-500 hidden md:table-cell">{p.supplier_invoice || '—'}</td>
-                                        <td className="px-4 py-3 text-right text-sm font-bold text-gray-900">Ksh {(p.grand_total || 0).toLocaleString()}</td>
-                                        <td className="px-4 py-3 text-center">
-                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${p.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : p.status === 'Cancelled' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
-                                                <span className={`w-1.5 h-1.5 rounded-full ${p.status === 'Completed' ? 'bg-emerald-500' : p.status === 'Cancelled' ? 'bg-red-500' : 'bg-amber-500'}`} />{p.status || 'Pending'}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${p.payment_status === 'Paid' ? 'bg-cyan-100 text-cyan-700' : p.payment_status === 'Partial' ? 'bg-purple-100 text-purple-700' : 'bg-red-100 text-red-600'}`}>
-                                                {p.payment_status || 'Unpaid'}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-center text-xs text-gray-500">{p.created_by || '—'}</td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center justify-center gap-1">
-                                                <button onClick={() => viewPurchaseDetails(p)} className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-all" title="View"><FiEye size={12} /></button>
-                                                <button onClick={() => deletePurchase(p)} className="p-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-all" title="Delete"><FiTrash2 size={12} /></button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                            ) : (
+                                paginated.map((p) => {
+                                    const isSelected = selectedIds.has(p.purchase_id);
+                                    const isPaid = (p.payment_status || '').toLowerCase() === 'paid';
+
+                                    return (
+                                        <tr
+                                            key={p.purchase_id}
+                                            className={`hover:bg-emerald-50/40 transition-colors ${
+                                                isSelected ? 'bg-emerald-50/70' : ''
+                                            }`}
+                                        >
+                                            <td className="p-3">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => handleSelectOne(p.purchase_id)}
+                                                    className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                                />
+                                            </td>
+                                            <td className="p-3 whitespace-nowrap">
+                                                <button
+                                                    onClick={() => handleViewDossier(p)}
+                                                    className="px-2.5 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-900 font-mono font-bold rounded-md border border-blue-200 inline-flex items-center gap-1 transition-colors"
+                                                    title="Click to view full line items dossier"
+                                                >
+                                                    {p.purchase_no}
+                                                </button>
+                                            </td>
+                                            <td className="p-3 whitespace-nowrap text-gray-700 font-semibold">
+                                                {p.purchase_date}
+                                            </td>
+                                            <td className="p-3 whitespace-nowrap">
+                                                <p className="font-bold text-gray-900">{p.supplier_name}</p>
+                                            </td>
+                                            <td className="p-3 whitespace-nowrap font-mono text-gray-700">
+                                                {p.supplier_invoice || '—'}
+                                            </td>
+                                            <td className="p-3 text-right font-mono font-bold text-gray-800 whitespace-nowrap">
+                                                Ksh {(p.sub_total || 0).toLocaleString()}
+                                            </td>
+                                            <td className="p-3 text-right font-mono text-gray-600 whitespace-nowrap">
+                                                {p.discount ? `Ksh ${Number(p.discount).toLocaleString()}` : '—'}
+                                            </td>
+                                            <td className="p-3 text-right font-mono font-black text-gray-950 whitespace-nowrap">
+                                                Ksh {(p.grand_total || 0).toLocaleString()}
+                                            </td>
+                                            <td className="p-3 text-center whitespace-nowrap">
+                                                <button
+                                                    onClick={() => handleOpenPaymentUpdate(p)}
+                                                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
+                                                        isPaid
+                                                            ? 'bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200'
+                                                            : 'bg-red-100 text-red-900 border-red-300 hover:bg-red-200'
+                                                    }`}
+                                                    title="Click to update payment settlement"
+                                                >
+                                                    {p.payment_status || 'Paid'}
+                                                </button>
+                                            </td>
+                                            <td className="p-3 text-center whitespace-nowrap">
+                                                <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded font-bold text-[10px]">
+                                                    {p.status || 'Completed'}
+                                                </span>
+                                            </td>
+                                            <td className="p-3 whitespace-nowrap text-gray-700">
+                                                {p.created_by || 'Pharmacist'}
+                                            </td>
+                                            <td className="p-3 text-center whitespace-nowrap">
+                                                <div className="flex items-center justify-center gap-1">
+                                                    {/* View Line Items */}
+                                                    <button
+                                                        onClick={() => handleViewDossier(p)}
+                                                        className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                                                        title="View Line Items &amp; Batches"
+                                                    >
+                                                        👁️
+                                                    </button>
+
+                                                    {/* Update Payment */}
+                                                    <button
+                                                        onClick={() => handleOpenPaymentUpdate(p)}
+                                                        className="p-1.5 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors"
+                                                        title="Update Payment Settlement"
+                                                    >
+                                                        💳
+                                                    </button>
+
+                                                    {/* Delete */}
+                                                    <button
+                                                        onClick={() => handleDeletePurchase(p)}
+                                                        className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
+                                                        title="Delete Purchase Record"
+                                                    >
+                                                        🗑️
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Pagination Stepper */}
+                <div className="p-4 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-700 font-semibold">
+                    <div className="flex items-center gap-2">
+                        <span>Showing {paginated.length} of {filtered.length} purchases</span>
+                        <span>•</span>
+                        <select
+                            value={pageSize}
+                            onChange={(e) => {
+                                setPageSize(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
+                            className="px-2 py-1 bg-white border border-gray-300 rounded-md font-bold text-gray-900"
+                        >
+                            <option value={25}>25 per page</option>
+                            <option value={50}>50 per page</option>
+                            <option value={100}>100 per page</option>
+                            <option value={-1}>Show All</option>
+                        </select>
+                    </div>
+
+                    {pageSize !== -1 && totalPages > 1 && (
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="px-3 py-1 bg-white border border-gray-300 rounded-md font-bold text-gray-900 disabled:opacity-40 hover:bg-gray-100"
+                            >
+                                Prev
+                            </button>
+                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                const pageNum = i + 1;
+                                return (
+                                    <button
+                                        key={pageNum}
+                                        onClick={() => setCurrentPage(pageNum)}
+                                        className={`w-7 h-7 rounded-md font-bold text-xs ${
+                                            currentPage === pageNum
+                                                ? 'bg-emerald-600 text-white'
+                                                : 'bg-white border border-gray-300 text-gray-900 hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        {pageNum}
+                                    </button>
+                                );
+                            })}
+                            <button
+                                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className="px-3 py-1 bg-white border border-gray-300 rounded-md font-bold text-gray-900 disabled:opacity-40 hover:bg-gray-100"
+                            >
+                                Next
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* =====================================================================
+                MODAL 1: 360° INVOICE DOSSIER & ITEMIZED BATCH BREAKDOWN
+            ===================================================================== */}
+            {showDossierModal && activePurchase && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-3 sm:p-4 animate-fadeIn">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
+                        {/* Header */}
+                        <div className="p-5 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-600 flex items-center justify-center text-xl font-bold">
+                                    📋
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-lg font-black tracking-tight">Invoice #{activePurchase.purchase_no}</h2>
+                                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                                            (activePurchase.payment_status || '').toLowerCase() === 'paid'
+                                                ? 'bg-emerald-100 text-emerald-900'
+                                                : 'bg-red-100 text-red-900'
+                                        }`}>
+                                            {activePurchase.payment_status || 'Paid'}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-300">
+                                        Vendor: <span className="font-bold text-white">{activePurchase.supplier_name}</span> • Received on {activePurchase.purchase_date}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowDossierModal(false)}
+                                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center font-bold text-sm"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Invoice KPI Strip */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-4 bg-gray-50 border-b border-gray-200 text-xs">
+                            <div className="bg-white p-3 rounded-xl border border-gray-200">
+                                <p className="text-[10px] text-gray-500 font-bold uppercase">Subtotal</p>
+                                <p className="text-base font-black text-gray-900">
+                                    Ksh {(activePurchase.sub_total || 0).toLocaleString()}
+                                </p>
+                            </div>
+                            <div className="bg-white p-3 rounded-xl border border-gray-200">
+                                <p className="text-[10px] text-gray-500 font-bold uppercase">Discount</p>
+                                <p className="text-base font-black text-gray-900">
+                                    Ksh {(activePurchase.discount || 0).toLocaleString()}
+                                </p>
+                            </div>
+                            <div className="bg-white p-3 rounded-xl border border-gray-200">
+                                <p className="text-[10px] text-gray-500 font-bold uppercase">Net Total</p>
+                                <p className="text-base font-black text-emerald-900">
+                                    Ksh {(activePurchase.grand_total || 0).toLocaleString()}
+                                </p>
+                            </div>
+                            <div className="bg-white p-3 rounded-xl border border-gray-200">
+                                <p className="text-[10px] text-gray-500 font-bold uppercase">Line Items</p>
+                                <p className="text-base font-black text-blue-900">
+                                    {purchaseLineItems.length} Products
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Line Items Table */}
+                        <div className="p-5 overflow-y-auto flex-1 space-y-3">
+                            <h3 className="font-black text-xs uppercase tracking-wider text-gray-900">
+                                Itemized Merchandise &amp; Linked Batches
+                            </h3>
+
+                            {isLoadingItems ? (
+                                <div className="p-8 text-center text-gray-500">
+                                    <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                                    <p className="font-bold text-xs">Loading itemized products...</p>
+                                </div>
+                            ) : purchaseLineItems.length === 0 ? (
+                                <div className="p-8 text-center text-gray-500 border border-dashed border-gray-300 rounded-2xl">
+                                    <p className="font-bold text-gray-800">No individual line items stored for this purchase</p>
+                                    <p className="text-xs text-gray-500 mt-1">Invoice header is verified with total of Ksh {Number(activePurchase.grand_total).toLocaleString()}</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto border border-gray-200 rounded-2xl">
+                                    <table className="w-full text-left text-xs">
+                                        <thead className="bg-gray-50 text-[10px] font-black uppercase text-gray-900 border-b border-gray-200">
+                                            <tr>
+                                                <th className="p-2.5">#</th>
+                                                <th className="p-2.5">Product Name</th>
+                                                <th className="p-2.5">Batch #</th>
+                                                <th className="p-2.5">Expiry Date</th>
+                                                <th className="p-2.5 text-right">Received Qty</th>
+                                                <th className="p-2.5 text-right">Unit Rate</th>
+                                                <th className="p-2.5 text-right">Total Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 text-gray-900 font-medium">
+                                            {purchaseLineItems.map((it, idx) => (
+                                                <tr key={idx} className="hover:bg-gray-50">
+                                                    <td className="p-2.5 text-gray-400 font-bold">{idx + 1}</td>
+                                                    <td className="p-2.5">
+                                                        <p className="font-bold text-gray-900">{it.product_name}</p>
+                                                        <span className="text-[10px] font-mono text-gray-500">{it.product_code}</span>
+                                                    </td>
+                                                    <td className="p-2.5 font-mono font-bold text-indigo-700 whitespace-nowrap">
+                                                        {it.batch_number || 'N/A'}
+                                                    </td>
+                                                    <td className="p-2.5 whitespace-nowrap">
+                                                        {it.expiry_date || 'N/A'}
+                                                    </td>
+                                                    <td className="p-2.5 text-right font-mono font-bold whitespace-nowrap">
+                                                        {it.quantity} {it.unit}
+                                                    </td>
+                                                    <td className="p-2.5 text-right font-mono whitespace-nowrap">
+                                                        Ksh {(it.rate || 0).toLocaleString()}
+                                                    </td>
+                                                    <td className="p-2.5 text-right font-mono font-black text-gray-950 whitespace-nowrap">
+                                                        Ksh {(it.total_amount || (it.quantity * it.rate)).toLocaleString()}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+
+                            {activePurchase.notes && (
+                                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 text-xs">
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase mb-0.5">Invoice Notes</p>
+                                    <p className="text-gray-800 whitespace-pre-wrap">{activePurchase.notes}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                            <button
+                                onClick={() => window.print()}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 flex items-center gap-1.5"
+                            >
+                                🖨️ Print Receipt
+                            </button>
+                            <button
+                                onClick={() => setShowDossierModal(false)}
+                                className="px-6 py-2 bg-gray-900 text-white rounded-xl text-xs font-bold hover:bg-black"
+                            >
+                                Close
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
 
-            {/* ━━━ FLOATING PAGINATION FOOTER ━━━ */}
-            <div className="sticky bottom-0 z-30 bg-white/95 backdrop-blur-md border-t border-gray-200 rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.08)] px-5 py-3 -mx-5 mt-4">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <span className="text-sm text-gray-500">Showing</span>
-                        <select value={perPage} onChange={e => { setPerPage(parseInt(e.target.value)); setPage(1); }} className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-bold focus:border-indigo-500 outline-none">
-                            {[10, 20, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
-                        </select>
-                        <span className="text-sm text-gray-500">of <span className="font-bold text-gray-800">{filtered.length}</span> purchases</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                        <button onClick={() => setPage(1)} disabled={page === 1} className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-30 transition-all" title="First"><FiChevronsLeft size={14} /></button>
-                        <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-30 transition-all" title="Previous"><FiChevronLeft size={14} /></button>
-                        {Array.from({ length: Math.min(7, totalPages || 1) }, (_, i) => {
-                            const start = Math.max(1, Math.min(page - 3, (totalPages || 1) - 6));
-                            const pg = start + i; if (pg > (totalPages || 1)) return null;
-                            return (
-                                <button key={pg} onClick={() => setPage(pg)}
-                                    className={`w-9 h-9 rounded-lg text-xs font-bold transition-all ${pg === page ? 'bg-indigo-500 text-white shadow-md shadow-indigo-300/30' : 'bg-gray-50 border border-gray-200 text-gray-600 hover:text-indigo-600 hover:border-indigo-300'}`}>{pg}</button>
-                            );
-                        })}
-                        <button onClick={() => setPage(p => Math.min(totalPages || 1, p + 1))} disabled={page >= (totalPages || 1)} className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-30 transition-all" title="Next"><FiChevronRight size={14} /></button>
-                        <button onClick={() => setPage(totalPages || 1)} disabled={page >= (totalPages || 1)} className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-indigo-600 hover:border-indigo-300 disabled:opacity-30 transition-all" title="Last"><FiChevronsRight size={14} /></button>
-                    </div>
-                    <span className="text-sm text-gray-400">Page <span className="font-bold text-gray-700">{page}</span> of <span className="font-bold text-gray-700">{totalPages || 1}</span></span>
-                </div>
-            </div>
-
-            {/* ━━━ VIEW PURCHASE MODAL ━━━ */}
-            {showViewModal && selectedPurchase && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50" onClick={() => setShowViewModal(false)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-4 text-white sticky top-0 z-10 flex items-center justify-between rounded-t-3xl">
-                            <div className="flex items-center gap-3"><FiShoppingBag size={20} /><div><h2 className="text-lg font-bold">Purchase {selectedPurchase.purchase_no}</h2><p className="text-indigo-100 text-xs">{new Date(selectedPurchase.purchase_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</p></div></div>
-                            <div className="flex items-center gap-2">
-                                <button onClick={() => printPurchaseDetail(selectedPurchase, purchaseItems)} className="p-2 hover:bg-white/20 rounded-xl" title="Print"><FiPrinter size={16} /></button>
-                                <button onClick={() => setShowViewModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><FiX size={18} /></button>
-                            </div>
-                        </div>
-                        <div className="p-5 space-y-5">
-                            {/* Info Grid */}
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                                <div className="p-3 bg-gray-50 rounded-xl"><p className="text-[10px] text-gray-400 uppercase font-bold">Invoice No</p><p className="text-sm font-bold text-gray-800 mt-0.5">{selectedPurchase.purchase_no}</p></div>
-                                <div className="p-3 bg-gray-50 rounded-xl"><p className="text-[10px] text-gray-400 uppercase font-bold">Supplier</p><p className="text-sm font-bold text-gray-800 mt-0.5">{selectedPurchase.supplier_name || 'N/A'}</p></div>
-                                <div className="p-3 bg-gray-50 rounded-xl"><p className="text-[10px] text-gray-400 uppercase font-bold">Status</p><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold mt-0.5 ${selectedPurchase.status === 'Completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{selectedPurchase.status || 'Pending'}</span></div>
-                                <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200"><p className="text-[10px] text-emerald-500 uppercase font-bold">Grand Total</p><p className="text-xl font-black text-emerald-700 mt-0.5">Ksh {selectedPurchase.grand_total.toLocaleString()}</p></div>
-                            </div>
-                            {/* Items Table */}
+            {/* =====================================================================
+                MODAL 2: UPDATE PAYMENT STATUS SETTLEMENT
+            ===================================================================== */}
+            {showPaymentModal && paymentPurchase && (
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
+                    <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 w-full max-w-md overflow-hidden">
+                        <div className="p-5 bg-gradient-to-r from-emerald-600 to-teal-700 text-white flex items-center justify-between">
                             <div>
-                                <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2"><FiPackage size={14} /> Purchase Items ({purchaseItems.length})</h3>
-                                {isLoadingItems ? (
-                                    <div className="text-center py-8"><div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto" /><p className="mt-2 text-gray-400 text-sm">Loading...</p></div>
-                                ) : purchaseItems.length === 0 ? (
-                                    <p className="text-center text-gray-400 py-8 text-sm">No items found</p>
-                                ) : (
-                                    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                                        <table className="w-full">
-                                            <thead><tr className="bg-gray-50">
-                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">#</th>
-                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Code</th>
-                                                <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase">Product</th>
-                                                <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-500 uppercase">Unit</th>
-                                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Qty</th>
-                                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Rate</th>
-                                                <th className="px-3 py-2 text-right text-[10px] font-bold text-gray-500 uppercase">Total</th>
-                                            </tr></thead>
-                                            <tbody>
-                                                {purchaseItems.map((item, idx) => (
-                                                    <tr key={item.pp_id} className={`border-t border-gray-100 ${idx % 2 ? 'bg-gray-50/30' : ''}`}>
-                                                        <td className="px-3 py-2 text-xs text-gray-400">{idx + 1}</td>
-                                                        <td className="px-3 py-2 text-xs text-indigo-600 font-mono font-medium">{item.product_code}</td>
-                                                        <td className="px-3 py-2 text-sm font-semibold text-gray-800">{item.product_name}</td>
-                                                        <td className="px-3 py-2 text-center"><span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">{item.unit}</span></td>
-                                                        <td className="px-3 py-2 text-right text-sm font-bold text-gray-700">{item.quantity}</td>
-                                                        <td className="px-3 py-2 text-right text-xs text-gray-500">Ksh {item.rate?.toLocaleString()}</td>
-                                                        <td className="px-3 py-2 text-right text-sm font-bold text-emerald-600">Ksh {item.total?.toLocaleString()}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
+                                <h3 className="font-black text-base">Update Payment Settlement</h3>
+                                <p className="text-xs text-emerald-100">
+                                    Invoice {paymentPurchase.purchase_no} • {paymentPurchase.supplier_name}
+                                </p>
                             </div>
-                            {/* Totals */}
-                            <div className="flex justify-end">
-                                <div className="w-64 space-y-2 bg-gray-50 rounded-xl p-4">
-                                    <div className="flex justify-between text-sm"><span className="text-gray-500">Sub Total</span><span className="font-medium">Ksh {(selectedPurchase.sub_total || 0).toLocaleString()}</span></div>
-                                    {(selectedPurchase.discount || 0) > 0 && <div className="flex justify-between text-sm"><span className="text-gray-500">Discount</span><span className="font-medium text-red-500">-Ksh {selectedPurchase.discount.toLocaleString()}</span></div>}
-                                    <div className="border-t border-gray-200 pt-2 flex justify-between text-base"><span className="font-bold text-gray-700">Grand Total</span><span className="font-black text-emerald-600">Ksh {selectedPurchase.grand_total.toLocaleString()}</span></div>
+                            <button onClick={() => setShowPaymentModal(false)} className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center font-bold">✕</button>
+                        </div>
+                        <form onSubmit={handleSavePaymentStatus} className="p-6 space-y-4 text-xs font-bold text-gray-900">
+                            <div className="bg-gray-50 p-3 rounded-2xl border border-gray-200 flex items-center justify-between">
+                                <div>
+                                    <p className="text-[10px] text-gray-500 uppercase font-black">Invoice Total</p>
+                                    <p className="text-lg font-black text-gray-900">
+                                        Ksh {(Number(paymentPurchase.grand_total) || 0).toLocaleString()}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-[10px] text-gray-500 uppercase font-black">Current Status</p>
+                                    <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-900">
+                                        {paymentPurchase.payment_status || 'Paid'}
+                                    </span>
                                 </div>
                             </div>
-                            <div className="flex gap-3 pt-3 border-t">
-                                <button onClick={() => printPurchaseDetail(selectedPurchase, purchaseItems)} className="flex-1 px-4 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-2"><FiPrinter size={14} /> Print</button>
-                                <button onClick={() => setShowViewModal(false)} className="flex-1 px-4 py-3 border-2 border-gray-200 text-gray-600 font-bold rounded-xl text-sm">Close</button>
+
+                            <div>
+                                <label className="block mb-1">New Settlement Status *</label>
+                                <select
+                                    value={newPaymentStatus}
+                                    onChange={(e) => setNewPaymentStatus(e.target.value as any)}
+                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:bg-white focus:border-emerald-600 outline-none"
+                                >
+                                    <option value="Paid">Paid / Settled in Full</option>
+                                    <option value="Unpaid">Unpaid / Added to Credit Debt</option>
+                                    <option value="Partial">Partial Payment Made</option>
+                                </select>
                             </div>
-                        </div>
+
+                            <div>
+                                <label className="block mb-1">Payment Reference / Remarks</label>
+                                <textarea
+                                    rows={2}
+                                    value={paymentNotes}
+                                    onChange={(e) => setPaymentNotes(e.target.value)}
+                                    placeholder="e.g. Paid via M-Pesa Paybill / Cheque #99281 on Nov 3"
+                                    className="w-full px-3 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs text-gray-900 focus:bg-white focus:border-emerald-600 outline-none"
+                                />
+                            </div>
+
+                            <div className="pt-3 border-t border-gray-200 flex items-center justify-between">
+                                <button type="button" onClick={() => setShowPaymentModal(false)} className="px-4 py-2 bg-gray-100 text-gray-800 rounded-xl font-bold">
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isUpdatingPayment}
+                                    className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl font-bold shadow-md disabled:opacity-50"
+                                >
+                                    {isUpdatingPayment ? 'Saving...' : 'Update Status'}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
