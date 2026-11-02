@@ -159,7 +159,7 @@ const ProductCard = ({
                     else onAdd();
                 }
             }}
-            className={`bg-white rounded-xl shadow-sm border transition-all duration-200 h-[255px] flex flex-col group relative overflow-hidden cursor-pointer ${
+            className={`bg-white rounded-xl shadow-sm border transition-all duration-200 h-[170px] flex flex-col group relative overflow-hidden cursor-pointer ${
                 product.availableQty === 0
                     ? 'border-gray-200 opacity-60 bg-gray-50/50'
                     : isExpired
@@ -169,16 +169,16 @@ const ProductCard = ({
             title={product.name}
         >
             {/* Top Badges overlay */}
-            <div className="absolute top-2 left-2 right-2 z-10 flex items-center justify-between pointer-events-none">
+            <div className="absolute top-1.5 left-1.5 right-1.5 z-10 flex items-center justify-between pointer-events-none">
                 {product.requires_prescription ? (
-                    <span className="px-1.5 py-0.5 bg-blue-600 text-white rounded text-[8px] font-bold tracking-wider shadow-sm flex items-center gap-0.5">
+                    <span className="px-1 py-0.2 bg-blue-600 text-white rounded text-[7.5px] font-bold tracking-wider shadow-sm flex items-center gap-0.5">
                         <span>℞</span> Rx
                     </span>
                 ) : <span />}
 
                 {nearestBatch && (
                     <span
-                        className={`px-1.5 py-0.5 rounded text-[8px] font-bold shadow-sm ${
+                        className={`px-1 py-0.2 rounded text-[7.5px] font-bold shadow-sm ${
                             nearestBatch.days < 0
                                 ? 'bg-red-600 text-white animate-pulse'
                                 : nearestBatch.days <= 30
@@ -193,42 +193,42 @@ const ProductCard = ({
                 )}
             </div>
 
-            {/* Image - Fixed 105px */}
-            <div className="h-[105px] bg-gradient-to-b from-gray-50 to-white flex items-center justify-center flex-shrink-0 relative p-2">
+            {/* Compact Image - 58px */}
+            <div className="h-[58px] bg-gradient-to-b from-gray-50 to-white flex items-center justify-center flex-shrink-0 relative p-1">
                 {product.imageUrl ? (
                     <img
                         src={product.imageUrl}
                         alt={product.name}
-                        className="max-h-[90px] max-w-[90px] object-contain group-hover:scale-105 transition-transform duration-200"
+                        className="max-h-[50px] max-w-[50px] object-contain group-hover:scale-105 transition-transform duration-200"
                         onError={(e) => {
                             (e.target as HTMLImageElement).src = '/no-image.png';
                         }}
                     />
                 ) : (
-                    <div className="h-[75px] w-[75px] rounded-lg bg-emerald-50/60 border border-emerald-100 flex items-center justify-center text-emerald-600 text-2xl font-bold">
+                    <div className="h-[42px] w-[42px] rounded-lg bg-emerald-50/60 border border-emerald-100 flex items-center justify-center text-emerald-600 text-xl">
                         💊
                     </div>
                 )}
             </div>
 
             {/* Content */}
-            <div className="flex-1 p-2.5 flex flex-col justify-between">
-                <div>
-                    <h3 className="text-[12px] font-semibold text-gray-800 line-clamp-1 group-hover:text-emerald-700 transition-colors" title={product.name}>
+            <div className="flex-1 px-2 py-1.5 flex flex-col justify-between min-h-0">
+                <div className="min-w-0">
+                    <h3 className="text-[11px] font-bold text-gray-800 line-clamp-1 group-hover:text-emerald-700 transition-colors" title={product.name}>
                         {product.name}
                     </h3>
 
                     {/* Generic / Dosage / Form Subtitle */}
                     {(product.generic_name || product.dosage || product.drug_type) ? (
-                        <p className="text-[9.5px] text-gray-500 line-clamp-1 italic">
+                        <p className="text-[8.5px] text-gray-500 line-clamp-1 italic">
                             {[product.generic_name, product.dosage, product.drug_type].filter(Boolean).join(' • ')}
                         </p>
                     ) : (
-                        <p className="text-[9px] text-gray-400 truncate">SKU: {product.barcode || product.id}</p>
+                        <p className="text-[8.5px] text-gray-400 truncate">SKU: {product.barcode || product.id}</p>
                     )}
 
-                    <div className="flex items-center gap-1 mt-1">
-                        <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[8px] font-medium truncate max-w-[100px]">
+                    <div className="flex items-center gap-1 mt-0.5">
+                        <span className="px-1 py-0.2 bg-gray-100 text-gray-600 rounded text-[7.5px] font-medium truncate max-w-[85px]">
                             {product.category || 'General'}
                         </span>
                         {isMultiBatch && (
@@ -237,7 +237,7 @@ const ProductCard = ({
                                     e.stopPropagation();
                                     onOpenBatches();
                                 }}
-                                className="px-1.5 py-0.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded text-[8px] font-bold"
+                                className="px-1 py-0.2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded text-[7.5px] font-bold"
                                 title="Click to pick a specific batch"
                             >
                                 {product.batches.length} Batches
@@ -246,13 +246,13 @@ const ProductCard = ({
                     </div>
                 </div>
 
-                <div>
-                    <div className="flex items-baseline justify-between mb-2">
-                        <span className="text-[14px] font-extrabold text-gray-900">
+                <div className="pt-1">
+                    <div className="flex items-baseline justify-between mb-1">
+                        <span className="text-[12px] font-extrabold text-gray-900 leading-none">
                             Ksh {product.salesPrice.toLocaleString()}
                         </span>
                         <span
-                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                            className={`px-1 py-0.2 rounded text-[8px] font-bold leading-none ${
                                 product.availableQty > 10
                                     ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                     : product.availableQty > 0
@@ -260,7 +260,7 @@ const ProductCard = ({
                                     : 'bg-red-50 text-red-600 border border-red-200'
                             }`}
                         >
-                            {product.availableQty > 0 ? `${product.availableQty} ${product.salesUnit}` : 'Out of Stock'}
+                            {product.availableQty > 0 ? `${product.availableQty} ${product.salesUnit}` : 'Out'}
                         </span>
                     </div>
 
@@ -273,7 +273,7 @@ const ProductCard = ({
                             }
                         }}
                         disabled={product.availableQty === 0 || isExpired}
-                        className={`w-full py-1.5 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 transition-all ${
+                        className={`w-full py-1 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-all ${
                             product.availableQty === 0
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                 : isExpired
@@ -281,7 +281,7 @@ const ProductCard = ({
                                 : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 active:scale-[0.98] shadow-sm hover:shadow'
                         }`}
                     >
-                        {isExpired ? '⚠️ Expired Batch' : product.availableQty === 0 ? 'Out of Stock' : '+ Add to Cart'}
+                        {isExpired ? '⚠️ Expired' : product.availableQty === 0 ? 'Out of Stock' : '+ Add to Cart'}
                     </button>
                 </div>
             </div>
