@@ -370,7 +370,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (!userData) { router.push('/'); return; }
     setUser(JSON.parse(userData));
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
+
+    // DPA Compliance: Auto-logout on 30 minutes of inactivity
+    let timeout: NodeJS.Timeout;
+    const resetTimer = () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        localStorage.removeItem('user');
+        router.push('/?session_expired=1');
+      }, 30 * 60 * 1000); // 30 minutes
+    };
+
+    window.addEventListener('mousemove', resetTimer);
+    window.addEventListener('keydown', resetTimer);
+    window.addEventListener('click', resetTimer);
+    resetTimer();
+
+    return () => {
+      clearInterval(timer);
+      clearTimeout(timeout);
+      window.removeEventListener('mousemove', resetTimer);
+      window.removeEventListener('keydown', resetTimer);
+      window.removeEventListener('click', resetTimer);
+    };
   }, [router]);
 
   // Auto-expand the group that owns the current route
