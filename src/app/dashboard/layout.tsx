@@ -246,10 +246,12 @@ const menuGroups: MenuGroup[] = [
   {
     id: 'purchases', name: 'Purchases', icon: IC.Cart,
     items: [
-      { name: 'Suppliers',         href: '/dashboard/suppliers',        icon: IC.Building },
-      { name: 'Purchase Entry',    href: '/dashboard/purchase',         icon: IC.Box },
-      { name: 'Purchase Records',  href: '/dashboard/purchases',        icon: IC.File },
-      { name: 'Purchase Return',   href: '/dashboard/purchase-return',  icon: IC.Refresh },
+      { name: 'Suppliers',              href: '/dashboard/suppliers',        icon: IC.Building },
+      { name: 'Purchase Entry',         href: '/dashboard/purchase',         icon: IC.Box },
+      { name: 'Purchase Records',       href: '/dashboard/purchases',        icon: IC.File },
+      { name: 'Purchase Return',        href: '/dashboard/purchase-return',  icon: IC.Refresh },
+      { name: 'Goods Received (GRN)',   href: '/dashboard/grn',              icon: IC.Box,    badge: 'NEW' },
+      { name: 'Accounts Payable',       href: '/dashboard/accounts-payable', icon: IC.Dollar, badge: 'NEW' },
     ],
   },
   {
@@ -259,21 +261,28 @@ const menuGroups: MenuGroup[] = [
       { name: 'Stock Take',        href: '/dashboard/stock-take',       icon: IC.ClipboardCheck },
       { name: 'Stock Transfer',    href: '/dashboard/stock-transfer',   icon: IC.Box },
       { name: 'Low Stock',         href: '/dashboard/low-stock',        icon: IC.Warning },
+      { name: 'Cold Chain 🌡️',    href: '/dashboard/cold-chain',       icon: IC.Shield,  badge: 'NEW' },
     ],
   },
   {
     id: 'insurance', name: 'Insurance', icon: IC.ShieldLock,
     items: [
-      { name: 'Insurance Claims',  href: '/dashboard/insurance-claims', icon: IC.ShieldCheck },
-      { name: 'Credit Customers',  href: '/dashboard/credit-customers', icon: IC.UserPlus },
-      { name: 'Credit Payments',   href: '/dashboard/credit-payments',  icon: IC.Dollar },
+      { name: 'Insurance Claims',    href: '/dashboard/insurance-claims',   icon: IC.ShieldCheck },
+      { name: 'Credit Customers',    href: '/dashboard/credit-customers',   icon: IC.UserPlus },
+      { name: 'Credit Payments',     href: '/dashboard/credit-payments',    icon: IC.Dollar },
+      { name: 'Accounts Receivable', href: '/dashboard/accounts-receivable', icon: IC.Chart, badge: 'NEW' },
     ],
   },
   {
     id: 'finance', name: 'Finance', icon: IC.Card,
     items: [
-      { name: 'Expenses',          href: '/dashboard/expenses',         icon: IC.Dollar },
-      { name: 'Loyalty Program',   href: '/dashboard/loyalty',          icon: IC.Star },
+      { name: 'Expenses',              href: '/dashboard/expenses',              icon: IC.Dollar },
+      { name: 'Petty Cash',            href: '/dashboard/petty-cash',            icon: IC.Dollar,   badge: 'NEW' },
+      { name: 'Split Payment',         href: '/dashboard/split-payment',         icon: IC.Card,     badge: 'NEW' },
+      { name: 'Bank Reconciliation',   href: '/dashboard/bank-reconciliation',   icon: IC.Card,     badge: 'NEW' },
+      { name: 'M-Pesa Reconciliation', href: '/dashboard/mpesa-reconciliation',  icon: IC.Dollar,   badge: 'NEW' },
+      { name: 'Accounts Receivable',   href: '/dashboard/accounts-receivable',   icon: IC.Chart,    badge: 'NEW' },
+      { name: 'Loyalty Program',       href: '/dashboard/loyalty',               icon: IC.Star },
     ],
   },
   {

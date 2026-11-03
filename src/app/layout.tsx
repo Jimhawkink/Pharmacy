@@ -6,8 +6,9 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-    title: 'Alpha Retail Pharmacy Management System',
-    description: 'Professional Pharmacy Management & POS System',
+    title: "Alpha Pharmacy — Kenya's #1 Premium Pharmacy Management System",
+    description: 'Ultra-Premium Pharmacy POS, DDR, Insurance Claims, M-Pesa, Dispensing, Patients — Bomet, Kenya',
+    other: { 'theme-color': '#059669' },
 };
 
 export default function RootLayout({
@@ -17,6 +18,14 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en">
+            <head>
+                <link rel="manifest" href="/manifest.json" />
+                <meta name="theme-color" content="#059669" />
+                <meta name="apple-mobile-web-app-capable" content="yes" />
+                <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+                <meta name="apple-mobile-web-app-title" content="Alpha Pharmacy" />
+                <meta name="mobile-web-app-capable" content="yes" />
+            </head>
             <body className={inter.className}>
                 {/* Modern Toast Notifications - Top Position */}
                 <Toaster
