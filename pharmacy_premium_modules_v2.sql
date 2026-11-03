@@ -354,19 +354,29 @@ ALTER TABLE pharmacy_consent_records       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pharmacy_data_requests         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pharmacy_breach_logs           ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS allow_all_grn                   ON pharmacy_grn                   FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS allow_all_grn_items             ON pharmacy_grn_items             FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS allow_all_bank_statements       ON pharmacy_bank_statements       FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS allow_all_bank_reconciliations  ON pharmacy_bank_reconciliations  FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS allow_all_petty_cash_fund       ON pharmacy_petty_cash_fund       FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS allow_all_petty_cash            ON pharmacy_petty_cash            FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS allow_all_mpesa_transactions    ON pharmacy_mpesa_transactions    FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS allow_all_collection_activities ON pharmacy_collection_activities FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS allow_all_temp_logs             ON pharmacy_temp_logs             FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS allow_all_cold_chain_items      ON pharmacy_cold_chain_items      FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS allow_all_payable_bills         ON pharmacy_payable_bills         FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS allow_all_consent_records       ON pharmacy_consent_records       FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS allow_all_data_requests         ON pharmacy_data_requests         FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY IF NOT EXISTS allow_all_breach_logs           ON pharmacy_breach_logs           FOR ALL USING (true) WITH CHECK (true);
+DO $$
+DECLARE
+  tbl TEXT;
+  pol TEXT;
+  tbls TEXT[] := ARRAY[
+    'pharmacy_grn','pharmacy_grn_items','pharmacy_bank_statements',
+    'pharmacy_bank_reconciliations','pharmacy_petty_cash_fund','pharmacy_petty_cash',
+    'pharmacy_mpesa_transactions','pharmacy_collection_activities',
+    'pharmacy_temp_logs','pharmacy_cold_chain_items','pharmacy_payable_bills',
+    'pharmacy_consent_records','pharmacy_data_requests','pharmacy_breach_logs'
+  ];
+BEGIN
+  FOREACH tbl IN ARRAY tbls LOOP
+    pol := 'allow_all_' || tbl;
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies WHERE tablename = tbl AND policyname = pol
+    ) THEN
+      EXECUTE format(
+        'CREATE POLICY %I ON %I FOR ALL USING (true) WITH CHECK (true)',
+        pol, tbl
+      );
+    END IF;
+  END LOOP;
+END $$;
 
 -- ─── DONE — All 14 tables created cleanly ─────────────────────
