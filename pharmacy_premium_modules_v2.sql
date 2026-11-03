@@ -315,3 +315,71 @@ CREATE POLICY "allow_all_payable" ON pharmacy_payable_bills FOR ALL USING (true)
 
 -- ─── ALL DONE ─────────────────────────────────────────────────
 -- New tables: pharmacy_temp_logs, pharmacy_cold_chain_items, pharmacy_payable_bills
+
+
+-- ─── DPA 2019 COMPLIANCE TABLES ─────────────────────────────────
+
+-- Consent Records (DPA 2019 s.30 — explicit consent for health data)
+CREATE TABLE IF NOT EXISTS pharmacy_consent_records (
+    consent_id      SERIAL PRIMARY KEY,
+    patient_id      INTEGER,
+    patient_name    VARCHAR(200) NOT NULL,
+    consent_type    VARCHAR(100) NOT NULL,
+    granted         BOOLEAN DEFAULT TRUE,
+    granted_at      TIMESTAMPTZ DEFAULT NOW(),
+    revoked_at      TIMESTAMPTZ,
+    ip_address      VARCHAR(100) DEFAULT 'In-pharmacy',
+    consent_version VARCHAR(10) DEFAULT '1.0',
+    collector_name  VARCHAR(100),
+    outlet_id       INTEGER NOT NULL DEFAULT 1,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Data Subject Rights Requests (DPA 2019 s.26, s.35, s.36, s.38)
+CREATE TABLE IF NOT EXISTS pharmacy_data_requests (
+    request_id      SERIAL PRIMARY KEY,
+    patient_name    VARCHAR(200) NOT NULL,
+    patient_email   VARCHAR(200),
+    patient_phone   VARCHAR(20),
+    request_type    VARCHAR(20) NOT NULL CHECK (request_type IN ('export','delete','rectify','restrict')),
+    status          VARCHAR(20) DEFAULT 'Pending' CHECK (status IN ('Pending','Processing','Completed','Rejected')),
+    requested_at    TIMESTAMPTZ DEFAULT NOW(),
+    completed_at    TIMESTAMPTZ,
+    handled_by      VARCHAR(100),
+    notes           TEXT,
+    outlet_id       INTEGER NOT NULL DEFAULT 1
+);
+
+-- Data Breach Incident Log (DPA 2019 s.43 — 72hr ODPC notification)
+CREATE TABLE IF NOT EXISTS pharmacy_breach_logs (
+    breach_id           SERIAL PRIMARY KEY,
+    breach_date         DATE NOT NULL,
+    description         TEXT NOT NULL,
+    affected_records    INTEGER DEFAULT 0,
+    severity            VARCHAR(20) DEFAULT 'Medium' CHECK (severity IN ('Low','Medium','High','Critical')),
+    reported_to_odpc    BOOLEAN DEFAULT FALSE,
+    reported_at         TIMESTAMPTZ,
+    remediation         TEXT,
+    reported_by         VARCHAR(100),
+    outlet_id           INTEGER NOT NULL DEFAULT 1,
+    created_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS on all sensitive tables
+ALTER TABLE pharmacy_consent_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pharmacy_data_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pharmacy_breach_logs ENABLE ROW LEVEL SECURITY;
+
+-- Add known_allergies column to patients if missing
+ALTER TABLE pharmacy_patients ADD COLUMN IF NOT EXISTS known_allergies JSONB DEFAULT '[]';
+ALTER TABLE pharmacy_patients ADD COLUMN IF NOT EXISTS chronic_conditions JSONB DEFAULT '[]';
+ALTER TABLE pharmacy_patients ADD COLUMN IF NOT EXISTS consent_given BOOLEAN DEFAULT FALSE;
+ALTER TABLE pharmacy_patients ADD COLUMN IF NOT EXISTS consent_date TIMESTAMPTZ;
+ALTER TABLE pharmacy_patients ADD COLUMN IF NOT EXISTS privacy_policy_accepted BOOLEAN DEFAULT FALSE;
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_consent_outlet ON pharmacy_consent_records(outlet_id);
+CREATE INDEX IF NOT EXISTS idx_consent_patient ON pharmacy_consent_records(patient_id);
+CREATE INDEX IF NOT EXISTS idx_requests_outlet ON pharmacy_data_requests(outlet_id);
+CREATE INDEX IF NOT EXISTS idx_requests_status ON pharmacy_data_requests(status);
+CREATE INDEX IF NOT EXISTS idx_breach_outlet ON pharmacy_breach_logs(outlet_id);

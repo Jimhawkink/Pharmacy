@@ -231,7 +231,8 @@ const menuGroups: MenuGroup[] = [
       { name: 'Patients',          href: '/dashboard/patients',         icon: IC.UserPlus },
       { name: 'Dangerous Drugs',   href: '/dashboard/dangerous-drugs',  icon: IC.ShieldCheck, badge: 'DDR' },
       { name: 'Pharmacovigilance', href: '/dashboard/pharmacovigilance', icon: IC.Heart },
-      { name: 'Drug Interactions', href: '/dashboard/pharmacovigilance', icon: IC.Warning },
+      { name: 'Drug Interactions', href: '/dashboard/drug-interactions', icon: IC.Warning },
+      { name: 'Data Protection 🔒', href: '/dashboard/data-protection', icon: IC.ShieldCheck, badge: 'DPA' },
     ],
   },
   {

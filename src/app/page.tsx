@@ -52,6 +52,8 @@ export default function LoginPage() {
     const [currentTime, setCurrentTime] = useState('');
     const [currentDate, setCurrentDate] = useState('');
     const [pharmacyName, setPharmacyName] = useState('Alpha Retail Pharmacy');
+    const [privacyAccepted, setPrivacyAccepted] = useState(false);
+    const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
     // Outlet selection
     const [showOutletPicker, setShowOutletPicker] = useState(false);
@@ -94,6 +96,12 @@ export default function LoginPage() {
 
         if (!username || !password) {
             setError('Please enter username and password');
+            setIsLoading(false);
+            return;
+        }
+
+        if (!privacyAccepted) {
+            setError('Please accept the Privacy Policy and Terms of Service to continue (DPA 2019 requirement).');
             setIsLoading(false);
             return;
         }
@@ -402,6 +410,26 @@ export default function LoginPage() {
                                         </div>
                                     )}
 
+                                    {/* Privacy Policy Acceptance (DPA 2019 Compliance) */}
+                                    <div className="flex items-start gap-3 p-3 rounded-xl bg-indigo-50 border border-indigo-100">
+                                        <input
+                                            type="checkbox"
+                                            id="privacy-accept"
+                                            checked={privacyAccepted}
+                                            onChange={e => setPrivacyAccepted(e.target.checked)}
+                                            className="mt-0.5 w-4 h-4 accent-teal-600 cursor-pointer flex-shrink-0"
+                                        />
+                                        <label htmlFor="privacy-accept" className="text-xs text-gray-600 font-medium cursor-pointer leading-relaxed">
+                                            I acknowledge that I have read and accept the{' '}
+                                            <button type="button" onClick={() => setShowPrivacyModal(true)} className="text-teal-600 font-bold underline hover:text-teal-800">
+                                                Privacy Policy
+                                            </button>{' '}
+                                            and understand my obligations under the{' '}
+                                            <span className="font-bold text-indigo-700">Kenya Data Protection Act 2019</span>.
+                                            Patient data must be handled with confidentiality.
+                                        </label>
+                                    </div>
+
                                     {/* Login Button */}
                                     <button
                                         id="login-button"
@@ -443,6 +471,42 @@ export default function LoginPage() {
                     </div>
                 )}
             </div>
+
+            {/* Privacy Policy Modal */}
+            {showPrivacyModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto">
+                        <div className="bg-gradient-to-r from-teal-600 to-cyan-600 px-6 py-4 rounded-t-2xl flex items-center justify-between sticky top-0">
+                            <div>
+                                <h2 className="text-white font-black text-lg">🔒 Privacy Policy</h2>
+                                <p className="text-teal-200 text-xs">Kenya Data Protection Act 2019 Compliance</p>
+                            </div>
+                            <button onClick={() => setShowPrivacyModal(false)} className="text-white hover:bg-white/20 rounded-lg p-2 text-xl leading-none font-bold">×</button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            {[
+                                { title: '1. Data We Process', content: 'As pharmacy staff, you will access sensitive personal health data including patient prescriptions, medical history, allergies, and payment information. This data is protected under the Kenya Data Protection Act, 2019.' },
+                                { title: '2. Your Obligations', content: 'You must: (a) Only access patient data necessary for your role; (b) Never share patient data with unauthorized persons; (c) Report any data breaches immediately to your supervisor; (d) Never use patient data for personal benefit; (e) Log out when leaving your workstation.' },
+                                { title: '3. Patient Rights', content: 'Patients have the right to access, correct, and delete their data under DPA 2019. Direct any patient data requests to the Data Protection Officer.' },
+                                { title: '4. Security Requirements', content: 'Never share your login credentials. The system auto-logs out after 30 minutes of inactivity. All access is logged and monitored.' },
+                                { title: '5. Legal Consequences', content: 'Unauthorized disclosure of patient health data is a criminal offence under DPA 2019 with fines up to KSh 3,000,000 and/or imprisonment.' },
+                            ].map((s, i) => (
+                                <div key={i} className="border-b border-gray-100 pb-3 last:border-0">
+                                    <h3 className="text-sm font-black text-gray-900 mb-1">{s.title}</h3>
+                                    <p className="text-xs text-gray-600 font-semibold leading-relaxed">{s.content}</p>
+                                </div>
+                            ))}
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                                <p className="text-xs font-bold text-amber-800">⚠️ By clicking &quot;I Accept&quot; below and logging in, you confirm that you understand and will comply with these obligations.</p>
+                            </div>
+                            <div className="flex gap-3">
+                                <button onClick={() => setShowPrivacyModal(false)} className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold text-sm">Close</button>
+                                <button onClick={() => { setPrivacyAccepted(true); setShowPrivacyModal(false); }} className="flex-1 px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-sm">✅ I Accept</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Animations */}
             <style jsx>{`

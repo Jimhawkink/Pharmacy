@@ -13,6 +13,7 @@ type Rx = { prescription_id: number; prescription_no: string; patient_id: number
 type RxItem = { item_id: number; prescription_id: number; drug_name: string; dosage: string; frequency: string; duration: string; quantity_prescribed: number; quantity_dispensed: number; instructions: string; substitution_allowed: boolean; status: string };
 type DispLog = { dispensing_id: number; drug_name: string; batch_number: string; expiry_date: string; quantity_dispensed: number; dosage_instructions: string; dispensed_by: string; verified_by: string; verification_status: string; is_controlled: boolean; is_substituted: boolean; original_drug: string; substitution_reason: string; label_printed: boolean; created_at: string; patient_name?: string };
 type Batch = { batch_id: number; product_id: number; batch_number: string; expiry_date: string; remaining_qty: number; cost_price: number };
+type AllergyAlert = { drug: string; allergen: string };
 
 const TABS = ['Dispensing Queue', 'Completed', 'Verification', 'Dosage Calculator', 'Label Generator'] as const;
 const FREQUENCIES = ['OD (Once daily)', 'BD (Twice daily)', 'TDS (Three times daily)', 'QID (Four times daily)', 'PRN (As needed)', 'STAT (Immediately)', 'Nocte (At night)', 'Mane (Morning)', 'Q4H (Every 4 hours)', 'Q6H (Every 6 hours)', 'Q8H (Every 8 hours)', 'Weekly'];
@@ -47,6 +48,9 @@ export default function DispensingPage() {
   const [selectedRx, setSelectedRx] = useState<Rx | null>(null);
   const [rxItems, setRxItems] = useState<RxItem[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
+  // Allergy cross-check
+  const [allergyAlerts, setAllergyAlerts] = useState<AllergyAlert[]>([]);
+  const [showAllergyWarning, setShowAllergyWarning] = useState(false);
   // Dosage calculator state
   const [calcWeight, setCalcWeight] = useState<number>(0);
   const [calcAge, setCalcAge] = useState<number>(0);
@@ -83,14 +87,50 @@ export default function DispensingPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Open dispense modal
+  // Open dispense modal — WITH ALLERGY CROSS-CHECK
   const openDispense = async (rx: Rx) => {
     setSelectedRx(rx);
     const { data: items } = await supabase.from('pharmacy_prescription_items').select('*').eq('prescription_id', rx.prescription_id);
     setRxItems((items || []) as RxItem[]);
     const { data: b } = await supabase.from('pharmacy_batches').select('*').eq('outlet_id', oid).gt('remaining_qty', 0).order('expiry_date', { ascending: true });
     setBatches((b || []) as Batch[]);
-    setShowDispenseModal(true);
+
+    // ── Allergy Cross-Check (PPB Clinical Safety Requirement) ──
+    const alerts: AllergyAlert[] = [];
+    if (rx.patient_id) {
+      const { data: patient } = await supabase.from('pharmacy_patients').select('known_allergies, chronic_conditions').eq('patient_id', rx.patient_id).single();
+      if (patient?.known_allergies && Array.isArray(patient.known_allergies)) {
+        const drugs = (items || []) as RxItem[];
+        // Map allergens to drug classes
+        const ALLERGY_MAP: Record<string, string[]> = {
+          'penicillin': ['amoxicillin', 'ampicillin', 'cloxacillin', 'co-amoxiclav', 'augmentin', 'penicillin'],
+          'sulfonamides': ['sulfamethoxazole', 'trimethoprim', 'septrin', 'bactrim', 'co-trimoxazole'],
+          'nsaids': ['ibuprofen', 'diclofenac', 'naproxen', 'aspirin', 'indomethacin', 'ketorolac', 'piroxicam'],
+          'aspirin': ['aspirin', 'ibuprofen', 'diclofenac', 'naproxen'],
+          'cephalosporins': ['cefuroxime', 'cefalexin', 'ceftriaxone', 'cefixime', 'cefepime', 'cephalexin'],
+          'tetracyclines': ['doxycycline', 'tetracycline', 'minocycline'],
+          'fluoroquinolones': ['ciprofloxacin', 'levofloxacin', 'moxifloxacin', 'norfloxacin'],
+          'macrolides': ['azithromycin', 'erythromycin', 'clarithromycin'],
+          'opioids': ['morphine', 'tramadol', 'codeine', 'pethidine', 'fentanyl'],
+        };
+        for (const allergen of patient.known_allergies) {
+          const allergenLow = allergen.toLowerCase();
+          const crossReactive = ALLERGY_MAP[allergenLow] || [allergenLow];
+          for (const drug of drugs) {
+            const drugNameLow = drug.drug_name.toLowerCase();
+            if (crossReactive.some(cr => drugNameLow.includes(cr))) {
+              alerts.push({ drug: drug.drug_name, allergen: allergen });
+            }
+          }
+        }
+      }
+    }
+    setAllergyAlerts(alerts);
+    if (alerts.length > 0) {
+      setShowAllergyWarning(true); // Show warning FIRST before dispense modal
+    } else {
+      setShowDispenseModal(true);
+    }
   };
 
   // Dispense action
@@ -426,6 +466,50 @@ export default function DispensingPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* ═══ ALLERGY WARNING MODAL ═══ */}
+      {showAllergyWarning && allergyAlerts.length > 0 && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full border-4 border-red-500">
+            <div className="bg-gradient-to-r from-red-600 to-rose-600 px-5 py-4 rounded-t-2xl">
+              <h3 className="text-white font-black text-lg flex items-center gap-2">🚨 ALLERGY ALERT — STOP!</h3>
+              <p className="text-red-100 text-xs font-semibold mt-1">Patient has known allergies to drugs being dispensed</p>
+            </div>
+            <div className="p-5">
+              <div className="space-y-3 mb-4">
+                {allergyAlerts.map((a, i) => (
+                  <div key={i} className="flex items-center gap-3 bg-red-50 border border-red-300 rounded-xl p-3">
+                    <span className="text-2xl">⚠️</span>
+                    <div>
+                      <p className="text-sm font-black text-red-900">Drug: {a.drug}</p>
+                      <p className="text-xs font-bold text-red-700">Patient allergic to: <span className="uppercase">{a.allergen}</span></p>
+                      <p className="text-[10px] text-red-500 font-semibold mt-0.5">Cross-reactivity detected — verify with prescriber before dispensing</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 mb-4">
+                <p className="text-xs font-bold text-amber-800">📋 PPB Clinical Requirement:</p>
+                <p className="text-xs text-amber-700 font-semibold">Allergy cross-checking is mandatory at dispensing. You must contact the prescriber before dispensing any drug that may cause an allergic reaction. Document any decision to proceed.</p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowAllergyWarning(false); setSelectedRx(null); }}
+                  className="flex-1 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black text-sm shadow"
+                >
+                  🚫 CANCEL — Do Not Dispense
+                </button>
+                <button
+                  onClick={() => { setShowAllergyWarning(false); setShowDispenseModal(true); toast.error('⚠️ Proceeding with allergy alert — ensure prescriber has been notified!', { duration: 6000 }); }}
+                  className="flex-1 px-4 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-black text-sm shadow"
+                >
+                  ⚠️ Override — Prescriber Confirmed
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ═══ Dispense Modal ═══ */}
