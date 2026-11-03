@@ -154,6 +154,56 @@ const IC = {
       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
     </svg>
   ),
+  /* ── New Pharmacy Premium Icons ── */
+  Heart: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+    </svg>
+  ),
+  HeartPulse: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+      <path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/>
+    </svg>
+  ),
+  Clipboard: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+      <path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>
+    </svg>
+  ),
+  ShieldLock: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><rect x="9" y="10" width="6" height="5" rx="1"/><path d="M10 10V8a2 2 0 1 1 4 0v2"/>
+    </svg>
+  ),
+  ShieldCheck: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>
+    </svg>
+  ),
+  Star: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+    </svg>
+  ),
+  Beaker: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4.5 3h15"/><path d="M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3"/><path d="M6 14h12"/>
+    </svg>
+  ),
+  ClipboardCheck: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+      <path d="m9 14 2 2 4-4"/>
+    </svg>
+  ),
+  Stethoscope: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/>
+      <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/>
+    </svg>
+  ),
 };
 
 /* ─── Menu Definition ────────────────────────────────────────────── */
@@ -169,8 +219,19 @@ const menuGroups: MenuGroup[] = [
     id: 'pharmacy', name: 'Pharmacy', icon: IC.Pill,
     items: [
       { name: 'Pharmacy POS',      href: '/dashboard/pos',              icon: IC.Monitor },
+      { name: 'Dispensing',         href: '/dashboard/dispensing',       icon: IC.Beaker },
+      { name: 'Prescriptions',     href: '/dashboard/prescriptions',    icon: IC.Clipboard },
       { name: 'Expiry Register',   href: '/dashboard/expiry-register',  icon: IC.Clock,  badge: '!' },
       { name: 'Batch Management',  href: '/dashboard/batches',          icon: IC.Box },
+    ],
+  },
+  {
+    id: 'clinical', name: 'Clinical', icon: IC.HeartPulse,
+    items: [
+      { name: 'Patients',          href: '/dashboard/patients',         icon: IC.UserPlus },
+      { name: 'Dangerous Drugs',   href: '/dashboard/dangerous-drugs',  icon: IC.ShieldCheck, badge: 'DDR' },
+      { name: 'Pharmacovigilance', href: '/dashboard/pharmacovigilance', icon: IC.Heart },
+      { name: 'Drug Interactions', href: '/dashboard/pharmacovigilance', icon: IC.Warning },
     ],
   },
   {
@@ -195,22 +256,29 @@ const menuGroups: MenuGroup[] = [
     id: 'inventory', name: 'Inventory', icon: IC.Layers,
     items: [
       { name: 'Stock Movement',    href: '/dashboard/stock-movement',   icon: IC.Refresh },
+      { name: 'Stock Take',        href: '/dashboard/stock-take',       icon: IC.ClipboardCheck },
       { name: 'Stock Transfer',    href: '/dashboard/stock-transfer',   icon: IC.Box },
       { name: 'Low Stock',         href: '/dashboard/low-stock',        icon: IC.Warning },
+    ],
+  },
+  {
+    id: 'insurance', name: 'Insurance', icon: IC.ShieldLock,
+    items: [
+      { name: 'Insurance Claims',  href: '/dashboard/insurance-claims', icon: IC.ShieldCheck },
+      { name: 'Credit Customers',  href: '/dashboard/credit-customers', icon: IC.UserPlus },
+      { name: 'Credit Payments',   href: '/dashboard/credit-payments',  icon: IC.Dollar },
     ],
   },
   {
     id: 'finance', name: 'Finance', icon: IC.Card,
     items: [
       { name: 'Expenses',          href: '/dashboard/expenses',         icon: IC.Dollar },
-      { name: 'Credit Customers',  href: '/dashboard/credit-customers', icon: IC.UserPlus },
-      { name: 'Credit Payments',   href: '/dashboard/credit-payments',  icon: IC.Dollar },
+      { name: 'Loyalty Program',   href: '/dashboard/loyalty',          icon: IC.Star },
     ],
   },
   {
     id: 'hr', name: 'HR & Payroll', icon: IC.Users,
     items: [
-      { name: 'Payroll',           href: '/dashboard/payroll',          icon: IC.Dollar },
       { name: 'Shifts',            href: '/dashboard/shifts',           icon: IC.Clock },
       { name: 'Shift Reports',     href: '/dashboard/shift-reports',    icon: IC.File },
     ],
@@ -222,6 +290,11 @@ const menuGroups: MenuGroup[] = [
       { name: 'Profit Report',     href: '/dashboard/reports/profit',   icon: IC.Trend },
       { name: 'Stock Report',      href: '/dashboard/reports/stock',    icon: IC.Chart },
       { name: 'Expiry Report',     href: '/dashboard/reports/expiry',   icon: IC.Clock },
+      { name: 'M-Pesa Report',     href: '/dashboard/reports/mpesa',    icon: IC.Dollar },
+      { name: 'P&L Statement',     href: '/dashboard/reports/profit-loss', icon: IC.Trend },
+      { name: 'Balance Sheet',     href: '/dashboard/reports/balance-sheet', icon: IC.File },
+      { name: 'Cash Book',         href: '/dashboard/reports/cash-book', icon: IC.Dollar },
+      { name: 'Trial Balance',     href: '/dashboard/reports/trial-balance', icon: IC.Chart },
     ],
   },
   {
@@ -233,6 +306,7 @@ const menuGroups: MenuGroup[] = [
       { name: 'Activity Log',      href: '/dashboard/activity-log',     icon: IC.Scroll, adminOnly: true },
       { name: 'Company',           href: '/dashboard/company',          icon: IC.Building },
       { name: 'Units',             href: '/dashboard/units',            icon: IC.Ruler },
+      { name: 'Tax Settings',      href: '/dashboard/tax-settings',     icon: IC.Gear },
     ],
   },
 ];
