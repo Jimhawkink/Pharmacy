@@ -1,17 +1,16 @@
 -- ============================================================
 -- Alpha Pharmacy Premium Modules — Database Migration v2
+-- FIXED VERSION — Removed risky FK constraints
 -- Run this in Supabase SQL Editor AFTER pharmacy_premium_modules.sql
--- New tables: GRN, Bank Reconciliation, Petty Cash, M-Pesa Recon,
---             Bank Statements, Collection Activities
 -- ============================================================
 
--- ─── 1. GOODS RECEIVED NOTE (GRN) ───────────────────────────
+-- ─── 1. GOODS RECEIVED NOTE (GRN) ────────────────────────────
 
 CREATE TABLE IF NOT EXISTS pharmacy_grn (
     grn_id          SERIAL PRIMARY KEY,
     grn_number      VARCHAR(50) UNIQUE NOT NULL,
     po_number       VARCHAR(50),
-    supplier_id     INTEGER REFERENCES pharmacy_suppliers(supplier_id),
+    supplier_id     INTEGER,
     supplier_name   VARCHAR(200),
     invoice_number  VARCHAR(100),
     invoice_date    DATE,
@@ -29,7 +28,7 @@ CREATE TABLE IF NOT EXISTS pharmacy_grn (
 CREATE TABLE IF NOT EXISTS pharmacy_grn_items (
     item_id             SERIAL PRIMARY KEY,
     grn_id              INTEGER NOT NULL REFERENCES pharmacy_grn(grn_id) ON DELETE CASCADE,
-    product_id          INTEGER REFERENCES pharmacy_products(id),
+    product_id          INTEGER,
     product_name        VARCHAR(300),
     barcode             VARCHAR(100),
     batch_number        VARCHAR(100),
@@ -47,17 +46,16 @@ CREATE TABLE IF NOT EXISTS pharmacy_grn_items (
     created_at          TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Add item_count column derived for display
 CREATE OR REPLACE VIEW pharmacy_grn_with_count AS
     SELECT g.*, COUNT(i.item_id) AS item_count
     FROM pharmacy_grn g
     LEFT JOIN pharmacy_grn_items i ON i.grn_id = g.grn_id
     GROUP BY g.grn_id;
 
-CREATE INDEX IF NOT EXISTS idx_grn_outlet ON pharmacy_grn(outlet_id);
-CREATE INDEX IF NOT EXISTS idx_grn_supplier ON pharmacy_grn(supplier_id);
-CREATE INDEX IF NOT EXISTS idx_grn_items_grn ON pharmacy_grn_items(grn_id);
-CREATE INDEX IF NOT EXISTS idx_grn_items_product ON pharmacy_grn_items(product_id);
+CREATE INDEX IF NOT EXISTS idx_grn_outlet      ON pharmacy_grn(outlet_id);
+CREATE INDEX IF NOT EXISTS idx_grn_supplier    ON pharmacy_grn(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_grn_items_grn   ON pharmacy_grn_items(grn_id);
+CREATE INDEX IF NOT EXISTS idx_grn_items_prod  ON pharmacy_grn_items(product_id);
 
 -- ─── 2. BANK STATEMENTS ──────────────────────────────────────
 
@@ -77,7 +75,7 @@ CREATE TABLE IF NOT EXISTS pharmacy_bank_statements (
 );
 
 CREATE INDEX IF NOT EXISTS idx_bank_stmt_outlet ON pharmacy_bank_statements(outlet_id);
-CREATE INDEX IF NOT EXISTS idx_bank_stmt_date ON pharmacy_bank_statements(date);
+CREATE INDEX IF NOT EXISTS idx_bank_stmt_date   ON pharmacy_bank_statements(date);
 
 -- ─── 3. BANK RECONCILIATIONS ─────────────────────────────────
 
@@ -101,7 +99,7 @@ CREATE TABLE IF NOT EXISTS pharmacy_bank_reconciliations (
 
 CREATE INDEX IF NOT EXISTS idx_bank_recon_outlet ON pharmacy_bank_reconciliations(outlet_id);
 
--- ─── 4. PETTY CASH FUND ──────────────────────────────────────
+-- ─── 4. PETTY CASH ───────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS pharmacy_petty_cash_fund (
     id              SERIAL PRIMARY KEY,
@@ -130,8 +128,8 @@ CREATE TABLE IF NOT EXISTS pharmacy_petty_cash (
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_petty_cash_outlet ON pharmacy_petty_cash(outlet_id);
-CREATE INDEX IF NOT EXISTS idx_petty_cash_date ON pharmacy_petty_cash(date);
+CREATE INDEX IF NOT EXISTS idx_petty_cash_outlet     ON pharmacy_petty_cash(outlet_id);
+CREATE INDEX IF NOT EXISTS idx_petty_cash_date       ON pharmacy_petty_cash(date);
 CREATE INDEX IF NOT EXISTS idx_petty_cash_fund_outlet ON pharmacy_petty_cash_fund(outlet_id);
 
 -- ─── 5. M-PESA TRANSACTIONS ──────────────────────────────────
@@ -147,22 +145,22 @@ CREATE TABLE IF NOT EXISTS pharmacy_mpesa_transactions (
     account_ref     VARCHAR(100),
     transaction_id  VARCHAR(100),
     matched         BOOLEAN DEFAULT FALSE,
-    matched_sale_id INTEGER REFERENCES pharmacy_sales(sale_id),
+    matched_sale_id INTEGER,
     matched_receipt VARCHAR(100),
     outlet_id       INTEGER NOT NULL DEFAULT 1,
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_mpesa_tx_outlet ON pharmacy_mpesa_transactions(outlet_id);
-CREATE INDEX IF NOT EXISTS idx_mpesa_tx_date ON pharmacy_mpesa_transactions(date);
+CREATE INDEX IF NOT EXISTS idx_mpesa_tx_outlet  ON pharmacy_mpesa_transactions(outlet_id);
+CREATE INDEX IF NOT EXISTS idx_mpesa_tx_date    ON pharmacy_mpesa_transactions(date);
 CREATE INDEX IF NOT EXISTS idx_mpesa_tx_receipt ON pharmacy_mpesa_transactions(mpesa_receipt);
 CREATE INDEX IF NOT EXISTS idx_mpesa_tx_matched ON pharmacy_mpesa_transactions(matched);
 
--- ─── 6. COLLECTION ACTIVITIES ────────────────────────────────
+-- ─── 6. COLLECTION ACTIVITIES (Accounts Receivable) ──────────
 
 CREATE TABLE IF NOT EXISTS pharmacy_collection_activities (
     id                  SERIAL PRIMARY KEY,
-    customer_id         INTEGER REFERENCES pharmacy_credit_customers(customer_id),
+    customer_id         INTEGER,
     customer_name       VARCHAR(200),
     action_type         VARCHAR(50) DEFAULT 'phone_call',
     notes               TEXT,
@@ -174,11 +172,10 @@ CREATE TABLE IF NOT EXISTS pharmacy_collection_activities (
     created_at          TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_collection_outlet ON pharmacy_collection_activities(outlet_id);
+CREATE INDEX IF NOT EXISTS idx_collection_outlet   ON pharmacy_collection_activities(outlet_id);
 CREATE INDEX IF NOT EXISTS idx_collection_customer ON pharmacy_collection_activities(customer_id);
 
--- ─── 7. ADD SPLIT PAYMENT COLUMNS TO PHARMACY_SALES ──────────
--- (Only run if columns don't exist)
+-- ─── 7. SPLIT PAYMENT COLUMNS (safe idempotent add) ──────────
 
 DO $$
 BEGIN
@@ -197,49 +194,12 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pharmacy_sales' AND column_name='insurance_ref') THEN
         ALTER TABLE pharmacy_sales ADD COLUMN insurance_ref VARCHAR(100);
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pharmacy_sales' AND column_name='split_airtel') THEN
+        ALTER TABLE pharmacy_sales ADD COLUMN split_airtel DECIMAL(12,2);
+    END IF;
 END $$;
 
--- ─── 8. ROW LEVEL SECURITY ───────────────────────────────────
-
-ALTER TABLE pharmacy_grn ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pharmacy_grn_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pharmacy_bank_statements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pharmacy_bank_reconciliations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pharmacy_petty_cash_fund ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pharmacy_petty_cash ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pharmacy_mpesa_transactions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pharmacy_collection_activities ENABLE ROW LEVEL SECURITY;
-
--- Open policies (for single-tenant use — tighten if multi-tenant)
-CREATE POLICY "allow_all_grn" ON pharmacy_grn FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_grn_items" ON pharmacy_grn_items FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_bank_stmt" ON pharmacy_bank_statements FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_bank_recon" ON pharmacy_bank_reconciliations FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_petty_fund" ON pharmacy_petty_cash_fund FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_petty_cash" ON pharmacy_petty_cash FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_mpesa_tx" ON pharmacy_mpesa_transactions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_collection" ON pharmacy_collection_activities FOR ALL USING (true) WITH CHECK (true);
-
--- ─── 9. ADD BATCHES UPSERT SUPPORT ───────────────────────────
--- For GRN stock posting via upsert on batch_number + product + outlet
-CREATE UNIQUE INDEX IF NOT EXISTS idx_batches_product_batch_outlet
-    ON pharmacy_batches(product_id, batch_number, outlet_id);
-
--- ─── DONE ─────────────────────────────────────────────────────
--- Tables created:
---   pharmacy_grn, pharmacy_grn_items
---   pharmacy_bank_statements, pharmacy_bank_reconciliations
---   pharmacy_petty_cash_fund, pharmacy_petty_cash
---   pharmacy_mpesa_transactions
---   pharmacy_collection_activities
--- Columns added to pharmacy_sales:
---   split_cash, split_mpesa, split_insurance, split_insurance_name, insurance_ref
--- ──────────────────────────────────────────────────────────────
-
--- ─── CONTINUATION: Cold Chain & Accounts Payable ─────────────
--- Append this to pharmacy_premium_modules_v2.sql or run separately
-
--- ─── 10. TEMPERATURE LOGS (Cold Chain) ───────────────────────
+-- ─── 8. TEMPERATURE LOGS (Cold Chain) ────────────────────────
 
 CREATE TABLE IF NOT EXISTS pharmacy_temp_logs (
     id              SERIAL PRIMARY KEY,
@@ -257,7 +217,7 @@ CREATE TABLE IF NOT EXISTS pharmacy_temp_logs (
 
 CREATE TABLE IF NOT EXISTS pharmacy_cold_chain_items (
     id                  SERIAL PRIMARY KEY,
-    product_id          INTEGER REFERENCES pharmacy_products(id),
+    product_id          INTEGER,
     product_name        VARCHAR(300) NOT NULL,
     batch_number        VARCHAR(100),
     storage_location    VARCHAR(200),
@@ -270,21 +230,16 @@ CREATE TABLE IF NOT EXISTS pharmacy_cold_chain_items (
     created_at          TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_temp_logs_outlet ON pharmacy_temp_logs(outlet_id);
+CREATE INDEX IF NOT EXISTS idx_temp_logs_outlet   ON pharmacy_temp_logs(outlet_id);
 CREATE INDEX IF NOT EXISTS idx_temp_logs_location ON pharmacy_temp_logs(location);
-CREATE INDEX IF NOT EXISTS idx_temp_logs_date ON pharmacy_temp_logs(recorded_at);
-CREATE INDEX IF NOT EXISTS idx_cold_items_outlet ON pharmacy_cold_chain_items(outlet_id);
+CREATE INDEX IF NOT EXISTS idx_temp_logs_date     ON pharmacy_temp_logs(recorded_at);
+CREATE INDEX IF NOT EXISTS idx_cold_items_outlet  ON pharmacy_cold_chain_items(outlet_id);
 
-ALTER TABLE pharmacy_temp_logs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pharmacy_cold_chain_items ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "allow_all_temp_logs" ON pharmacy_temp_logs FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_cold_items" ON pharmacy_cold_chain_items FOR ALL USING (true) WITH CHECK (true);
-
--- ─── 11. ACCOUNTS PAYABLE ────────────────────────────────────
+-- ─── 9. ACCOUNTS PAYABLE ─────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS pharmacy_payable_bills (
     id              SERIAL PRIMARY KEY,
-    supplier_id     INTEGER REFERENCES pharmacy_suppliers(supplier_id),
+    supplier_id     INTEGER,
     supplier_name   VARCHAR(200),
     invoice_number  VARCHAR(100) NOT NULL,
     invoice_date    DATE,
@@ -305,21 +260,14 @@ CREATE TABLE IF NOT EXISTS pharmacy_payable_bills (
     updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_payable_outlet ON pharmacy_payable_bills(outlet_id);
+CREATE INDEX IF NOT EXISTS idx_payable_outlet   ON pharmacy_payable_bills(outlet_id);
 CREATE INDEX IF NOT EXISTS idx_payable_supplier ON pharmacy_payable_bills(supplier_id);
-CREATE INDEX IF NOT EXISTS idx_payable_due ON pharmacy_payable_bills(due_date);
-CREATE INDEX IF NOT EXISTS idx_payable_status ON pharmacy_payable_bills(status);
+CREATE INDEX IF NOT EXISTS idx_payable_due      ON pharmacy_payable_bills(due_date);
+CREATE INDEX IF NOT EXISTS idx_payable_status   ON pharmacy_payable_bills(status);
 
-ALTER TABLE pharmacy_payable_bills ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "allow_all_payable" ON pharmacy_payable_bills FOR ALL USING (true) WITH CHECK (true);
+-- ─── 10. DPA 2019 COMPLIANCE TABLES ──────────────────────────
 
--- ─── ALL DONE ─────────────────────────────────────────────────
--- New tables: pharmacy_temp_logs, pharmacy_cold_chain_items, pharmacy_payable_bills
-
-
--- ─── DPA 2019 COMPLIANCE TABLES ─────────────────────────────────
-
--- Consent Records (DPA 2019 s.30 — explicit consent for health data)
+-- Consent Records (DPA 2019 s.30)
 CREATE TABLE IF NOT EXISTS pharmacy_consent_records (
     consent_id      SERIAL PRIMARY KEY,
     patient_id      INTEGER,
@@ -350,7 +298,7 @@ CREATE TABLE IF NOT EXISTS pharmacy_data_requests (
     outlet_id       INTEGER NOT NULL DEFAULT 1
 );
 
--- Data Breach Incident Log (DPA 2019 s.43 — 72hr ODPC notification)
+-- Data Breach Log (DPA 2019 s.43 — 72hr ODPC notification)
 CREATE TABLE IF NOT EXISTS pharmacy_breach_logs (
     breach_id           SERIAL PRIMARY KEY,
     breach_date         DATE NOT NULL,
@@ -365,21 +313,108 @@ CREATE TABLE IF NOT EXISTS pharmacy_breach_logs (
     created_at          TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Enable RLS on all sensitive tables
-ALTER TABLE pharmacy_consent_records ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pharmacy_data_requests ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pharmacy_breach_logs ENABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS idx_consent_outlet    ON pharmacy_consent_records(outlet_id);
+CREATE INDEX IF NOT EXISTS idx_consent_patient   ON pharmacy_consent_records(patient_id);
+CREATE INDEX IF NOT EXISTS idx_requests_outlet   ON pharmacy_data_requests(outlet_id);
+CREATE INDEX IF NOT EXISTS idx_requests_status   ON pharmacy_data_requests(status);
+CREATE INDEX IF NOT EXISTS idx_breach_outlet     ON pharmacy_breach_logs(outlet_id);
 
--- Add known_allergies column to patients if missing
-ALTER TABLE pharmacy_patients ADD COLUMN IF NOT EXISTS known_allergies JSONB DEFAULT '[]';
-ALTER TABLE pharmacy_patients ADD COLUMN IF NOT EXISTS chronic_conditions JSONB DEFAULT '[]';
-ALTER TABLE pharmacy_patients ADD COLUMN IF NOT EXISTS consent_given BOOLEAN DEFAULT FALSE;
-ALTER TABLE pharmacy_patients ADD COLUMN IF NOT EXISTS consent_date TIMESTAMPTZ;
-ALTER TABLE pharmacy_patients ADD COLUMN IF NOT EXISTS privacy_policy_accepted BOOLEAN DEFAULT FALSE;
+-- ─── 11. PATIENT TABLE ENHANCEMENTS ──────────────────────────
+-- Add allergy + DPA columns to patients (safe — IF NOT EXISTS)
 
--- Indexes
-CREATE INDEX IF NOT EXISTS idx_consent_outlet ON pharmacy_consent_records(outlet_id);
-CREATE INDEX IF NOT EXISTS idx_consent_patient ON pharmacy_consent_records(patient_id);
-CREATE INDEX IF NOT EXISTS idx_requests_outlet ON pharmacy_data_requests(outlet_id);
-CREATE INDEX IF NOT EXISTS idx_requests_status ON pharmacy_data_requests(status);
-CREATE INDEX IF NOT EXISTS idx_breach_outlet ON pharmacy_breach_logs(outlet_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pharmacy_patients' AND column_name='known_allergies') THEN
+        ALTER TABLE pharmacy_patients ADD COLUMN known_allergies JSONB DEFAULT '[]';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pharmacy_patients' AND column_name='chronic_conditions') THEN
+        ALTER TABLE pharmacy_patients ADD COLUMN chronic_conditions JSONB DEFAULT '[]';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pharmacy_patients' AND column_name='consent_given') THEN
+        ALTER TABLE pharmacy_patients ADD COLUMN consent_given BOOLEAN DEFAULT FALSE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pharmacy_patients' AND column_name='consent_date') THEN
+        ALTER TABLE pharmacy_patients ADD COLUMN consent_date TIMESTAMPTZ;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='pharmacy_patients' AND column_name='privacy_policy_accepted') THEN
+        ALTER TABLE pharmacy_patients ADD COLUMN privacy_policy_accepted BOOLEAN DEFAULT FALSE;
+    END IF;
+END $$;
+
+-- ─── 12. ROW LEVEL SECURITY (open policies for single-tenant) ─
+
+ALTER TABLE pharmacy_grn                   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pharmacy_grn_items             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pharmacy_bank_statements       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pharmacy_bank_reconciliations  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pharmacy_petty_cash_fund       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pharmacy_petty_cash            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pharmacy_mpesa_transactions    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pharmacy_collection_activities ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pharmacy_temp_logs             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pharmacy_cold_chain_items      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pharmacy_payable_bills         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pharmacy_consent_records       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pharmacy_data_requests         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pharmacy_breach_logs           ENABLE ROW LEVEL SECURITY;
+
+-- Open policies (anon key access — single tenant)
+DO $$
+DECLARE
+    pol RECORD;
+BEGIN
+    FOR pol IN SELECT tablename FROM pg_tables WHERE schemaname='public' AND tablename IN (
+        'pharmacy_grn','pharmacy_grn_items','pharmacy_bank_statements',
+        'pharmacy_bank_reconciliations','pharmacy_petty_cash_fund','pharmacy_petty_cash',
+        'pharmacy_mpesa_transactions','pharmacy_collection_activities',
+        'pharmacy_temp_logs','pharmacy_cold_chain_items','pharmacy_payable_bills',
+        'pharmacy_consent_records','pharmacy_data_requests','pharmacy_breach_logs'
+    ) LOOP
+        EXECUTE format(
+            'DO $inner$ BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = %L AND policyname = %L) THEN
+                    CREATE POLICY %I ON %I FOR ALL USING (true) WITH CHECK (true);
+                END IF;
+            END $inner$;',
+            pol.tablename,
+            'allow_all_' || pol.tablename,
+            'allow_all_' || pol.tablename,
+            pol.tablename
+        );
+    END LOOP;
+END $$;
+
+-- ─── 13. UNIQUE INDEX FOR BATCH UPSERT ───────────────────────
+-- Only add if pharmacy_batches table exists and has these columns
+
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_name = 'pharmacy_batches'
+    ) AND EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'pharmacy_batches' AND column_name = 'batch_number'
+    ) AND EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'pharmacy_batches' AND column_name = 'product_id'
+    ) AND EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'pharmacy_batches' AND column_name = 'outlet_id'
+    ) THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_indexes
+            WHERE tablename = 'pharmacy_batches'
+            AND indexname = 'idx_batches_product_batch_outlet'
+        ) THEN
+            CREATE UNIQUE INDEX idx_batches_product_batch_outlet
+                ON pharmacy_batches(product_id, batch_number, outlet_id);
+        END IF;
+    END IF;
+END $$;
+
+-- ─── DONE ──────────────────────────────────────────────────────
+-- All 14 new tables created successfully.
+-- No external FK constraints — safe to run on any schema version.
+-- Run this file ONCE in Supabase SQL Editor.
+-- ──────────────────────────────────────────────────────────────
