@@ -160,7 +160,7 @@ const ProductCard = ({
                     else onAdd();
                 }
             }}
-            className={`bg-white rounded-2xl shadow-xs border transition-all duration-200 h-[190px] p-2.5 flex flex-col justify-between group relative overflow-hidden cursor-pointer ${
+            className={`bg-white rounded-2xl shadow-xs border transition-all duration-200 h-[210px] p-3 flex flex-col justify-between group relative overflow-hidden cursor-pointer ${
                 product.availableQty === 0
                     ? 'border-gray-200 opacity-60 bg-gray-50/50'
                     : isExpired
@@ -1391,11 +1391,11 @@ export default function PharmacyPOS() {
     }
 
     return (
-        <div className="h-[calc(100vh-64px)] flex flex-col bg-gray-50 -m-6 select-none">
+        <div className="h-[calc(100vh-64px)] min-h-0 flex flex-col bg-[#F5F8F6] -m-6 select-none">
             {/* ==================== 1. TOP STATUS BAR ==================== */}
-            <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-3">
-                    <span className="bg-[#00A848] text-white font-extrabold text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-xs">
+            <div className="bg-white/95 backdrop-blur border-b border-gray-200/80 px-5 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
+                <div className="flex flex-wrap items-center gap-3">
+                    <span className="bg-gradient-to-r from-emerald-600 to-green-500 text-white font-extrabold text-xs px-4 py-2 rounded-full flex items-center gap-2 shadow-md shadow-emerald-900/10 tracking-wide">
                         <span className="text-lg">💊</span> ALPHA PHARMACY POS
                     </span>
                     <span className="text-gray-300">|</span>
@@ -1416,7 +1416,7 @@ export default function PharmacyPOS() {
                     </span>
                 </div>
 
-                <div className="flex items-center gap-2.5">
+                <div className="flex flex-wrap items-center gap-2.5">
                     {/* Held Carts Button */}
                     {heldSales.length > 0 && (
                         <button
@@ -1478,8 +1478,8 @@ export default function PharmacyPOS() {
             </div>
 
             {/* ==================== 2. CONTROLS HEADER ==================== */}
-            <div className="bg-white border-b border-gray-200 px-4 py-2.5 shrink-0">
-                <div className="flex items-center justify-between gap-3">
+            <div className="bg-white border-b border-gray-200/80 px-5 py-3 shrink-0">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                     {/* Outlets & Counter */}
                     <div className="flex items-center gap-2">
                         <div>
@@ -1498,7 +1498,7 @@ export default function PharmacyPOS() {
                     </div>
 
                     {/* Central High-Performance Search & Barcode Scan Bar */}
-                    <div className="flex-1 max-w-2xl relative">
+                    <div className="flex-1 min-w-[240px] max-w-2xl relative">
                         <div className="relative">
                             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
                                 🔍
@@ -1533,7 +1533,7 @@ export default function PharmacyPOS() {
                     </div>
 
                     {/* Category Dropdown */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <select
                             value={selectedCategory || ''}
                             onChange={(e) => {
@@ -1634,9 +1634,9 @@ export default function PharmacyPOS() {
             </div>
 
             {/* ==================== 3. MAIN WORKSPACE ==================== */}
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 min-h-0 grid grid-cols-1 grid-rows-[minmax(220px,1fr)_minmax(300px,0.9fr)] lg:grid-cols-[minmax(0,1fr)_370px] lg:grid-rows-1 xl:grid-cols-[minmax(0,1fr)_410px] overflow-hidden">
                 {/* Product Catalog Grid */}
-                <div className="flex-1 flex flex-col p-3 overflow-hidden">
+                <div className="min-w-0 min-h-0 flex flex-col p-3 overflow-hidden">
                     {/* Register Closed Banner */}
                     {!registerOpen && (
                         <div className="mb-3 p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl flex items-center justify-between shrink-0 shadow-sm">
@@ -1659,7 +1659,7 @@ export default function PharmacyPOS() {
                     {/* Catalog Grid View */}
                     <div className="flex-1 overflow-y-auto pr-1">
                         {displayProducts.length > 0 ? (
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 pb-4">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 pb-4">
                                 {displayProducts.map((p) => (
                                     <ProductCard
                                         key={p.id}
@@ -1684,9 +1684,9 @@ export default function PharmacyPOS() {
                 </div>
 
                 {/* ==================== 4. CART SIDEBAR ==================== */}
-                <div className="w-[410px] bg-white flex flex-col border-l border-gray-200 shadow-xl shrink-0">
+                <div className="w-full min-w-0 min-h-0 bg-white flex flex-col border-t lg:border-t-0 lg:border-l border-gray-200 shadow-[0_12px_40px_rgba(15,23,42,0.06)] shrink-0">
                     {/* Cart Header */}
-                    <div className="px-4 py-3 bg-gradient-to-r from-[#00D060] to-[#00A848] text-white flex items-center justify-between shadow-md shrink-0">
+                    <div className="px-5 py-4 bg-gradient-to-r from-emerald-600 via-emerald-500 to-green-500 text-white flex items-center justify-between shadow-md shadow-emerald-900/10 shrink-0">
                         <div className="flex items-center gap-2">
                             <span className="text-lg">🛒</span>
                             <h2 className="font-extrabold text-sm tracking-wide">
@@ -1777,7 +1777,7 @@ export default function PharmacyPOS() {
                     </div>
 
                     {/* Cart Summary */}
-                    <div className="border-t border-gray-200 p-3 bg-gray-50 space-y-1.5 shrink-0">
+                    <div className="border-t border-gray-100 p-4 bg-[#F8FAF9] space-y-2 shrink-0">
                         <div className="flex justify-between text-xs text-gray-600 font-medium">
                             <span>Subtotal ({cart.reduce((s, c) => s + c.qty, 0)} items)</span>
                             <span>Ksh {subtotal.toLocaleString()}</span>
@@ -1797,7 +1797,7 @@ export default function PharmacyPOS() {
                     </div>
 
                     {/* Checkout Button */}
-                    <div className="p-3 border-t border-gray-200 bg-white shrink-0">
+                    <div className="p-4 border-t border-gray-100 bg-white shrink-0">
                         <button
                             onClick={() => {
                                 if (!registerOpen) {
@@ -1808,7 +1808,7 @@ export default function PharmacyPOS() {
                                 setShowPayment(true);
                             }}
                             disabled={cart.length === 0}
-                            className="w-full py-3.5 bg-gradient-to-r from-[#00D060] to-[#00A848] text-white rounded-2xl font-black text-base hover:from-[#00BA54] hover:to-[#00963F] hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between px-6 active:scale-[0.99] shadow-lg"
+                            className="w-full py-4 bg-gradient-to-r from-emerald-600 to-green-500 text-white rounded-2xl font-black text-base hover:from-[#00BA54] hover:to-[#00963F] hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between px-6 active:scale-[0.99] shadow-lg"
                         >
                             <span className="flex items-center gap-2">
                                 <span className="font-extrabold text-lg">✓</span>
@@ -1827,7 +1827,7 @@ export default function PharmacyPOS() {
             </div>
 
             {/* ==================== BOTTOM FEATURE WAVE BANNER ==================== */}
-            <div className="bg-white border-t border-emerald-100 px-6 py-2.5 flex items-center justify-between text-xs text-gray-600 shrink-0 select-none shadow-xs">
+            <div className="bg-white border-t border-emerald-100 px-6 py-2.5 flex items-center justify-between text-xs text-gray-600 shrink-0 select-none shadow-xs max-md:hidden">
                 <div className="flex items-center gap-6 overflow-x-auto">
                     <span className="flex items-center gap-1.5 font-bold text-emerald-800">
                         <span className="text-emerald-600 font-extrabold text-sm">✓</span> Trusted Pharmacy Solution
