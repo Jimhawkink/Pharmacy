@@ -313,12 +313,12 @@ const ProductCard = ({
                             }
                         }}
                         disabled={product.availableQty === 0 || isExpired}
-                        className={`w-full py-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all ${
+                        className={`w-full py-3 rounded-[14px] text-[12px] font-extrabold flex items-center justify-center gap-2 transition-all duration-200 ${
                             product.availableQty === 0
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                 : isExpired
                                 ? 'bg-red-100 text-red-600 cursor-not-allowed font-bold'
-                                : 'bg-[#00A848] hover:bg-[#00923e] text-white font-bold py-1.5 rounded-xl active:scale-[0.98] shadow-xs hover:shadow transition-all'
+                                : 'bg-gradient-to-r from-[#087A43] to-[#10A65B] hover:from-[#066B39] hover:to-[#0B914D] text-white font-extrabold rounded-[14px] active:scale-[0.98] shadow-[0_8px_18px_rgba(8,122,67,0.22)] hover:shadow-[0_12px_22px_rgba(8,122,67,0.28)]'
                         }`}
                     >
                         {isExpired ? '⚠️ Expired' : product.availableQty === 0 ? 'Out of Stock' : '+ Add to Cart'}
@@ -1393,7 +1393,7 @@ export default function PharmacyPOS() {
     return (
         <div className="h-[calc(100vh-64px)] min-h-0 flex flex-col bg-[#F3F7F4] -m-6 select-none">
             {/* ==================== 1. TOP STATUS BAR ==================== */}
-            <div className="bg-white/95 backdrop-blur border-b border-gray-200/80 px-5 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
+            <div className="bg-white/95 backdrop-blur-xl border-b border-[#E3ECE6] px-6 py-4 flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-[0_5px_18px_rgba(7,47,29,0.035)]">
                 <div className="flex flex-wrap items-center gap-3">
                     <span className="bg-gradient-to-r from-emerald-600 to-green-500 text-white font-extrabold text-xs px-4 py-2 rounded-full flex items-center gap-2 shadow-md shadow-emerald-900/10 tracking-wide">
                         <span className="text-lg">💊</span> ALPHA PHARMACY POS
@@ -1478,7 +1478,7 @@ export default function PharmacyPOS() {
             </div>
 
             {/* ==================== 2. CONTROLS HEADER ==================== */}
-            <div className="bg-white border-b border-gray-200/80 px-5 py-3 shrink-0">
+            <div className="bg-white border-b border-[#E3ECE6] px-6 py-4 shrink-0 shadow-[0_4px_14px_rgba(7,47,29,0.025)]">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     {/* Outlets & Counter */}
                     <div className="flex items-center gap-2">
@@ -1510,7 +1510,7 @@ export default function PharmacyPOS() {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 onKeyDown={handleSearchKeyDown}
                                 placeholder="Scan Barcode [Enter] or Search by Drug, Generic Name, SKU (Press / or F1)..."
-                                className="w-full pl-9 pr-16 py-2 bg-white hover:bg-gray-50 focus:bg-white border border-gray-200 focus:border-emerald-500 rounded-full text-xs font-medium transition-all outline-none shadow-xs"
+                                className="w-full pl-10 pr-16 py-3.5 bg-[#F6F9F7] hover:bg-white focus:bg-white border border-[#E1EBE4] focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 rounded-2xl text-[13px] font-medium transition-all outline-none shadow-inner"
                                 autoFocus
                             />
                             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -1636,7 +1636,7 @@ export default function PharmacyPOS() {
             {/* ==================== 3. MAIN WORKSPACE ==================== */}
             <div className="flex-1 min-h-0 grid grid-cols-1 grid-rows-[minmax(220px,1fr)_minmax(300px,0.9fr)] lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1 xl:grid-cols-[minmax(0,1fr)_440px] overflow-hidden">
                 {/* Product Catalog Grid */}
-                <div className="min-w-0 min-h-0 flex flex-col p-3 overflow-hidden">
+                <div className="min-w-0 min-h-0 flex flex-col p-5 overflow-hidden">
                     {/* Register Closed Banner */}
                     {!registerOpen && (
                         <div className="mb-3 p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl flex items-center justify-between shrink-0 shadow-sm">
