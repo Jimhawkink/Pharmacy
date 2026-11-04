@@ -5,6 +5,7 @@ import { printCustomerReceipt, createReceiptData, loadCompanyInfo, CompanyInfo }
 import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
 import { MedicineVisual } from '@/lib/medicineVisual';
+import PharmacyPOSComponent from './PharmacyPOS';
 
 interface Product {
     id: number;
@@ -1391,7 +1392,67 @@ export default function PharmacyPOS() {
     }
 
     return (
-        <div className="h-[calc(100vh-64px)] flex flex-col bg-gray-50 -m-6 select-none">
+        <div className="min-h-full flex flex-col select-none">
+            <PharmacyPOSComponent
+                products={displayProducts as any}
+                cart={cart as any}
+                onAddToCart={(p) => openBatchSelect(p as any, false)}
+                onOpenBatches={(p) => openBatchSelect(p as any, true)}
+                onUpdateQty={(id, delta) => {
+                    const idx = cart.findIndex((c) => c.id === id);
+                    if (idx >= 0) {
+                        if (delta > 0) increaseQty(idx);
+                        else decreaseQty(idx);
+                    }
+                }}
+                onRemoveItem={(idx) => removeFromCart(idx)}
+                onClearCart={clearCart}
+                onCheckout={() => {
+                    if (!registerOpen) {
+                        playSound('warning');
+                        toast.error('Open register first!');
+                        return;
+                    }
+                    setShowPayment(true);
+                }}
+                onCloseRegister={handleCloseRegister}
+                onOpenRegister={() => setShowOpeningDrop(true)}
+                registerOpen={registerOpen}
+                currentShiftId={currentShiftId || 1}
+                receiptNo={receiptNo}
+                activeBranch={storeName || activeOutlet?.outlet_name || 'Main Pharmacy'}
+                branches={outlets.map((o) => o.outlet_name)}
+                onSelectBranch={(bName) => {
+                    const found = outlets.find((o) => o.outlet_name === bName);
+                    if (found) switchOutlet(found.outlet_id);
+                }}
+                selectedCategory={selectedCategory ? categories.find((c) => c.category_id === selectedCategory)?.category_name : 'All Categories'}
+                categoriesList={['All Categories', ...categories.map((c) => c.category_name)]}
+                onSelectCategory={(catName) => {
+                    if (catName === 'All Categories') {
+                        setSelectedCategory(null);
+                        setCategoryProducts([]);
+                    } else {
+                        const found = categories.find((c) => c.category_name === catName);
+                        if (found) loadCatProducts(found.category_id, found.category_name);
+                    }
+                }}
+                selectedPatient={selectedCustomer ? { name: selectedCustomer.customer_name, phone: selectedCustomer.phone, balance: selectedCustomer.current_balance } : null}
+                onSelectPatient={() => setShowCustomerDrop(true)}
+                onClearPatient={() => {
+                    setSelectedCustomer(null);
+                    setCustomerSearch('');
+                }}
+                onOpenShortcutHelp={() => setShowShortcutsModal(true)}
+                onToggleSound={toggleSound}
+                isSoundOn={!isMuted}
+                heldSalesCount={heldSales.length}
+                onOpenHeldModal={() => setShowHeldModal(true)}
+                onHoldSale={handleHoldSale}
+                embedded={true}
+            />
+
+            {false && <div>
             {/* ==================== 1. TOP STATUS BAR ==================== */}
             <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
@@ -1568,7 +1629,7 @@ export default function PharmacyPOS() {
                                     }}
                                     onFocus={() => setShowCustomerDrop(true)}
                                     onBlur={() => setTimeout(() => setShowCustomerDrop(false), 200)}
-                                    placeholder={selectedCustomer ? selectedCustomer.customer_name : '👤 Walk-in Patient'}
+                                    placeholder={(selectedCustomer as any)?.customer_name || '👤 Walk-in Patient'}
                                     className={`px-4 py-2 border rounded-full text-xs font-semibold focus:outline-none focus:border-emerald-500 cursor-text min-w-[170px] shadow-xs ${
                                         selectedCustomer
                                             ? 'border-blue-400 bg-blue-50 font-bold text-blue-900'
@@ -1719,10 +1780,10 @@ export default function PharmacyPOS() {
                     {selectedCustomer && (
                         <div className="px-3.5 py-1.5 bg-blue-50 border-b border-blue-100 flex items-center justify-between text-xs text-blue-900 shrink-0">
                             <span className="font-bold flex items-center gap-1">
-                                <span>👤</span> {selectedCustomer.customer_name}
+                                <span>👤</span> {(selectedCustomer as any)?.customer_name}
                             </span>
                             <span className="text-[10px] text-blue-700">
-                                Bal: Ksh {(selectedCustomer.current_balance || 0).toLocaleString()}
+                                Bal: Ksh {((selectedCustomer as any)?.current_balance || 0).toLocaleString()}
                             </span>
                         </div>
                     )}
@@ -1849,6 +1910,8 @@ export default function PharmacyPOS() {
                     </span>
                 </div>
             </div>
+
+            </div>}
 
             {/* ==================== 5. MODALS ==================== */}
 

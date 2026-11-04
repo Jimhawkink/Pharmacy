@@ -19,9 +19,9 @@ export function MedicineVisual({
 }: MedicineVisualProps) {
     const text = `${name} ${category} ${drugType} ${genericName}`.toLowerCase();
 
-    // 1. Specific matches based on Alpha Pharmacy inventory
+    // 1. Exact matches based on Alpha Pharmacy inventory matching Image 1
     if (text.includes('amoxicillin suspension') || (text.includes('suspension') && text.includes('amox'))) {
-        return <SyrupBottle className={className} liquidColor="#3B82F6" labelText="Amoxicillin" />;
+        return <CapsuleBlueWhite className={className} />;
     }
     if (text.includes('amoxicillin') || text.includes('ciprofloxacin')) {
         return <CapsuleRedWhite className={className} />;
@@ -29,7 +29,10 @@ export function MedicineVisual({
     if (text.includes('antifungal')) {
         return <YellowTablets className={className} />;
     }
-    if (text.includes('artificial tears') || text.includes('chloramphenicol') || text.includes('eye care') || text.includes('eye drop')) {
+    if (text.includes('artificial tears')) {
+        return <CapsuleGreenWhite className={className} />;
+    }
+    if (text.includes('chloramphenicol') || text.includes('eye care') || text.includes('eye drop')) {
         return <DropperBottle className={className} capColor="#0284C7" />;
     }
     if (text.includes('azithromycin')) {
