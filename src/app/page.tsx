@@ -306,50 +306,59 @@ export default function LoginPage() {
             `}</style>
 
             {/* ═══════════════════════════════════════════════════
-                MAIN AREA: Background Image Fits 100% Proportionally
-                (Contain on desktop: zero stretch, zero cut-off)
+                MAIN AREA: Background Image Fits Proportionally
             ═══════════════════════════════════════════════════ */}
             <div
-                className="flex-1 w-full flex flex-col lg:flex-row items-center justify-between px-4 sm:px-8 lg:px-14 xl:px-20 py-2 relative overflow-hidden bg-no-repeat bg-[#041226]"
+                className="flex-1 w-full flex flex-col lg:flex-row items-center justify-between px-6 sm:px-10 lg:px-14 xl:px-20 py-2 relative overflow-hidden bg-no-repeat bg-[#041226]"
                 style={{
                     backgroundImage: `url('/login-bg.jpg')`,
                     backgroundSize: 'cover',
-                    backgroundPosition: 'center center',
+                    backgroundPosition: 'right 30% center',
                 }}
             >
-                {/* ── AMBIENT GRADIENT OVERLAY (Ensures crisp contrast on both sides) ── */}
-                <div className="absolute inset-0 bg-gradient-to-r from-[#041226]/95 via-[#041226]/40 to-[#041226]/85 lg:to-transparent pointer-events-none" />
+                {/* ── SOLID-TO-TRANSPARENT BACKDROP OVERLAY ──
+                    Guarantees 100% solid, crisp dark navy behind all left text (zero background bleed/artifacts),
+                    while smoothly revealing the real pharmacy dispensary & pharmacists in the center-right. ── */}
+                <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{
+                        background: 'linear-gradient(to right, #041226 0%, #041226 38%, rgba(4, 18, 38, 0.75) 55%, rgba(4, 18, 38, 0.15) 80%, rgba(4, 18, 38, 0.4) 100%)',
+                    }}
+                />
 
-                {/* ── LEFT HERO BRANDING ── */}
-                <div className="hidden lg:flex flex-col justify-center max-w-[540px] relative z-10 text-white space-y-4 py-2 select-none">
-                    {/* Logo & Brand Pill */}
+                {/* ── LEFT HERO BRANDING (Crystal Clear Vector Typography) ── */}
+                <div className="hidden lg:flex flex-col justify-center max-w-[500px] xl:max-w-[540px] relative z-10 text-white space-y-3 py-1 select-none">
+                    {/* Logo & Brand Pill — Explicit fixed size so it never balloons */}
                     <div className="flex items-center gap-3.5">
-                        <div className="w-13 h-13 rounded-2xl bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-700 flex items-center justify-center shadow-xl shadow-emerald-500/25 p-2.5 shrink-0 border border-emerald-300/40">
-                            <svg className="w-full h-full text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+                        <div
+                            className="rounded-2xl bg-gradient-to-br from-emerald-400 via-emerald-500 to-teal-700 flex items-center justify-center shadow-xl shadow-emerald-500/25 p-2.5 shrink-0 border border-emerald-300/40"
+                            style={{ width: '54px', height: '54px', minWidth: '54px', minHeight: '54px' }}
+                        >
+                            <svg style={{ width: '30px', height: '30px' }} className="text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
                                 <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/>
                                 <path d="m8.5 8.5 7 7"/>
                             </svg>
                         </div>
                         <div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-3xl font-black tracking-tight text-white">
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-2xl xl:text-3xl font-black tracking-tight text-white leading-none">
                                     Alpha<span className="text-[#00E676]">Pharmacy</span>
                                 </span>
                             </div>
-                            <div className="text-[10px] font-black text-emerald-400 uppercase tracking-widest leading-none mt-0.5">
+                            <div className="text-[10px] font-black text-emerald-400 uppercase tracking-widest leading-none mt-1">
                                 ENTERPRISE POS SYSTEM
                             </div>
                         </div>
                     </div>
 
                     {/* Headline */}
-                    <h1 className="text-3xl xl:text-4xl font-black text-white leading-tight tracking-tight pt-1">
+                    <h1 className="text-3xl xl:text-[38px] font-black text-white leading-tight tracking-tight pt-0.5">
                         Everything You Need<br />
                         <span className="text-white">to Run Your Pharmacy.</span>
                     </h1>
 
                     {/* Feature Checklist */}
-                    <div className="space-y-2 pt-1">
+                    <div className="space-y-1.5 pt-0.5">
                         {[
                             'Retail & Community Pharmacy',
                             'Hospital & Clinical Dispensing',
@@ -364,15 +373,15 @@ export default function LoginPage() {
                         ))}
                     </div>
 
-                    {/* Luminous Cursive Script Accent */}
-                    <div className="pt-2">
-                        <p className="cursive-highlight text-3xl xl:text-4xl text-[#00E676] font-bold tracking-wide -rotate-1 drop-shadow-[0_2px_12px_rgba(0,230,118,0.4)]">
+                    {/* Luminous Cursive Script Accent (Properly spaced, never clips) */}
+                    <div className="pt-1">
+                        <p className="cursive-highlight text-2xl xl:text-3xl text-[#00E676] font-bold tracking-wide -rotate-1 drop-shadow-[0_2px_10px_rgba(0,230,118,0.45)] leading-tight">
                             Smart Pharmacy... Better Healthcare!
                         </p>
                     </div>
 
                     {/* Feature Capsule Badges */}
-                    <div className="flex flex-wrap gap-2 pt-2">
+                    <div className="flex flex-wrap gap-1.5 pt-1">
                         {[
                             'Dispensing & FEFO',
                             'Prescription Master',
@@ -383,7 +392,7 @@ export default function LoginPage() {
                         ].map((badge, idx) => (
                             <span
                                 key={idx}
-                                className="px-3 py-1 rounded-full text-xs font-semibold text-slate-200 bg-white/10 backdrop-blur-md border border-white/20 shadow-xs hover:border-emerald-400/60 transition-colors"
+                                className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold text-slate-200 bg-white/10 backdrop-blur-md border border-white/20 shadow-xs hover:border-emerald-400/60 transition-colors"
                             >
                                 {badge}
                             </span>
@@ -394,7 +403,7 @@ export default function LoginPage() {
                 {/* ── RIGHT LOGIN CARD ── */}
                 <div className="w-full max-w-[400px] relative z-10 py-1">
                     <div
-                        className="w-full bg-white/97 lg:bg-white rounded-2xl p-5 sm:p-6 shadow-2xl relative border-2 border-emerald-400/90 backdrop-blur-xl"
+                        className="w-full bg-white/98 lg:bg-white rounded-2xl p-5 sm:p-6 shadow-2xl relative border-2 border-emerald-400/90 backdrop-blur-xl"
                         style={{
                             boxShadow: '0 25px 65px -12px rgba(0, 0, 0, 0.7), 0 0 35px rgba(16, 185, 129, 0.25)'
                         }}
@@ -424,7 +433,7 @@ export default function LoginPage() {
                                         Welcome back
                                     </h2>
                                     <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                                        Sign in to continue to <span className="font-bold text-[#091D3E]">{pharmacyName} POS</span>
+                                        Sign in to continue to <span className="font-bold text-[#091D3E]">{pharmacyName.replace(/ /g, '')} POS</span>
                                     </p>
                                 </>
                             )}
