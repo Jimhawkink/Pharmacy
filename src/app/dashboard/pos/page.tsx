@@ -160,7 +160,7 @@ const ProductCard = ({
                     else onAdd();
                 }
             }}
-            className={`bg-white rounded-[20px] shadow-[0_2px_12px_rgba(15,23,42,0.04)] border border-slate-200/80 transition-all duration-200 h-[220px] p-3.5 flex flex-col justify-between group relative overflow-hidden cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(16,185,129,0.12)] ${
+            className={`bg-white rounded-[26px] shadow-[0_8px_28px_rgba(7,47,29,0.055)] border border-[#E4EEE8] transition-all duration-200 min-h-[300px] p-4 flex flex-col justify-between group relative overflow-hidden cursor-pointer hover:-translate-y-1 hover:shadow-[0_20px_44px_rgba(16,120,70,0.13)] ${
                 product.availableQty === 0
                     ? 'border-gray-200 opacity-60 bg-gray-50/50'
                     : isExpired
@@ -211,12 +211,12 @@ const ProductCard = ({
 
             {/* Compact Image - Realistic Visual */}
             {/* Realistic Product Image */}
-            <div className="h-[82px] flex items-center justify-center flex-shrink-0 relative p-2 mt-1 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-slate-50 group-hover:from-emerald-100/80 transition-colors duration-200">
+            <div className="h-[124px] flex items-center justify-center flex-shrink-0 relative p-3 mt-2 rounded-[20px] bg-gradient-to-br from-[#F0F8F3] via-[#F7FAF8] to-[#E8F3EC] border border-[#E8F1EB] group-hover:from-emerald-100/80 transition-colors duration-200">
                 {product.imageUrl && product.imageUrl.startsWith('http') ? (
                     <img
                         src={product.imageUrl}
                         alt={product.name}
-                        className="max-h-[70px] max-w-[92px] object-contain drop-shadow-sm"
+                        className="max-h-[104px] max-w-[140px] object-contain drop-shadow-[0_8px_12px_rgba(22,70,42,0.13)] group-hover:scale-105 transition-transform duration-300"
                         onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none';
                         }}
@@ -254,7 +254,7 @@ const ProductCard = ({
             {/* Content */}
             <div className="flex-1 px-1 py-2 flex flex-col justify-between min-h-0">
                 <div className="min-w-0">
-                    <h3 className="text-[12px] font-extrabold text-slate-800 line-clamp-1 group-hover:text-emerald-700 transition-colors" title={product.name}>
+                    <h3 className="text-[15px] font-extrabold text-[#183B2B] line-clamp-2 leading-snug group-hover:text-emerald-700 transition-colors" title={product.name}>
                         {product.name}
                     </h3>
 
@@ -288,7 +288,7 @@ const ProductCard = ({
 
                 <div className="pt-1">
                     <div className="flex items-baseline justify-between mb-1">
-                        <span className="text-[15px] font-black text-emerald-700 leading-none tracking-tight">
+                        <span className="text-[19px] font-black text-[#087A43] leading-none tracking-tight">
                             Ksh {product.salesPrice.toLocaleString()}
                         </span>
                         <span
@@ -350,7 +350,7 @@ const CartItemRow = ({
     const itemTotal = item.effectivePrice * item.qty - item.discount;
 
     return (
-        <div className="bg-white rounded-2xl p-3.5 space-y-2.5 border border-slate-200/80 shadow-[0_2px_10px_rgba(15,23,42,0.035)] hover:border-emerald-200 hover:shadow-sm transition-all">
+        <div className="bg-white rounded-[20px] p-4 space-y-3 border border-[#E7EFE9] shadow-[0_5px_18px_rgba(7,47,29,0.045)] hover:border-emerald-200 hover:shadow-sm transition-all">
             <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -1391,7 +1391,7 @@ export default function PharmacyPOS() {
     }
 
     return (
-        <div className="h-[calc(100vh-64px)] min-h-0 flex flex-col bg-[#F5F8F6] -m-6 select-none">
+        <div className="h-[calc(100vh-64px)] min-h-0 flex flex-col bg-[#F3F7F4] -m-6 select-none">
             {/* ==================== 1. TOP STATUS BAR ==================== */}
             <div className="bg-white/95 backdrop-blur border-b border-gray-200/80 px-5 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
                 <div className="flex flex-wrap items-center gap-3">
@@ -1634,7 +1634,7 @@ export default function PharmacyPOS() {
             </div>
 
             {/* ==================== 3. MAIN WORKSPACE ==================== */}
-            <div className="flex-1 min-h-0 grid grid-cols-1 grid-rows-[minmax(220px,1fr)_minmax(300px,0.9fr)] lg:grid-cols-[minmax(0,1fr)_370px] lg:grid-rows-1 xl:grid-cols-[minmax(0,1fr)_410px] overflow-hidden">
+            <div className="flex-1 min-h-0 grid grid-cols-1 grid-rows-[minmax(220px,1fr)_minmax(300px,0.9fr)] lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1 xl:grid-cols-[minmax(0,1fr)_440px] overflow-hidden">
                 {/* Product Catalog Grid */}
                 <div className="min-w-0 min-h-0 flex flex-col p-3 overflow-hidden">
                     {/* Register Closed Banner */}
@@ -1659,7 +1659,7 @@ export default function PharmacyPOS() {
                     {/* Catalog Grid View */}
                     <div className="flex-1 overflow-y-auto pr-1">
                         {displayProducts.length > 0 ? (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 pb-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 pb-5">
                                 {displayProducts.map((p) => (
                                     <ProductCard
                                         key={p.id}
@@ -1684,9 +1684,9 @@ export default function PharmacyPOS() {
                 </div>
 
                 {/* ==================== 4. CART SIDEBAR ==================== */}
-                <div className="w-full min-w-0 min-h-0 bg-white flex flex-col border-t lg:border-t-0 lg:border-l border-gray-200 shadow-[0_12px_40px_rgba(15,23,42,0.06)] shrink-0">
+                <div className="w-full min-w-0 min-h-0 bg-[#FCFEFC] flex flex-col border-t lg:border-t-0 lg:border-l border-[#E2ECE5] shadow-[-12px_0_36px_rgba(7,47,29,0.055)] shrink-0">
                     {/* Cart Header */}
-                    <div className="px-5 py-4 bg-gradient-to-r from-emerald-600 via-emerald-500 to-green-500 text-white flex items-center justify-between shadow-md shadow-emerald-900/10 shrink-0">
+                    <div className="px-6 py-5 bg-gradient-to-br from-[#06452A] via-[#087A43] to-[#0C9652] text-white flex items-center justify-between shadow-md shadow-emerald-900/10 shrink-0">
                         <div className="flex items-center gap-2">
                             <span className="text-lg">🛒</span>
                             <h2 className="font-extrabold text-sm tracking-wide">
@@ -1728,7 +1728,7 @@ export default function PharmacyPOS() {
                     )}
 
                     {/* Cart Item List */}
-                    <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F8FBF9]">
                         {cart.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-gray-400 py-12">
                                 <div className="relative w-36 h-28 flex items-center justify-center mb-2">
@@ -1777,7 +1777,7 @@ export default function PharmacyPOS() {
                     </div>
 
                     {/* Cart Summary */}
-                    <div className="border-t border-gray-100 p-4 bg-[#F8FAF9] space-y-2 shrink-0">
+                    <div className="border-t border-[#E5EEE8] p-5 bg-white space-y-3 shrink-0">
                         <div className="flex justify-between text-xs text-gray-600 font-medium">
                             <span>Subtotal ({cart.reduce((s, c) => s + c.qty, 0)} items)</span>
                             <span>Ksh {subtotal.toLocaleString()}</span>
@@ -1797,7 +1797,7 @@ export default function PharmacyPOS() {
                     </div>
 
                     {/* Checkout Button */}
-                    <div className="p-4 border-t border-gray-100 bg-white shrink-0">
+                    <div className="p-5 border-t border-[#E5EEE8] bg-white shrink-0">
                         <button
                             onClick={() => {
                                 if (!registerOpen) {
