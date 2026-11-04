@@ -160,7 +160,7 @@ const ProductCard = ({
                     else onAdd();
                 }
             }}
-            className={`bg-white rounded-2xl shadow-sm border transition-all duration-200 h-[215px] p-2.5 flex flex-col justify-between group relative overflow-hidden cursor-pointer ${
+            className={`bg-white rounded-2xl shadow-xs border transition-all duration-200 h-[190px] p-2.5 flex flex-col justify-between group relative overflow-hidden cursor-pointer ${
                 product.availableQty === 0
                     ? 'border-gray-200 opacity-60 bg-gray-50/50'
                     : isExpired
@@ -178,7 +178,7 @@ const ProductCard = ({
                 ) : <span />}
 
                 <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold shadow-xs ${
+                    className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold shadow-xs ${
                         isExpired
                             ? 'bg-red-600 text-white animate-pulse'
                             : product.availableQty === 0
@@ -211,12 +211,12 @@ const ProductCard = ({
 
             {/* Compact Image - Realistic Visual */}
             {/* Realistic Product Image */}
-            <div className="h-[88px] flex items-center justify-center flex-shrink-0 relative p-1 group-hover:scale-110 transition-transform duration-200">
+            <div className="h-[64px] flex items-center justify-center flex-shrink-0 relative p-1 group-hover:scale-105 transition-transform duration-200">
                 {product.imageUrl && product.imageUrl.startsWith('http') ? (
                     <img
                         src={product.imageUrl}
                         alt={product.name}
-                        className="max-h-[76px] max-w-[94px] object-contain"
+                        className="max-h-[58px] max-w-[76px] object-contain"
                         onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none';
                         }}
@@ -227,7 +227,7 @@ const ProductCard = ({
                         category={product.category}
                         drugType={product.drug_type}
                         genericName={product.generic_name}
-                        className="w-[112px] h-[76px]"
+                        className="w-20 h-14"
                     />
                 )}
             </div>
@@ -254,7 +254,7 @@ const ProductCard = ({
             {/* Content */}
             <div className="flex-1 px-2 py-1.5 flex flex-col justify-between min-h-0">
                 <div className="min-w-0">
-                    <h3 className="text-[12px] font-bold text-gray-800 line-clamp-1 group-hover:text-emerald-700 transition-colors" title={product.name}>
+                    <h3 className="text-[11px] font-bold text-gray-800 line-clamp-1 group-hover:text-emerald-700 transition-colors" title={product.name}>
                         {product.name}
                     </h3>
 
@@ -288,7 +288,7 @@ const ProductCard = ({
 
                 <div className="pt-1">
                     <div className="flex items-baseline justify-between mb-1">
-                        <span className="text-[15px] font-black text-[#00A848] leading-none">
+                        <span className="text-[13.5px] font-black text-[#00A848] leading-none">
                             Ksh {product.salesPrice.toLocaleString()}
                         </span>
                         <span
@@ -318,7 +318,7 @@ const ProductCard = ({
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                 : isExpired
                                 ? 'bg-red-100 text-red-600 cursor-not-allowed font-bold'
-                                : 'bg-[#00A848] hover:bg-[#00923e] text-white font-bold py-2 rounded-xl active:scale-[0.98] shadow-sm hover:shadow-md transition-all'
+                                : 'bg-[#00A848] hover:bg-[#00923e] text-white font-bold py-1.5 rounded-xl active:scale-[0.98] shadow-xs hover:shadow transition-all'
                         }`}
                     >
                         {isExpired ? '⚠️ Expired' : product.availableQty === 0 ? 'Out of Stock' : '+ Add to Cart'}
@@ -1656,20 +1656,6 @@ export default function PharmacyPOS() {
                         </div>
                     )}
 
-                    {/* Medicine Catalogue Header */}
-                    <div className="flex items-center justify-between mb-3 px-0.5 shrink-0">
-                        <div>
-                            <h2 className="text-[13px] font-bold text-gray-800">Medicine Catalogue</h2>
-                            <p className="text-[10.5px] text-gray-400 font-medium mt-0.5">{displayProducts.length} products available • Select an item to add to cart</p>
-                        </div>
-                        <button
-                            onClick={loadData}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-xl text-[11px] font-semibold text-gray-600 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 shadow-xs transition-colors"
-                            title="Refresh stock"
-                        >
-                            <span>≡</span> Live stock
-                        </button>
-                    </div>
                     {/* Catalog Grid View */}
                     <div className="flex-1 overflow-y-auto pr-1">
                         {displayProducts.length > 0 ? (
@@ -1709,22 +1695,22 @@ export default function PharmacyPOS() {
                         </div>
                         <div className="flex items-center gap-1.5">
                             {cart.length > 0 && (
-                                <button
-                                    onClick={handleHoldSale}
-                                    className="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1"
-                                    title="Park sale for next patient [F4]"
-                                >
-                                    <span>⏸️</span> Hold
-                                </button>
-                            )}
-                            {cart.length > 0 && (
-                                <button
-                                    onClick={clearCart}
-                                    className="p-1.5 bg-white/20 hover:bg-red-500 text-white rounded-lg transition-all"
-                                    title="Clear all items"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                </button>
+                                <>
+                                    <button
+                                        onClick={handleHoldSale}
+                                        className="text-xs bg-white/20 hover:bg-white/30 text-white font-semibold px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1"
+                                        title="Park sale for next patient [F4]"
+                                    >
+                                        <span>⏸️</span> Hold
+                                    </button>
+                                    <button
+                                        onClick={clearCart}
+                                        className="text-xs bg-red-500/80 hover:bg-red-600 text-white font-semibold px-2.5 py-1 rounded-lg transition-colors"
+                                        title="Clear cart"
+                                    >
+                                        Clear
+                                    </button>
+                                </>
                             )}
                         </div>
                     </div>
@@ -1822,7 +1808,7 @@ export default function PharmacyPOS() {
                                 setShowPayment(true);
                             }}
                             disabled={cart.length === 0}
-                            className="w-full py-4 bg-gradient-to-r from-[#00D060] to-[#00A848] text-white rounded-2xl font-black text-base hover:from-[#00BA54] hover:to-[#00963F] hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between px-6 active:scale-[0.99] shadow-lg"
+                            className="w-full py-3.5 bg-gradient-to-r from-[#00D060] to-[#00A848] text-white rounded-2xl font-black text-base hover:from-[#00BA54] hover:to-[#00963F] hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between px-6 active:scale-[0.99] shadow-lg"
                         >
                             <span className="flex items-center gap-2">
                                 <span className="font-extrabold text-lg">✓</span>
