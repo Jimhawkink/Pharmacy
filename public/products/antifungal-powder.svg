@@ -1,0 +1,30 @@
+<svg viewBox="0 0 160 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="tabYellowLg" x1="40" y1="20" x2="120" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#FDE047" />
+      <stop offset="50%" stopColor="#EAB308" />
+      <stop offset="100%" stopColor="#CA8A04" />
+    </linearGradient>
+  </defs>
+  <ellipse cx="50" cy="80" rx="28" ry="14" fill="#000000" fillOpacity="0.14" />
+  <g transform="translate(25, 48)">
+    <ellipse cx="25" cy="22" rx="24" ry="12" fill="#A16207" />
+    <ellipse cx="25" cy="16" rx="24" ry="12" fill="url(#tabYellowLg)" />
+    <line x1="12" y1="14" x2="38" y2="18" stroke="#CA8A04" strokeWidth="1.5" />
+    <ellipse cx="25" cy="12" rx="16" ry="5" fill="white" fillOpacity="0.35" />
+  </g>
+  <ellipse cx="110" cy="80" rx="28" ry="14" fill="#000000" fillOpacity="0.14" />
+  <g transform="translate(85, 48)">
+    <ellipse cx="25" cy="22" rx="24" ry="12" fill="#A16207" />
+    <ellipse cx="25" cy="16" rx="24" ry="12" fill="url(#tabYellowLg)" />
+    <line x1="12" y1="14" x2="38" y2="18" stroke="#CA8A04" strokeWidth="1.5" />
+    <ellipse cx="25" cy="12" rx="16" ry="5" fill="white" fillOpacity="0.35" />
+  </g>
+  <ellipse cx="80" cy="62" rx="30" ry="15" fill="#000000" fillOpacity="0.18" />
+  <g transform="translate(54, 28)">
+    <ellipse cx="26" cy="24" rx="26" ry="13" fill="#A16207" />
+    <ellipse cx="26" cy="18" rx="26" ry="13" fill="url(#tabYellowLg)" />
+    <line x1="14" y1="16" x2="38" y2="20" stroke="#CA8A04" strokeWidth="1.8" />
+    <ellipse cx="26" cy="13" rx="18" ry="6" fill="white" fillOpacity="0.45" />
+  </g>
+</svg>

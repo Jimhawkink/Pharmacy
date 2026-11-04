@@ -1,0 +1,19 @@
+<svg viewBox="0 0 160 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="dropChlor" x1="60" y1="40" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#FFFFFF" />
+      <stop offset="70%" stopColor="#F1F5F9" />
+      <stop offset="100%" stopColor="#CBD5E1" />
+    </linearGradient>
+  </defs>
+  <ellipse cx="80" cy="102" rx="26" ry="7" fill="#000000" fillOpacity="0.18" />
+  <path d="M76 20C76 18 84 18 84 20V32H76V20Z" fill="#FFFFFF" stroke="#94A3B8" strokeWidth="1" />
+  <rect x="70" y="32" width="20" height="20" rx="3" fill="#059669" stroke="#047857" strokeWidth="1" />
+  <line x1="75" y1="34" x2="75" y2="50" stroke="white" strokeWidth="1" strokeOpacity="0.5" />
+  <line x1="80" y1="34" x2="80" y2="50" stroke="white" strokeWidth="1" strokeOpacity="0.5" />
+  <line x1="85" y1="34" x2="85" y2="50" stroke="white" strokeWidth="1" strokeOpacity="0.5" />
+  <path d="M66 52H94C99 52 102 56 102 62V94C102 99 98 102 93 102H67C62 102 58 99 58 94V62C58 56 61 52 66 52Z" fill="url(#dropChlor)" stroke="#94A3B8" strokeWidth="1.2" />
+  <rect x="65" y="65" width="30" height="22" rx="2.5" fill="#D1FAE5" />
+  <circle cx="80" cy="74" r="4.5" fill="#059669" />
+  <line x1="72" y1="81" x2="88" y2="81" stroke="#047857" strokeWidth="1" />
+</svg>

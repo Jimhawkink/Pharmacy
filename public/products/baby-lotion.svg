@@ -1,0 +1,17 @@
+<svg viewBox="0 0 160 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="lotionBlueLg" x1="60" y1="35" x2="100" y2="105" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#7DD3FC" />
+      <stop offset="50%" stopColor="#0284C7" />
+      <stop offset="100%" stopColor="#0369A1" />
+    </linearGradient>
+  </defs>
+  <ellipse cx="80" cy="103" rx="28" ry="8" fill="#000000" fillOpacity="0.2" />
+  <rect x="60" y="44" width="40" height="56" rx="10" fill="url(#lotionBlueLg)" />
+  <rect x="66" y="56" width="28" height="32" rx="4" fill="white" />
+  <circle cx="80" cy="68" r="6" fill="#38BDF8" />
+  <line x1="70" y1="80" x2="90" y2="80" stroke="#0284C7" strokeWidth="1.5" strokeLinecap="round" />
+  <rect x="75" y="34" width="10" height="10" fill="#E2E8F0" />
+  <path d="M72 26H88V34H72V26Z" fill="#F8FAFC" stroke="#94A3B8" strokeWidth="1" />
+  <path d="M70 16H88C90 16 92 17 92 19V22H62V19C62 17 64 16 70 16Z" fill="#FFFFFF" stroke="#94A3B8" strokeWidth="1" />
+</svg>

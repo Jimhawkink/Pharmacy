@@ -1,0 +1,15 @@
+<svg viewBox="0 0 160 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <ellipse cx="80" cy="103" rx="36" ry="8" fill="#000000" fillOpacity="0.2" />
+  <rect x="56" y="28" width="48" height="16" rx="4" fill="#FFFFFF" stroke="#94A3B8" strokeWidth="1.5" />
+  <line x1="64" y1="30" x2="64" y2="42" stroke="#CBD5E1" strokeWidth="1.5" />
+  <line x1="72" y1="30" x2="72" y2="42" stroke="#CBD5E1" strokeWidth="1.5" />
+  <line x1="80" y1="30" x2="80" y2="42" stroke="#CBD5E1" strokeWidth="1.5" />
+  <line x1="88" y1="30" x2="88" y2="42" stroke="#CBD5E1" strokeWidth="1.5" />
+  <line x1="96" y1="30" x2="96" y2="42" stroke="#CBD5E1" strokeWidth="1.5" />
+  <rect x="48" y="44" width="64" height="56" rx="8" fill="#FFFFFF" stroke="#94A3B8" strokeWidth="1.5" />
+  <rect x="50" y="52" width="60" height="36" rx="4" fill="#0284C7" />
+  <circle cx="80" cy="66" r="7" fill="#38BDF8" />
+  <text x="56" y="83" fill="white" fontSize="5.5" fontWeight="bold" fontFamily="sans-serif">
+    CALCIUM+D3
+  </text>
+</svg>
