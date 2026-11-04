@@ -160,7 +160,7 @@ const ProductCard = ({
                     else onAdd();
                 }
             }}
-            className={`bg-white rounded-2xl shadow-xs border transition-all duration-200 h-[210px] p-3 flex flex-col justify-between group relative overflow-hidden cursor-pointer ${
+            className={`bg-white rounded-[20px] shadow-[0_2px_12px_rgba(15,23,42,0.04)] border border-slate-200/80 transition-all duration-200 h-[220px] p-3.5 flex flex-col justify-between group relative overflow-hidden cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_12px_28px_rgba(16,185,129,0.12)] ${
                 product.availableQty === 0
                     ? 'border-gray-200 opacity-60 bg-gray-50/50'
                     : isExpired
@@ -211,12 +211,12 @@ const ProductCard = ({
 
             {/* Compact Image - Realistic Visual */}
             {/* Realistic Product Image */}
-            <div className="h-[64px] flex items-center justify-center flex-shrink-0 relative p-1 group-hover:scale-105 transition-transform duration-200">
+            <div className="h-[82px] flex items-center justify-center flex-shrink-0 relative p-2 mt-1 rounded-2xl bg-gradient-to-br from-emerald-50/80 to-slate-50 group-hover:from-emerald-100/80 transition-colors duration-200">
                 {product.imageUrl && product.imageUrl.startsWith('http') ? (
                     <img
                         src={product.imageUrl}
                         alt={product.name}
-                        className="max-h-[58px] max-w-[76px] object-contain"
+                        className="max-h-[70px] max-w-[92px] object-contain drop-shadow-sm"
                         onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none';
                         }}
@@ -227,7 +227,7 @@ const ProductCard = ({
                         category={product.category}
                         drugType={product.drug_type}
                         genericName={product.generic_name}
-                        className="w-20 h-14"
+                        className="w-24 h-16"
                     />
                 )}
             </div>
@@ -252,19 +252,19 @@ const ProductCard = ({
             </div>
 }
             {/* Content */}
-            <div className="flex-1 px-2 py-1.5 flex flex-col justify-between min-h-0">
+            <div className="flex-1 px-1 py-2 flex flex-col justify-between min-h-0">
                 <div className="min-w-0">
-                    <h3 className="text-[11px] font-bold text-gray-800 line-clamp-1 group-hover:text-emerald-700 transition-colors" title={product.name}>
+                    <h3 className="text-[12px] font-extrabold text-slate-800 line-clamp-1 group-hover:text-emerald-700 transition-colors" title={product.name}>
                         {product.name}
                     </h3>
 
                     {/* Generic / Dosage / Form Subtitle */}
                     {(product.generic_name || product.dosage || product.drug_type) ? (
-                        <p className="text-[8.5px] text-gray-500 line-clamp-1 italic">
+                        <p className="text-[10px] text-slate-500 line-clamp-1 italic mt-0.5">
                             {[product.generic_name, product.dosage, product.drug_type].filter(Boolean).join(' • ')}
                         </p>
                     ) : (
-                        <p className="text-[8.5px] text-gray-400 truncate">SKU: {product.barcode || product.id}</p>
+                        <p className="text-[10px] text-slate-400 truncate mt-0.5">SKU: {product.barcode || product.id}</p>
                     )}
 
                     <div className="flex items-center gap-1 mt-0.5">
@@ -288,7 +288,7 @@ const ProductCard = ({
 
                 <div className="pt-1">
                     <div className="flex items-baseline justify-between mb-1">
-                        <span className="text-[13.5px] font-black text-[#00A848] leading-none">
+                        <span className="text-[15px] font-black text-emerald-700 leading-none tracking-tight">
                             Ksh {product.salesPrice.toLocaleString()}
                         </span>
                         <span
@@ -313,7 +313,7 @@ const ProductCard = ({
                             }
                         }}
                         disabled={product.availableQty === 0 || isExpired}
-                        className={`w-full py-1 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-all ${
+                        className={`w-full py-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all ${
                             product.availableQty === 0
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                 : isExpired
@@ -350,7 +350,7 @@ const CartItemRow = ({
     const itemTotal = item.effectivePrice * item.qty - item.discount;
 
     return (
-        <div className="bg-white rounded-xl p-3 space-y-2 border border-gray-100 shadow-sm hover:border-gray-200 transition-colors">
+        <div className="bg-white rounded-2xl p-3.5 space-y-2.5 border border-slate-200/80 shadow-[0_2px_10px_rgba(15,23,42,0.035)] hover:border-emerald-200 hover:shadow-sm transition-all">
             <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -389,7 +389,7 @@ const CartItemRow = ({
                 <div className="flex items-center gap-1">
                     <button
                         onClick={onDecrease}
-                        className="w-7 h-7 rounded-lg bg-orange-500 hover:bg-orange-600 flex items-center justify-center font-bold text-white transition-colors text-base shadow-sm active:scale-95"
+                        className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-emerald-100 flex items-center justify-center font-bold text-slate-700 hover:text-emerald-700 transition-colors text-base active:scale-95"
                         title="Decrease quantity"
                     >
                         -
@@ -397,7 +397,7 @@ const CartItemRow = ({
                     <span className="w-8 text-center font-bold text-gray-800 text-sm">{item.qty}</span>
                     <button
                         onClick={onIncrease}
-                        className="w-7 h-7 rounded-lg bg-green-500 hover:bg-green-600 flex items-center justify-center font-bold text-white transition-colors text-base shadow-sm active:scale-95"
+                        className="w-8 h-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 flex items-center justify-center font-bold text-white transition-colors text-base shadow-sm active:scale-95"
                         title="Increase quantity"
                     >
                         +
@@ -1919,9 +1919,9 @@ export default function PharmacyPOS() {
             {/* 2. Payment Modal */}
             {showPayment && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl max-h-[92vh] overflow-y-auto border border-gray-100">
+                    <div className="bg-white rounded-[28px] p-6 sm:p-7 w-full max-w-xl shadow-[0_28px_90px_rgba(2,6,23,0.28)] max-h-[92vh] overflow-y-auto border border-white/70">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-extrabold text-gray-800 flex items-center gap-2"><span>💳</span> Complete Dispensing & Payment{false && <>
+                            <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2"><span>💳</span> Complete Dispensing & Payment{false && <>
                                 <span className="flex items-center gap-2">
                                 <span className="font-extrabold text-lg">✓</span>
                                 <span>Checkout</span>
@@ -1939,9 +1939,9 @@ export default function PharmacyPOS() {
                         </div>
 
                         {/* Grand Total Hero Box */}
-                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-4 text-white mb-4 shadow-md">
+                        <div className="bg-gradient-to-br from-emerald-600 via-emerald-500 to-green-400 rounded-2xl p-5 text-white mb-5 shadow-lg shadow-emerald-900/15">
                             <p className="text-xs font-semibold opacity-90 uppercase tracking-wider">Total Payable</p>
-                            <p className="text-3xl font-black mt-0.5">Ksh {grandTotal.toLocaleString()}</p>
+                            <p className="text-4xl font-black mt-1 tracking-tight">Ksh {grandTotal.toLocaleString()}</p>
                             {cart.some((c) => c.requires_prescription) && (
                                 <p className="text-[11px] bg-white/20 rounded px-2 py-0.5 mt-2 inline-block font-semibold">
                                     ℞ Contains Prescription Medicines
@@ -1950,7 +1950,7 @@ export default function PharmacyPOS() {
                         </div>
 
                         {/* Payment Method Selector */}
-                        <div className="grid grid-cols-4 gap-2 mb-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
                             {[
                                 { id: 'cash', icon: '💵', label: 'Cash (F2)' },
                                 { id: 'mpesa', icon: '📱', label: 'M-Pesa (F3)' },
@@ -1963,7 +1963,7 @@ export default function PharmacyPOS() {
                                         setPayMethod(m.id);
                                         resetStk();
                                     }}
-                                    className={`p-2.5 rounded-xl border-2 transition-all flex flex-col items-center justify-center ${
+                                    className={`p-3.5 rounded-2xl border-2 transition-all flex flex-col items-center justify-center min-h-[88px] ${
                                         payMethod === m.id
                                             ? 'border-emerald-500 bg-emerald-50/80 text-emerald-800 shadow-sm'
                                             : 'border-gray-200 hover:border-gray-300 bg-gray-50 text-gray-600'
