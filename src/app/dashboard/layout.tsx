@@ -343,9 +343,25 @@ function getRoleBadge(userType: string) {
 /* ─── Medical Cross with Leaf Logo ──────────────────────────────── */
 function AlphaCrossLogo() {
   return (
-    <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-300 via-emerald-500 to-green-800 shadow-[0_8px_22px_rgba(0,190,90,.35)] ring-1 ring-white/40 flex-shrink-0">
-      <span className="absolute text-[26px] font-black leading-none text-white">✚</span>
-      <span className="absolute bottom-1 right-1 text-sm">🌿</span>
+    <div className="relative w-10 h-10 flex items-center justify-center flex-shrink-0">
+      <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* White Greek Cross */}
+        <path
+          d="M14 4C14 2.89543 14.8954 2 16 2H20C21.1046 2 22 2.89543 22 4V14H32C33.1046 14 34 14.8954 34 16V20C34 21.1046 33.1046 22 32 22H22V32C22 33.1046 21.1046 34 20 34H16C14.8954 34 14 33.1046 14 32V22H4C2.89543 22 2 21.1046 2 20V16C2 14.8954 2.89543 14 4 14H14V4Z"
+          fill="white"
+        />
+        {/* Vivid Leaf nestled in upper right */}
+        <path
+          d="M21 15C21 15 23 8 30 6C30 6 32 12 28 17C25 20 21 19 21 19V15Z"
+          fill="#00D060"
+        />
+        <path
+          d="M22 17.5C25 15.5 28 11.5 30 6"
+          stroke="#008A3D"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+      </svg>
     </div>
   );
 }
@@ -477,7 +493,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <aside
               className={`${
                 sidebarOpen ? 'w-[250px]' : 'w-[72px]'
-              } bg-gradient-to-b from-[#003d24] via-[#00512d] to-[#002b1c] border-r border-emerald-950/80 flex flex-col fixed h-full z-50 transition-all duration-300 shadow-2xl`}
+              } bg-gradient-to-b from-[#023318] via-[#023d1e] to-[#012210] border-r border-[#034d25] flex flex-col fixed h-full z-50 transition-all duration-300 shadow-2xl`}
             >
               {/* Logo Header */}
               <div className="relative flex items-center gap-3 px-4 py-[18px] border-b border-emerald-900/60">
@@ -569,7 +585,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 href={item.href}
                                 className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] transition-all group relative ${
                                   isActive
-                                    ? 'bg-gradient-to-r from-emerald-400 to-green-600 font-bold text-white shadow-[0_5px_18px_rgba(0,255,100,.28)] ring-1 ring-lime-200/50'
+                                    ? 'bg-[#00B850] text-white font-bold shadow-[0_3px_10px_rgba(0,184,80,0.35)]'
                                     : 'text-emerald-100/80 hover:text-white hover:bg-emerald-800/25 font-medium'
                                 }`}
                               >
@@ -598,12 +614,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
               {/* ── Glassmorphic Shield & Compliance Badge ── */}
               {sidebarOpen && (
-                <div className="mx-3 mb-2 rounded-2xl border border-emerald-300/30 bg-gradient-to-br from-emerald-400/20 to-emerald-900/50 p-3 shadow-inner">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">🛡️</span>
-                    <span className="text-xs font-extrabold text-white">Secure & Compliant</span>
+                <div className="mx-3 mb-1 px-3 py-2 rounded-xl bg-white/[0.08] border border-white/10 backdrop-blur-md flex items-center gap-2.5 shadow-sm">
+                  <div className="w-8 h-8 rounded-lg bg-amber-400/20 border border-amber-400/40 flex items-center justify-center text-amber-300 text-base flex-shrink-0">
+                    🛡️
                   </div>
-                  <p className="mt-1 pl-7 text-[10px] leading-4 text-emerald-100/80">Pharmacy Management System</p>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold text-white tracking-wide leading-tight">Secure & Compliant</p>
+                    <p className="text-[9.5px] text-emerald-200/70 truncate">Pharmacy Management System</p>
+                  </div>
                 </div>
               )}
 
@@ -733,7 +751,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </header>
 
             {/* Dashboard Child Page Content */}
-            <div className={`flex-1 flex flex-col ${pathname === '/dashboard/pos' ? 'p-3 xl:p-4 bg-[#edf5ef]' : 'p-4'}`}>{children}</div>
+            <div className="p-4 flex-1 flex flex-col">{children}</div>
           </main>
         </div>
       </OutletProvider>
