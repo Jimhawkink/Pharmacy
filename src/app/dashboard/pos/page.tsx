@@ -4,7 +4,6 @@ import { supabase, completeSaleTransaction, getNextReceiptNumber } from '@/lib/s
 import { printCustomerReceipt, createReceiptData, loadCompanyInfo, CompanyInfo } from '@/lib/receiptPrinter';
 import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
-import { MedicineVisual } from '@/lib/medicineVisual';
 
 interface Product {
     id: number;
@@ -160,7 +159,7 @@ const ProductCard = ({
                     else onAdd();
                 }
             }}
-            className={`bg-white rounded-2xl shadow-xs border transition-all duration-200 h-[190px] p-2.5 flex flex-col justify-between group relative overflow-hidden cursor-pointer ${
+            className={`bg-white rounded-xl shadow-sm border transition-all duration-200 h-[170px] flex flex-col group relative overflow-hidden cursor-pointer ${
                 product.availableQty === 0
                     ? 'border-gray-200 opacity-60 bg-gray-50/50'
                     : isExpired
@@ -177,22 +176,7 @@ const ProductCard = ({
                     </span>
                 ) : <span />}
 
-                <span
-                    className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold shadow-xs ${
-                        isExpired
-                            ? 'bg-red-600 text-white animate-pulse'
-                            : product.availableQty === 0
-                            ? 'bg-gray-200 text-gray-600'
-                            : product.availableQty <= 30
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                            : product.availableQty <= 550
-                            ? 'bg-amber-50 text-amber-800 border border-amber-300'
-                            : 'bg-emerald-50 text-emerald-800 border border-emerald-200/70'
-                    }`}
-                >
-                    {isExpired ? 'EXPIRED' : product.availableQty}
-                </span>
-                {false && nearestBatch && (
+                {nearestBatch && (
                     <span
                         className={`px-1 py-0.2 rounded text-[7.5px] font-bold shadow-sm ${
                             nearestBatch.days < 0
@@ -209,30 +193,8 @@ const ProductCard = ({
                 )}
             </div>
 
-            {/* Compact Image - Realistic Visual */}
-            {/* Realistic Product Image */}
-            <div className="h-[64px] flex items-center justify-center flex-shrink-0 relative p-1 group-hover:scale-105 transition-transform duration-200">
-                {product.imageUrl && product.imageUrl.startsWith('http') ? (
-                    <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        className="max-h-[58px] max-w-[76px] object-contain"
-                        onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                    />
-                ) : (
-                    <MedicineVisual
-                        name={product.name}
-                        category={product.category}
-                        drugType={product.drug_type}
-                        genericName={product.generic_name}
-                        className="w-20 h-14"
-                    />
-                )}
-            </div>
-            {false && <div>
-            <div style={{ display: 'none' }}>
+            {/* Compact Image - 58px */}
+            <div className="h-[58px] bg-gradient-to-b from-gray-50 to-white flex items-center justify-center flex-shrink-0 relative p-1">
                 {product.imageUrl ? (
                     <img
                         src={product.imageUrl}
@@ -249,8 +211,6 @@ const ProductCard = ({
                 )}
             </div>
 
-            </div>
-}
             {/* Content */}
             <div className="flex-1 px-2 py-1.5 flex flex-col justify-between min-h-0">
                 <div className="min-w-0">
@@ -288,7 +248,7 @@ const ProductCard = ({
 
                 <div className="pt-1">
                     <div className="flex items-baseline justify-between mb-1">
-                        <span className="text-[13.5px] font-black text-[#00A848] leading-none">
+                        <span className="text-[12px] font-extrabold text-gray-900 leading-none">
                             Ksh {product.salesPrice.toLocaleString()}
                         </span>
                         <span
@@ -318,7 +278,7 @@ const ProductCard = ({
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                 : isExpired
                                 ? 'bg-red-100 text-red-600 cursor-not-allowed font-bold'
-                                : 'bg-[#00A848] hover:bg-[#00923e] text-white font-bold py-1.5 rounded-xl active:scale-[0.98] shadow-xs hover:shadow transition-all'
+                                : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 active:scale-[0.98] shadow-sm hover:shadow'
                         }`}
                     >
                         {isExpired ? '⚠️ Expired' : product.availableQty === 0 ? 'Out of Stock' : '+ Add to Cart'}
@@ -1395,11 +1355,11 @@ export default function PharmacyPOS() {
             {/* ==================== 1. TOP STATUS BAR ==================== */}
             <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
-                    <span className="bg-[#00A848] text-white font-extrabold text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-xs">
+                    <span className="text-emerald-700 font-extrabold text-sm flex items-center gap-1.5">
                         <span className="text-lg">💊</span> ALPHA PHARMACY POS
                     </span>
                     <span className="text-gray-300">|</span>
-                    <span className="text-gray-700 text-xs font-bold bg-white border border-gray-200 px-3 py-1.5 rounded-full shadow-xs">
+                    <span className="text-gray-700 text-xs font-semibold bg-gray-100 px-2 py-0.5 rounded-md">
                         📍 {storeName}
                     </span>
                     <span className="text-gray-300">|</span>
@@ -1407,7 +1367,7 @@ export default function PharmacyPOS() {
                     <span
                         className={`px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm ${
                             registerOpen
-                                ? 'bg-white text-emerald-700 border border-emerald-300'
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
                                 : 'bg-red-50 text-red-600 border border-red-300 animate-pulse'
                         }`}
                     >
@@ -1438,7 +1398,7 @@ export default function PharmacyPOS() {
                         className={`p-1.5 rounded-lg text-xs font-medium border transition-colors ${
                             isMuted
                                 ? 'bg-gray-100 text-gray-400 border-gray-200'
-                                : 'bg-white text-gray-700 border-gray-200 rounded-full px-3 py-1.5 shadow-xs'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                         }`}
                         title={isMuted ? 'Unmute scanner beep' : 'Mute scanner beep'}
                     >
@@ -1448,19 +1408,19 @@ export default function PharmacyPOS() {
                     {/* Shortcuts Cheatsheet */}
                     <button
                         onClick={() => setShowShortcutsModal(true)}
-                        className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 rounded-full text-xs font-semibold border border-gray-200 flex items-center gap-1 shadow-xs"
+                        className="p-1.5 px-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium border border-gray-200 flex items-center gap-1"
                         title="Keyboard Shortcuts"
                     >
                         <span>⌨️</span> <span className="hidden sm:inline">Shortcuts</span>
                     </button>
 
                     {/* Live Clock */}
-                    <span className="text-xs font-mono font-bold text-gray-700 bg-white border border-gray-200 px-3 py-1.5 rounded-full shadow-xs hidden md:inline">
+                    <span className="text-xs font-mono font-bold text-gray-600 bg-gray-50 border border-gray-200 px-2 py-1 rounded-md hidden md:inline">
                         🕒 {currentTime}
                     </span>
 
                     {/* Receipt Badge */}
-                    <span className="px-3 py-1.5 bg-[#E8F3FF] text-[#0066CC] border border-[#BFDBFE] rounded-full text-xs font-bold font-mono shadow-xs">
+                    <span className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold font-mono">
                         {receiptNo}
                     </span>
 
@@ -1486,7 +1446,7 @@ export default function PharmacyPOS() {
                             <select
                                 value={activeOutlet?.outlet_id || ''}
                                 onChange={(e) => switchOutlet(Number(e.target.value))}
-                                className="px-4 py-2 border border-gray-200 rounded-full bg-white text-gray-800 text-xs font-bold focus:outline-none focus:border-emerald-500 cursor-pointer min-w-[150px] shadow-xs"
+                                className="px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-800 text-xs font-semibold focus:outline-none focus:border-emerald-500 cursor-pointer min-w-[150px]"
                             >
                                 {outlets.map((o) => (
                                     <option key={o.outlet_id} value={o.outlet_id}>
@@ -1510,7 +1470,7 @@ export default function PharmacyPOS() {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 onKeyDown={handleSearchKeyDown}
                                 placeholder="Scan Barcode [Enter] or Search by Drug, Generic Name, SKU (Press / or F1)..."
-                                className="w-full pl-9 pr-16 py-2 bg-white hover:bg-gray-50 focus:bg-white border border-gray-200 focus:border-emerald-500 rounded-full text-xs font-medium transition-all outline-none shadow-xs"
+                                className="w-full pl-9 pr-16 py-2 bg-gray-50 hover:bg-white focus:bg-white border border-gray-200 focus:border-emerald-500 rounded-lg text-sm font-medium transition-all outline-none shadow-inner"
                                 autoFocus
                             />
                             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -1546,7 +1506,7 @@ export default function PharmacyPOS() {
                                     setCategoryProducts([]);
                                 }
                             }}
-                            className="px-4 py-2 border border-gray-200 rounded-full bg-white text-gray-700 text-xs font-semibold focus:outline-none focus:border-emerald-500 cursor-pointer min-w-[140px] shadow-xs"
+                            className="px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 text-xs font-medium focus:outline-none focus:border-emerald-500 cursor-pointer min-w-[130px]"
                         >
                             <option value="">All Categories ({categories.length})</option>
                             {categories.map((c) => (
@@ -1569,7 +1529,7 @@ export default function PharmacyPOS() {
                                     onFocus={() => setShowCustomerDrop(true)}
                                     onBlur={() => setTimeout(() => setShowCustomerDrop(false), 200)}
                                     placeholder={selectedCustomer ? selectedCustomer.customer_name : '👤 Walk-in Patient'}
-                                    className={`px-4 py-2 border rounded-full text-xs font-semibold focus:outline-none focus:border-emerald-500 cursor-text min-w-[170px] shadow-xs ${
+                                    className={`px-3 py-2 border rounded-lg text-xs font-medium focus:outline-none focus:border-emerald-500 cursor-text min-w-[170px] ${
                                         selectedCustomer
                                             ? 'border-blue-400 bg-blue-50 font-bold text-blue-900'
                                             : 'border-gray-200 bg-gray-50 text-gray-700'
@@ -1617,14 +1577,14 @@ export default function PharmacyPOS() {
                         {!registerOpen ? (
                             <button
                                 onClick={() => setShowOpeningDrop(true)}
-                                className="px-4 py-2 bg-[#00A848] hover:bg-[#00923e] text-white rounded-full text-xs font-bold transition-all shadow-md flex items-center gap-1.5 active:scale-95"
+                                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 active:scale-95"
                             >
                                 <span>🟢</span> Open Register
                             </button>
                         ) : (
                             <button
                                 onClick={handleCloseRegister}
-                                className="px-4 py-2 bg-[#E52538] hover:bg-[#CC1E30] text-white rounded-full text-xs font-bold transition-all shadow-md flex items-center gap-1.5 active:scale-95"
+                                className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 active:scale-95"
                             >
                                 <span>🔴</span> Close Register
                             </button>
@@ -1686,11 +1646,11 @@ export default function PharmacyPOS() {
                 {/* ==================== 4. CART SIDEBAR ==================== */}
                 <div className="w-[410px] bg-white flex flex-col border-l border-gray-200 shadow-xl shrink-0">
                     {/* Cart Header */}
-                    <div className="px-4 py-3 bg-gradient-to-r from-[#00D060] to-[#00A848] text-white flex items-center justify-between shadow-md shrink-0">
+                    <div className="px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white flex items-center justify-between shadow-md shrink-0">
                         <div className="flex items-center gap-2">
                             <span className="text-lg">🛒</span>
                             <h2 className="font-extrabold text-sm tracking-wide">
-                                Dispensing Cart ({cart.length})
+                                DISPENSING CART ({cart.length})
                             </h2>
                         </div>
                         <div className="flex items-center gap-1.5">
@@ -1731,22 +1691,7 @@ export default function PharmacyPOS() {
                     <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
                         {cart.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-gray-400 py-12">
-                                <div className="relative w-36 h-28 flex items-center justify-center mb-2">
-                                    <svg className="absolute inset-0 w-full h-full opacity-35" viewBox="0 0 140 100" fill="none">
-                                        <path d="M20 70C15 50 25 30 45 25C50 40 40 65 20 70Z" fill="#34D399" />
-                                        <path d="M120 65C125 45 115 25 95 20C90 35 100 60 120 65Z" fill="#34D399" />
-                                    </svg>
-                                    <svg width="74" height="64" viewBox="0 0 80 70" fill="none" className="relative z-10">
-                                        <path d="M10 12H20L32 50H66L74 24H24" stroke="#94A3B8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-                                        <line x1="32" y1="36" x2="68" y2="36" stroke="#CBD5E1" strokeWidth="2" />
-                                        <line x1="42" y1="24" x2="42" y2="48" stroke="#CBD5E1" strokeWidth="2" />
-                                        <line x1="56" y1="24" x2="56" y2="48" stroke="#CBD5E1" strokeWidth="2" />
-                                        <circle cx="35" cy="58" r="5" fill="#475569" />
-                                        <circle cx="62" cy="58" r="5" fill="#475569" />
-                                        <circle cx="60" cy="20" r="12" fill="#00C853" stroke="white" strokeWidth="2" />
-                                        <path d="M60 14V26M54 20H66" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-                                    </svg>
-                                </div>
+                                <span className="text-4xl mb-2">🧾</span>
                                 <p className="font-semibold text-gray-600 text-sm">Cart is empty</p>
                                 <p className="text-xs text-gray-400 text-center max-w-[200px] mt-1">
                                     Scan barcode or click on medicine to add to prescription
@@ -1790,7 +1735,7 @@ export default function PharmacyPOS() {
                         )}
                         <div className="flex justify-between items-baseline pt-2 border-t border-gray-200">
                             <span className="text-xs font-bold text-gray-700 tracking-wider uppercase">PAYABLE TOTAL</span>
-                            <span className="text-2xl font-black text-[#00A848]">
+                            <span className="text-2xl font-black text-gray-900">
                                 Ksh {grandTotal.toLocaleString()}
                             </span>
                         </div>
@@ -1808,45 +1753,13 @@ export default function PharmacyPOS() {
                                 setShowPayment(true);
                             }}
                             disabled={cart.length === 0}
-                            className="w-full py-3.5 bg-gradient-to-r from-[#00D060] to-[#00A848] text-white rounded-2xl font-black text-base hover:from-[#00BA54] hover:to-[#00963F] hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between px-6 active:scale-[0.99] shadow-lg"
+                            className="w-full py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-extrabold text-base hover:from-green-600 hover:to-emerald-700 hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.99] shadow-md"
                         >
-                            <span className="flex items-center gap-2">
-                                <span className="font-extrabold text-lg">✓</span>
-                                <span>Checkout</span>
-                            </span>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs bg-white/25 text-white font-mono font-bold px-2 py-0.5 rounded-md">F9</span>
-                                <span className="text-lg font-bold">›</span>
-                            </div>
-                            {false && <>
+                            <span>💳</span>
                             <span>CHECKOUT Ksh {grandTotal.toLocaleString()}</span>
-                            </>}
+                            <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded font-mono font-normal">F9</span>
                         </button>
                     </div>
-                </div>
-            </div>
-
-            {/* ==================== BOTTOM FEATURE WAVE BANNER ==================== */}
-            <div className="bg-white border-t border-emerald-100 px-6 py-2.5 flex items-center justify-between text-xs text-gray-600 shrink-0 select-none shadow-xs">
-                <div className="flex items-center gap-6 overflow-x-auto">
-                    <span className="flex items-center gap-1.5 font-bold text-emerald-800">
-                        <span className="text-emerald-600 font-extrabold text-sm">✓</span> Trusted Pharmacy Solution
-                    </span>
-                    <span className="flex items-center gap-1.5 font-semibold text-amber-700">
-                        <span>⚡</span> Fast & Efficient
-                    </span>
-                    <span className="flex items-center gap-1.5 font-semibold text-teal-700">
-                        <span>📊</span> Real-time Inventory
-                    </span>
-                    <span className="flex items-center gap-1.5 font-semibold text-emerald-700">
-                        <span>👥</span> Better Patient Care
-                    </span>
-                </div>
-                <div className="hidden md:flex items-center gap-2 pl-4">
-                    <span className="px-3.5 py-1 bg-gradient-to-r from-emerald-600 to-[#00A848] text-white rounded-full text-[11px] font-bold flex items-center gap-1.5 shadow-sm">
-                        <span>Alpha Pharmacy POS v1.0</span>
-                        <span>👑</span>
-                    </span>
                 </div>
             </div>
 
@@ -1921,16 +1834,8 @@ export default function PharmacyPOS() {
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl max-h-[92vh] overflow-y-auto border border-gray-100">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-extrabold text-gray-800 flex items-center gap-2"><span>💳</span> Complete Dispensing & Payment{false && <>
-                                <span className="flex items-center gap-2">
-                                <span className="font-extrabold text-lg">✓</span>
-                                <span>Checkout</span>
-                            </span>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs bg-white/25 text-white font-mono font-bold px-2 py-0.5 rounded-md">F9</span>
-                                <span className="text-lg font-bold">›</span>
-                            </div>
-                            </>}
+                            <h2 className="text-lg font-extrabold text-gray-800 flex items-center gap-2">
+                                <span>💳</span> Complete Dispensing & Payment
                             </h2>
                             <div className="text-right">
                                 <p className="text-[10px] text-gray-400 uppercase font-bold">Receipt</p>
