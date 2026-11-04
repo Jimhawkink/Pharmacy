@@ -160,7 +160,7 @@ const ProductCard = ({
                     else onAdd();
                 }
             }}
-            className={`bg-white rounded-2xl shadow-xs border transition-all duration-200 h-[190px] p-2.5 flex flex-col justify-between group relative overflow-hidden cursor-pointer ${
+            className={`bg-white rounded-[26px] shadow-[0_8px_28px_rgba(7,47,29,0.055)] border border-[#E4EEE8] transition-all duration-200 min-h-[300px] p-4 flex flex-col justify-between group relative overflow-hidden cursor-pointer hover:-translate-y-1 hover:shadow-[0_20px_44px_rgba(16,120,70,0.13)] ${
                 product.availableQty === 0
                     ? 'border-gray-200 opacity-60 bg-gray-50/50'
                     : isExpired
@@ -211,12 +211,12 @@ const ProductCard = ({
 
             {/* Compact Image - Realistic Visual */}
             {/* Realistic Product Image */}
-            <div className="h-[64px] flex items-center justify-center flex-shrink-0 relative p-1 group-hover:scale-105 transition-transform duration-200">
+            <div className="h-[124px] flex items-center justify-center flex-shrink-0 relative p-3 mt-2 rounded-[20px] bg-gradient-to-br from-[#F0F8F3] via-[#F7FAF8] to-[#E8F3EC] border border-[#E8F1EB] group-hover:from-emerald-100/80 transition-colors duration-200">
                 {product.imageUrl && product.imageUrl.startsWith('http') ? (
                     <img
                         src={product.imageUrl}
                         alt={product.name}
-                        className="max-h-[58px] max-w-[76px] object-contain"
+                        className="max-h-[104px] max-w-[140px] object-contain drop-shadow-[0_8px_12px_rgba(22,70,42,0.13)] group-hover:scale-105 transition-transform duration-300"
                         onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none';
                         }}
@@ -227,7 +227,7 @@ const ProductCard = ({
                         category={product.category}
                         drugType={product.drug_type}
                         genericName={product.generic_name}
-                        className="w-20 h-14"
+                        className="w-24 h-16"
                     />
                 )}
             </div>
@@ -252,19 +252,19 @@ const ProductCard = ({
             </div>
 }
             {/* Content */}
-            <div className="flex-1 px-2 py-1.5 flex flex-col justify-between min-h-0">
+            <div className="flex-1 px-1 py-2 flex flex-col justify-between min-h-0">
                 <div className="min-w-0">
-                    <h3 className="text-[11px] font-bold text-gray-800 line-clamp-1 group-hover:text-emerald-700 transition-colors" title={product.name}>
+                    <h3 className="text-[15px] font-extrabold text-[#183B2B] line-clamp-2 leading-snug group-hover:text-emerald-700 transition-colors" title={product.name}>
                         {product.name}
                     </h3>
 
                     {/* Generic / Dosage / Form Subtitle */}
                     {(product.generic_name || product.dosage || product.drug_type) ? (
-                        <p className="text-[8.5px] text-gray-500 line-clamp-1 italic">
+                        <p className="text-[10px] text-slate-500 line-clamp-1 italic mt-0.5">
                             {[product.generic_name, product.dosage, product.drug_type].filter(Boolean).join(' • ')}
                         </p>
                     ) : (
-                        <p className="text-[8.5px] text-gray-400 truncate">SKU: {product.barcode || product.id}</p>
+                        <p className="text-[10px] text-slate-400 truncate mt-0.5">SKU: {product.barcode || product.id}</p>
                     )}
 
                     <div className="flex items-center gap-1 mt-0.5">
@@ -288,7 +288,7 @@ const ProductCard = ({
 
                 <div className="pt-1">
                     <div className="flex items-baseline justify-between mb-1">
-                        <span className="text-[13.5px] font-black text-[#00A848] leading-none">
+                        <span className="text-[19px] font-black text-[#087A43] leading-none tracking-tight">
                             Ksh {product.salesPrice.toLocaleString()}
                         </span>
                         <span
@@ -313,7 +313,7 @@ const ProductCard = ({
                             }
                         }}
                         disabled={product.availableQty === 0 || isExpired}
-                        className={`w-full py-1 rounded-md text-[10px] font-semibold flex items-center justify-center gap-1 transition-all ${
+                        className={`w-full py-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 transition-all ${
                             product.availableQty === 0
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                 : isExpired
@@ -350,7 +350,7 @@ const CartItemRow = ({
     const itemTotal = item.effectivePrice * item.qty - item.discount;
 
     return (
-        <div className="bg-white rounded-xl p-3 space-y-2 border border-gray-100 shadow-sm hover:border-gray-200 transition-colors">
+        <div className="bg-white rounded-[20px] p-4 space-y-3 border border-[#E7EFE9] shadow-[0_5px_18px_rgba(7,47,29,0.045)] hover:border-emerald-200 hover:shadow-sm transition-all">
             <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -389,7 +389,7 @@ const CartItemRow = ({
                 <div className="flex items-center gap-1">
                     <button
                         onClick={onDecrease}
-                        className="w-7 h-7 rounded-lg bg-orange-500 hover:bg-orange-600 flex items-center justify-center font-bold text-white transition-colors text-base shadow-sm active:scale-95"
+                        className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-emerald-100 flex items-center justify-center font-bold text-slate-700 hover:text-emerald-700 transition-colors text-base active:scale-95"
                         title="Decrease quantity"
                     >
                         -
@@ -397,7 +397,7 @@ const CartItemRow = ({
                     <span className="w-8 text-center font-bold text-gray-800 text-sm">{item.qty}</span>
                     <button
                         onClick={onIncrease}
-                        className="w-7 h-7 rounded-lg bg-green-500 hover:bg-green-600 flex items-center justify-center font-bold text-white transition-colors text-base shadow-sm active:scale-95"
+                        className="w-8 h-8 rounded-xl bg-emerald-600 hover:bg-emerald-700 flex items-center justify-center font-bold text-white transition-colors text-base shadow-sm active:scale-95"
                         title="Increase quantity"
                     >
                         +
@@ -1391,11 +1391,11 @@ export default function PharmacyPOS() {
     }
 
     return (
-        <div className="h-[calc(100vh-64px)] flex flex-col bg-gray-50 -m-6 select-none">
+        <div className="h-[calc(100vh-64px)] min-h-0 flex flex-col bg-[#F3F7F4] -m-6 select-none">
             {/* ==================== 1. TOP STATUS BAR ==================== */}
-            <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-3">
-                    <span className="bg-[#00A848] text-white font-extrabold text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-xs">
+            <div className="bg-white/95 backdrop-blur border-b border-gray-200/80 px-5 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0 shadow-[0_1px_0_rgba(15,23,42,0.03)]">
+                <div className="flex flex-wrap items-center gap-3">
+                    <span className="bg-gradient-to-r from-emerald-600 to-green-500 text-white font-extrabold text-xs px-4 py-2 rounded-full flex items-center gap-2 shadow-md shadow-emerald-900/10 tracking-wide">
                         <span className="text-lg">💊</span> ALPHA PHARMACY POS
                     </span>
                     <span className="text-gray-300">|</span>
@@ -1416,7 +1416,7 @@ export default function PharmacyPOS() {
                     </span>
                 </div>
 
-                <div className="flex items-center gap-2.5">
+                <div className="flex flex-wrap items-center gap-2.5">
                     {/* Held Carts Button */}
                     {heldSales.length > 0 && (
                         <button
@@ -1478,8 +1478,8 @@ export default function PharmacyPOS() {
             </div>
 
             {/* ==================== 2. CONTROLS HEADER ==================== */}
-            <div className="bg-white border-b border-gray-200 px-4 py-2.5 shrink-0">
-                <div className="flex items-center justify-between gap-3">
+            <div className="bg-white border-b border-gray-200/80 px-5 py-3 shrink-0">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                     {/* Outlets & Counter */}
                     <div className="flex items-center gap-2">
                         <div>
@@ -1498,7 +1498,7 @@ export default function PharmacyPOS() {
                     </div>
 
                     {/* Central High-Performance Search & Barcode Scan Bar */}
-                    <div className="flex-1 max-w-2xl relative">
+                    <div className="flex-1 min-w-[240px] max-w-2xl relative">
                         <div className="relative">
                             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
                                 🔍
@@ -1533,7 +1533,7 @@ export default function PharmacyPOS() {
                     </div>
 
                     {/* Category Dropdown */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <select
                             value={selectedCategory || ''}
                             onChange={(e) => {
@@ -1634,9 +1634,9 @@ export default function PharmacyPOS() {
             </div>
 
             {/* ==================== 3. MAIN WORKSPACE ==================== */}
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 min-h-0 grid grid-cols-1 grid-rows-[minmax(220px,1fr)_minmax(300px,0.9fr)] lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1 xl:grid-cols-[minmax(0,1fr)_440px] overflow-hidden">
                 {/* Product Catalog Grid */}
-                <div className="flex-1 flex flex-col p-3 overflow-hidden">
+                <div className="min-w-0 min-h-0 flex flex-col p-3 overflow-hidden">
                     {/* Register Closed Banner */}
                     {!registerOpen && (
                         <div className="mb-3 p-3.5 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl flex items-center justify-between shrink-0 shadow-sm">
@@ -1659,7 +1659,7 @@ export default function PharmacyPOS() {
                     {/* Catalog Grid View */}
                     <div className="flex-1 overflow-y-auto pr-1">
                         {displayProducts.length > 0 ? (
-                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5 pb-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 pb-5">
                                 {displayProducts.map((p) => (
                                     <ProductCard
                                         key={p.id}
@@ -1684,9 +1684,9 @@ export default function PharmacyPOS() {
                 </div>
 
                 {/* ==================== 4. CART SIDEBAR ==================== */}
-                <div className="w-[410px] bg-white flex flex-col border-l border-gray-200 shadow-xl shrink-0">
+                <div className="w-full min-w-0 min-h-0 bg-[#FCFEFC] flex flex-col border-t lg:border-t-0 lg:border-l border-[#E2ECE5] shadow-[-12px_0_36px_rgba(7,47,29,0.055)] shrink-0">
                     {/* Cart Header */}
-                    <div className="px-4 py-3 bg-gradient-to-r from-[#00D060] to-[#00A848] text-white flex items-center justify-between shadow-md shrink-0">
+                    <div className="px-6 py-5 bg-gradient-to-br from-[#06452A] via-[#087A43] to-[#0C9652] text-white flex items-center justify-between shadow-md shadow-emerald-900/10 shrink-0">
                         <div className="flex items-center gap-2">
                             <span className="text-lg">🛒</span>
                             <h2 className="font-extrabold text-sm tracking-wide">
@@ -1728,7 +1728,7 @@ export default function PharmacyPOS() {
                     )}
 
                     {/* Cart Item List */}
-                    <div className="flex-1 overflow-y-auto p-2.5 space-y-2">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-[#F8FBF9]">
                         {cart.length === 0 ? (
                             <div className="flex flex-col items-center justify-center h-full text-gray-400 py-12">
                                 <div className="relative w-36 h-28 flex items-center justify-center mb-2">
@@ -1777,7 +1777,7 @@ export default function PharmacyPOS() {
                     </div>
 
                     {/* Cart Summary */}
-                    <div className="border-t border-gray-200 p-3 bg-gray-50 space-y-1.5 shrink-0">
+                    <div className="border-t border-[#E5EEE8] p-5 bg-white space-y-3 shrink-0">
                         <div className="flex justify-between text-xs text-gray-600 font-medium">
                             <span>Subtotal ({cart.reduce((s, c) => s + c.qty, 0)} items)</span>
                             <span>Ksh {subtotal.toLocaleString()}</span>
@@ -1797,7 +1797,7 @@ export default function PharmacyPOS() {
                     </div>
 
                     {/* Checkout Button */}
-                    <div className="p-3 border-t border-gray-200 bg-white shrink-0">
+                    <div className="p-5 border-t border-[#E5EEE8] bg-white shrink-0">
                         <button
                             onClick={() => {
                                 if (!registerOpen) {
@@ -1808,7 +1808,7 @@ export default function PharmacyPOS() {
                                 setShowPayment(true);
                             }}
                             disabled={cart.length === 0}
-                            className="w-full py-3.5 bg-gradient-to-r from-[#00D060] to-[#00A848] text-white rounded-2xl font-black text-base hover:from-[#00BA54] hover:to-[#00963F] hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between px-6 active:scale-[0.99] shadow-lg"
+                            className="w-full py-4 bg-gradient-to-r from-emerald-600 to-green-500 text-white rounded-2xl font-black text-base hover:from-[#00BA54] hover:to-[#00963F] hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between px-6 active:scale-[0.99] shadow-lg"
                         >
                             <span className="flex items-center gap-2">
                                 <span className="font-extrabold text-lg">✓</span>
@@ -1827,7 +1827,7 @@ export default function PharmacyPOS() {
             </div>
 
             {/* ==================== BOTTOM FEATURE WAVE BANNER ==================== */}
-            <div className="bg-white border-t border-emerald-100 px-6 py-2.5 flex items-center justify-between text-xs text-gray-600 shrink-0 select-none shadow-xs">
+            <div className="bg-white border-t border-emerald-100 px-6 py-2.5 flex items-center justify-between text-xs text-gray-600 shrink-0 select-none shadow-xs max-md:hidden">
                 <div className="flex items-center gap-6 overflow-x-auto">
                     <span className="flex items-center gap-1.5 font-bold text-emerald-800">
                         <span className="text-emerald-600 font-extrabold text-sm">✓</span> Trusted Pharmacy Solution
@@ -1919,9 +1919,9 @@ export default function PharmacyPOS() {
             {/* 2. Payment Modal */}
             {showPayment && (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl max-h-[92vh] overflow-y-auto border border-gray-100">
+                    <div className="bg-white rounded-[28px] p-6 sm:p-7 w-full max-w-xl shadow-[0_28px_90px_rgba(2,6,23,0.28)] max-h-[92vh] overflow-y-auto border border-white/70">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-extrabold text-gray-800 flex items-center gap-2"><span>💳</span> Complete Dispensing & Payment{false && <>
+                            <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-2"><span>💳</span> Complete Dispensing & Payment{false && <>
                                 <span className="flex items-center gap-2">
                                 <span className="font-extrabold text-lg">✓</span>
                                 <span>Checkout</span>
@@ -1939,9 +1939,9 @@ export default function PharmacyPOS() {
                         </div>
 
                         {/* Grand Total Hero Box */}
-                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-4 text-white mb-4 shadow-md">
+                        <div className="bg-gradient-to-br from-emerald-600 via-emerald-500 to-green-400 rounded-2xl p-5 text-white mb-5 shadow-lg shadow-emerald-900/15">
                             <p className="text-xs font-semibold opacity-90 uppercase tracking-wider">Total Payable</p>
-                            <p className="text-3xl font-black mt-0.5">Ksh {grandTotal.toLocaleString()}</p>
+                            <p className="text-4xl font-black mt-1 tracking-tight">Ksh {grandTotal.toLocaleString()}</p>
                             {cart.some((c) => c.requires_prescription) && (
                                 <p className="text-[11px] bg-white/20 rounded px-2 py-0.5 mt-2 inline-block font-semibold">
                                     ℞ Contains Prescription Medicines
@@ -1950,7 +1950,7 @@ export default function PharmacyPOS() {
                         </div>
 
                         {/* Payment Method Selector */}
-                        <div className="grid grid-cols-4 gap-2 mb-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
                             {[
                                 { id: 'cash', icon: '💵', label: 'Cash (F2)' },
                                 { id: 'mpesa', icon: '📱', label: 'M-Pesa (F3)' },
@@ -1963,7 +1963,7 @@ export default function PharmacyPOS() {
                                         setPayMethod(m.id);
                                         resetStk();
                                     }}
-                                    className={`p-2.5 rounded-xl border-2 transition-all flex flex-col items-center justify-center ${
+                                    className={`p-3.5 rounded-2xl border-2 transition-all flex flex-col items-center justify-center min-h-[88px] ${
                                         payMethod === m.id
                                             ? 'border-emerald-500 bg-emerald-50/80 text-emerald-800 shadow-sm'
                                             : 'border-gray-200 hover:border-gray-300 bg-gray-50 text-gray-600'
