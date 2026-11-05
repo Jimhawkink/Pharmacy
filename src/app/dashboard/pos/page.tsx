@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase, completeSaleTransaction, getNextReceiptNumber } from '@/lib/supabase';
+import { supabase, c2bSupabase, completeSaleTransaction, getNextReceiptNumber } from '@/lib/supabase';
 import { printCustomerReceipt, createReceiptData, loadCompanyInfo, CompanyInfo } from '@/lib/receiptPrinter';
 import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
@@ -456,6 +456,12 @@ export default function PharmacyPOS() {
     const [stkStatus, setStkStatus] = useState<'idle' | 'sending' | 'waiting' | 'success' | 'failed'>('idle');
     const [stkMsg, setStkMsg] = useState('');
     const [checkoutId, setCheckoutId] = useState('');
+    // C2B M-Pesa state
+    const [c2bTransactions, setC2bTransactions] = useState<any[]>([]);
+    const [c2bLoading, setC2bLoading] = useState(false);
+    const [selectedC2b, setSelectedC2b] = useState<any>(null);
+    const [c2bSearchPhone, setC2bSearchPhone] = useState('');
+    const [c2bTab, setC2bTab] = useState<'stk' | 'c2b'>('stk');
     const [isMuted, setIsMuted] = useState(false);
     const [heldSales, setHeldSales] = useState<HeldSale[]>([]);
     const [showHeldModal, setShowHeldModal] = useState(false);
@@ -1080,6 +1086,51 @@ export default function PharmacyPOS() {
         doneRef.current = false;
     };
 
+    // Fetch unlinked C2B transactions
+    const fetchC2bTransactions = async () => {
+        setC2bLoading(true);
+        try {
+            const { data, error } = await c2bSupabase
+                .from('c2b_transactions')
+                .select('*')
+                .eq('is_linked', false)
+                .order('created_at', { ascending: false })
+                .limit(30);
+            if (error) {
+                console.error('C2B fetch error:', error);
+                toast.error('Failed to load C2B payments');
+            } else {
+                setC2bTransactions(data || []);
+            }
+        } catch (err: any) {
+            console.error('C2B error:', err);
+        } finally {
+            setC2bLoading(false);
+        }
+    };
+
+    // Link a C2B transaction and complete the sale
+    const linkC2bAndPay = async (txn: any) => {
+        const receipt = txn.mpesa_receipt || String(txn.id);
+        const phone = txn.phone || txn.MSISDN || '';
+        // Mark as linked in c2bSupabase
+        try {
+            await c2bSupabase
+                .from('c2b_transactions')
+                .update({ is_linked: true })
+                .eq('id', txn.id);
+            console.log('✅ C2B linked:', txn.id);
+        } catch (err) {
+            console.warn('C2B link warning:', err);
+        }
+        setSelectedC2b(txn);
+        setMpesaReceipt(receipt);
+        setMpesaPhone(phone);
+        setC2bTransactions(prev => prev.filter(t => t.id !== txn.id));
+        // Complete the sale
+        completeSale('MPESA', grandTotal, receipt, payCustomerName, '', phone);
+    };
+
     // Complete Sale Transaction
     const completeSale = async (
         method: string,
@@ -1250,6 +1301,9 @@ export default function PharmacyPOS() {
             setMpesaPhone('');
             setMpesaReceipt('');
             setPayCustomerName('');
+            setSelectedC2b(null);
+            setC2bTransactions([]);
+            setC2bTab('stk');
             setDoctorNameInput('');
             setCreditSearchPay('');
 
@@ -1957,62 +2011,180 @@ export default function PharmacyPOS() {
                             </div>
                         )}
 
-                        {/* M-Pesa STK Push Mode */}
+                        {/* M-Pesa Mode — STK Push / C2B Sub-tabs */}
                         {payMethod === 'mpesa' && (
                             <div className="space-y-3 mb-4">
-                                <div>
-                                    <label className="text-xs font-bold text-gray-700 mb-1 block">Patient Phone (Safaricom M-Pesa)</label>
-                                    <input
-                                        type="tel"
-                                        value={mpesaPhone}
-                                        onChange={(e) => setMpesaPhone(e.target.value)}
-                                        placeholder="07XX XXX XXX or 01XX XXX XXX"
-                                        className="w-full p-3 bg-gray-50 border-2 border-gray-200 focus:border-emerald-500 rounded-xl text-base font-semibold outline-none"
-                                        disabled={stkStatus === 'sending' || stkStatus === 'waiting'}
-                                        autoFocus
-                                    />
-                                </div>
-
-                                {stkStatus !== 'idle' && (
-                                    <div
-                                        className={`p-3 rounded-xl flex items-center gap-2.5 text-xs font-semibold ${
-                                            stkStatus === 'sending'
-                                                ? 'bg-amber-50 border border-amber-300 text-amber-800'
-                                                : stkStatus === 'waiting'
-                                                ? 'bg-blue-50 border border-blue-300 text-blue-800'
-                                                : stkStatus === 'success'
-                                                ? 'bg-emerald-50 border border-emerald-300 text-emerald-800'
-                                                : 'bg-red-50 border border-red-300 text-red-800'
+                                {/* Sub-tab switcher */}
+                                <div className="grid grid-cols-2 gap-1 bg-gray-100 rounded-xl p-1">
+                                    <button
+                                        onClick={() => setC2bTab('stk')}
+                                        className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                            c2bTab === 'stk'
+                                                ? 'bg-white text-emerald-800 shadow-sm'
+                                                : 'text-gray-500 hover:text-gray-700'
                                         }`}
                                     >
-                                        {(stkStatus === 'sending' || stkStatus === 'waiting') && (
-                                            <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                        📱 STK Push
+                                    </button>
+                                    <button
+                                        onClick={() => { setC2bTab('c2b'); fetchC2bTransactions(); }}
+                                        className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                            c2bTab === 'c2b'
+                                                ? 'bg-white text-emerald-800 shadow-sm'
+                                                : 'text-gray-500 hover:text-gray-700'
+                                        }`}
+                                    >
+                                        🏦 C2B Transactions
+                                    </button>
+                                </div>
+
+                                {/* STK Push Sub-tab */}
+                                {c2bTab === 'stk' && (
+                                    <div className="space-y-3">
+                                        <div>
+                                            <label className="text-xs font-bold text-gray-700 mb-1 block">Patient Phone (Safaricom M-Pesa)</label>
+                                            <input
+                                                type="tel"
+                                                value={mpesaPhone}
+                                                onChange={(e) => setMpesaPhone(e.target.value)}
+                                                placeholder="07XX XXX XXX or 01XX XXX XXX"
+                                                className="w-full p-3 bg-gray-50 border-2 border-gray-200 focus:border-emerald-500 rounded-xl text-base font-semibold outline-none"
+                                                disabled={stkStatus === 'sending' || stkStatus === 'waiting'}
+                                                autoFocus
+                                            />
+                                        </div>
+
+                                        {stkStatus !== 'idle' && (
+                                            <div
+                                                className={`p-3 rounded-xl flex items-center gap-2.5 text-xs font-semibold ${
+                                                    stkStatus === 'sending'
+                                                        ? 'bg-amber-50 border border-amber-300 text-amber-800'
+                                                        : stkStatus === 'waiting'
+                                                        ? 'bg-blue-50 border border-blue-300 text-blue-800'
+                                                        : stkStatus === 'success'
+                                                        ? 'bg-emerald-50 border border-emerald-300 text-emerald-800'
+                                                        : 'bg-red-50 border border-red-300 text-red-800'
+                                                }`}
+                                            >
+                                                {(stkStatus === 'sending' || stkStatus === 'waiting') && (
+                                                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                                )}
+                                                <span>{stkMsg}</span>
+                                            </div>
                                         )}
-                                        <span>{stkMsg}</span>
+
+                                        {(stkStatus === 'idle' || stkStatus === 'failed') && (
+                                            <button
+                                                onClick={handleSTK}
+                                                className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold text-sm transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
+                                            >
+                                                <span>📱</span> Send M-Pesa STK Push
+                                            </button>
+                                        )}
+
+                                        <div className="pt-2 border-t border-gray-200">
+                                            <p className="text-[10px] text-gray-400 text-center mb-1 font-medium">
+                                                - OR enter M-Pesa receipt code if already paid -
+                                            </p>
+                                            <input
+                                                type="text"
+                                                value={mpesaReceipt}
+                                                onChange={(e) => setMpesaReceipt(e.target.value.toUpperCase())}
+                                                placeholder="e.g. RLJ57XYZ99"
+                                                className="w-full p-2.5 bg-gray-50 border-2 border-gray-200 focus:border-emerald-500 rounded-xl text-xs font-mono font-bold uppercase outline-none"
+                                            />
+                                        </div>
                                     </div>
                                 )}
 
-                                {(stkStatus === 'idle' || stkStatus === 'failed') && (
-                                    <button
-                                        onClick={handleSTK}
-                                        className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold text-sm transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
-                                    >
-                                        <span>📱</span> Send M-Pesa STK Push
-                                    </button>
-                                )}
+                                {/* C2B Transactions Sub-tab */}
+                                {c2bTab === 'c2b' && (
+                                    <div className="space-y-2">
+                                        <div className="flex gap-2">
+                                            <input
+                                                type="text"
+                                                value={c2bSearchPhone}
+                                                onChange={(e) => setC2bSearchPhone(e.target.value)}
+                                                placeholder="Filter by phone or receipt..."
+                                                className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none focus:border-emerald-500"
+                                            />
+                                            <button
+                                                onClick={fetchC2bTransactions}
+                                                disabled={c2bLoading}
+                                                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold disabled:opacity-50 flex items-center gap-1"
+                                            >
+                                                {c2bLoading ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '🔄'}
+                                                Refresh
+                                            </button>
+                                        </div>
 
-                                <div className="pt-2 border-t border-gray-200">
-                                    <p className="text-[10px] text-gray-400 text-center mb-1 font-medium">
-                                        - OR enter M-Pesa receipt code if already paid -
-                                    </p>
-                                    <input
-                                        type="text"
-                                        value={mpesaReceipt}
-                                        onChange={(e) => setMpesaReceipt(e.target.value.toUpperCase())}
-                                        placeholder="e.g. RLJ57XYZ99"
-                                        className="w-full p-2.5 bg-gray-50 border-2 border-gray-200 focus:border-emerald-500 rounded-xl text-xs font-mono font-bold uppercase outline-none"
-                                    />
-                                </div>
+                                        {c2bLoading ? (
+                                            <div className="flex items-center justify-center py-6 text-gray-400 text-xs gap-2">
+                                                <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                                                Loading C2B transactions...
+                                            </div>
+                                        ) : c2bTransactions.length === 0 ? (
+                                            <div className="text-center py-6 text-gray-400 text-xs">
+                                                <div className="text-2xl mb-1">📭</div>
+                                                No unlinked C2B payments found
+                                            </div>
+                                        ) : (
+                                            <div className="max-h-52 overflow-y-auto space-y-1.5 rounded-xl">
+                                                {c2bTransactions
+                                                    .filter(t => {
+                                                        if (!c2bSearchPhone) return true;
+                                                        const q = c2bSearchPhone.toLowerCase();
+                                                        return (
+                                                            (t.phone || '').toLowerCase().includes(q) ||
+                                                            (t.mpesa_receipt || '').toLowerCase().includes(q) ||
+                                                            (t.customer_name || '').toLowerCase().includes(q)
+                                                        );
+                                                    })
+                                                    .map((txn) => {
+                                                        const amt = Number(txn.amount || 0);
+                                                        const isExact = amt === grandTotal;
+                                                        const isSufficient = amt >= grandTotal;
+                                                        return (
+                                                            <div
+                                                                key={txn.id}
+                                                                className={`p-2.5 rounded-xl border-2 transition-all ${
+                                                                    isExact
+                                                                        ? 'border-emerald-400 bg-emerald-50'
+                                                                        : isSufficient
+                                                                        ? 'border-blue-300 bg-blue-50'
+                                                                        : 'border-orange-200 bg-orange-50'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-start justify-between gap-2">
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                                            <span className="font-mono font-bold text-xs text-gray-800">{txn.mpesa_receipt || txn.id}</span>
+                                                                            {isExact && <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-full font-bold">EXACT</span>}
+                                                                            {!isExact && isSufficient && <span className="text-[9px] bg-blue-500 text-white px-1.5 py-0.5 rounded-full font-bold">SUFFICIENT</span>}
+                                                                            {!isSufficient && <span className="text-[9px] bg-orange-500 text-white px-1.5 py-0.5 rounded-full font-bold">SHORT</span>}
+                                                                        </div>
+                                                                        <p className="text-[10px] text-gray-600 mt-0.5">{txn.customer_name || 'Unknown'} • {txn.phone || ''}</p>
+                                                                        <p className="text-[10px] text-gray-400">{txn.created_at ? new Date(txn.created_at).toLocaleString() : ''}</p>
+                                                                    </div>
+                                                                    <div className="text-right flex-shrink-0">
+                                                                        <p className={`text-sm font-black ${ isExact ? 'text-emerald-700' : isSufficient ? 'text-blue-700' : 'text-orange-600' }`}>
+                                                                            Ksh {amt.toLocaleString()}
+                                                                        </p>
+                                                                        <button
+                                                                            onClick={() => linkC2bAndPay(txn)}
+                                                                            className="mt-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold transition-colors active:scale-95"
+                                                                        >
+                                                                            Link & Pay
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         )}
 
