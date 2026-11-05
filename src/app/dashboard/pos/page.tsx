@@ -2169,7 +2169,7 @@ export default function PharmacyPOS() {
                                                                             {!isSufficient && <span className="text-[9px] bg-orange-500 text-white px-1.5 py-0.5 rounded-full font-bold">SHORT</span>}
                                                                         </div>
                                                                         <p className="text-[10px] text-gray-800 font-semibold mt-0.5">{txn.customer_name || 'Unknown'}</p>
-                                                                        {txn.phone && String(txn.phone).length <= 15 && (<p className="text-[10px] text-emerald-700 font-mono font-bold">📞 {txn.phone}</p>)}
+                                                                        {txn.phone && String(txn.phone).length <= 15 && (<p className="text-[10px] text-emerald-700 font-mono font-bold">{String(txn.phone).length >= 9 ? String(txn.phone).slice(0,5)+'****'+String(txn.phone).slice(-3) : txn.phone}</p>)}
                                                                          <p className="text-[10px] text-blue-600">{txn.account_reference ? '🏷️ Ref: ' + txn.account_reference : ''}</p>
                                                                          <p className="text-[10px] text-gray-400">{txn.transaction_time ? new Date(txn.transaction_time).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : ''}</p>
                                                                     </div>
