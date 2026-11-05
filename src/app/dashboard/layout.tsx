@@ -3,125 +3,125 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { SettingsProvider, useCompanyName } from '@/context/SettingsContext';
+import { SettingsProvider } from '@/context/SettingsContext';
 import { OutletProvider, useOutlet } from '@/context/OutletContext';
 import { logActivity } from '@/lib/supabase';
+import { SidebarPillArtwork } from '@/lib/medicineVisual';
 
-/* ─── SVG Icon Library ───────────────────────────────────────────── */
+/* ─── Super Premium SVG Icon Library ─────────────────────────────── */
 const IC = {
   Home: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 3L2 12H5V20H10V14H14V20H19V12H22L12 3Z"/>
     </svg>
   ),
-  Pill: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/>
+  PillAngled: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/>
+      <path d="m8.5 8.5 7 7"/>
     </svg>
   ),
-  Tag: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/>
+  CartPill: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="8" cy="21" r="1.5" fill="currentColor"/>
+      <circle cx="19" cy="21" r="1.5" fill="currentColor"/>
+      <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+      <line x1="11" y1="8" x2="16" y2="8" strokeWidth="2.4"/>
+      <line x1="13.5" y1="5.5" x2="13.5" y2="10.5" strokeWidth="2.4"/>
     </svg>
   ),
-  Cart: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
+  DispensingClip: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="4" width="16" height="18" rx="2" ry="2"/>
+      <line x1="9" y1="2" x2="15" y2="2"/>
+      <line x1="12" y1="10" x2="12" y2="16"/>
+      <line x1="9" y1="13" x2="15" y2="13"/>
     </svg>
   ),
-  Layers: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>
+  PrescriptionClip: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="12" y1="18" x2="12" y2="12"/>
+      <line x1="9" y1="15" x2="15" y2="15"/>
+    </svg>
+  ),
+  Clock: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <polyline points="12 6 12 12 16 14"/>
+    </svg>
+  ),
+  BatchBox: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+      <path d="m3.3 7 8.7 5 8.7-5"/>
+      <path d="M12 22V12"/>
+    </svg>
+  ),
+  Stethoscope: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/>
+      <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/>
+      <circle cx="20" cy="10" r="2.5"/>
+    </svg>
+  ),
+  ProductsBox: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
+      <path d="m3.3 7 8.7 5 8.7-5"/>
+      <path d="M12 22V12"/>
+    </svg>
+  ),
+  PurchasesCart: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="21" r="1.5"/>
+      <circle cx="20" cy="21" r="1.5"/>
+      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+    </svg>
+  ),
+  InventoryStore: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+  ),
+  InsuranceShield: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      <path d="m9 12 2 2 4-4"/>
     </svg>
   ),
   Card: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect width="22" height="16" x="1" y="4" rx="2" ry="2"/><line x1="1" x2="23" y1="10" y2="10"/>
     </svg>
   ),
   Users: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
     </svg>
   ),
   Chart: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/>
     </svg>
   ),
   Shield: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
     </svg>
   ),
-  Monitor: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/>
-    </svg>
-  ),
-  Clock: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-    </svg>
-  ),
-  Box: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>
-    </svg>
-  ),
-  File: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/>
-    </svg>
-  ),
-  Refresh: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>
-    </svg>
-  ),
-  Warning: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>
-    </svg>
-  ),
-  Dollar: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
-    </svg>
-  ),
-  UserPlus: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>
-    </svg>
-  ),
-  Trend: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
-    </svg>
-  ),
   Gear: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
     </svg>
   ),
-  Pin: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-    </svg>
-  ),
-  Scroll: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
-    </svg>
-  ),
-  Building: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>
-    </svg>
-  ),
-  Ruler: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21.3 8.7 8.7 21.3c-1 1-2.5 1-3.4 0l-2.6-2.6c-1-1-1-2.5 0-3.4L15.3 2.7c1-1 2.5-1 3.4 0l2.6 2.6c1 1 1 2.5 0 3.4Z"/><path d="m7.5 10.5 2 2"/><path d="m10.5 7.5 2 2"/><path d="m13.5 4.5 2 2"/><path d="m4.5 13.5 2 2"/>
+  Power: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+      <line x1="12" y1="2" x2="12" y2="12"/>
     </svg>
   ),
   ChevronDown: ({ rotated }: { rotated?: boolean }) => (
@@ -143,197 +143,151 @@ const IC = {
       <polyline points="9 18 15 12 9 6"/>
     </svg>
   ),
-  LogOut: () => (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>
-    </svg>
-  ),
-  Power: () => (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/>
-    </svg>
-  ),
   Bell: () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
     </svg>
   ),
-  Heart: () => (
+  Refresh: () => (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>
     </svg>
   ),
-  HeartPulse: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
-      <path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/>
-    </svg>
-  ),
-  Clipboard: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-      <path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/>
-    </svg>
-  ),
-  ShieldLock: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><rect x="9" y="10" width="6" height="5" rx="1"/><path d="M10 10V8a2 2 0 1 1 4 0v2"/>
-    </svg>
-  ),
-  ShieldCheck: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>
-    </svg>
-  ),
-  Star: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-    </svg>
-  ),
-  Beaker: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4.5 3h15"/><path d="M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3"/><path d="M6 14h12"/>
-    </svg>
-  ),
-  ClipboardCheck: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-      <path d="m9 14 2 2 4-4"/>
-    </svg>
-  ),
-  Stethoscope: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/>
-      <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/>
+  GoldShieldBadge: () => (
+    <svg width="30" height="30" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="goldShieldGrad" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#FBBF24" />
+          <stop offset="50%" stopColor="#D97706" />
+          <stop offset="100%" stopColor="#92400E" />
+        </linearGradient>
+      </defs>
+      <path d="M14 2L4 6V13C4 19.5 8.2 24.8 14 26C19.8 24.8 24 19.5 24 13V6L14 2Z" fill="url(#goldShieldGrad)" stroke="#FDE68A" strokeWidth="1.2" />
+      <path d="M9.5 14L12.5 17L18.5 10.5" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
 };
 
-/* ─── Medical Cross Logo ─────────────────────────────────────────── */
-function AlphaCrossLogo() {
-  return (
-    <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-zinc-800 to-zinc-950 border border-zinc-700/70 flex items-center justify-center flex-shrink-0 shadow-md">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path
-          d="M9 3C9 2.44772 9.44772 2 10 2H14C14.5523 2 15 2.44772 15 3V9H21C21.5523 9 22 9.44772 22 10V14C22 14.5523 21.5523 15 21 15H15V21C15 21.5523 14.5523 22 14 22H10C9.44772 22 9 21.5523 9 21V15H3C2.44772 15 2 14.5523 2 14V10C2 9.44772 2.44772 9 3 9H9V3Z"
-          fill="white"
-        />
-      </svg>
-    </div>
-  );
-}
-
-/* ─── Menu Definition ────────────────────────────────────────────── */
+/* ─── Menu Groups Definition ─────────────────────────────────────── */
 type SubItem = { name: string; href: string; icon: () => JSX.Element; badge?: string; adminOnly?: boolean; superAdminOnly?: boolean };
 type MenuGroup = { id: string; name: string; icon: () => JSX.Element; href?: string; single?: boolean; items?: SubItem[] };
 
 const menuGroups: MenuGroup[] = [
   {
-    id: 'dashboard', name: 'Dashboard', icon: IC.Home,
-    href: '/dashboard', single: true,
-  },
-  {
-    id: 'pharmacy', name: 'Pharmacy', icon: IC.Pill,
+    id: 'pharmacy',
+    name: 'Pharmacy',
+    icon: IC.PillAngled,
     items: [
-      { name: 'Pharmacy POS',      href: '/dashboard/pos',              icon: IC.Monitor },
-      { name: 'Dispensing',         href: '/dashboard/dispensing',       icon: IC.Beaker },
-      { name: 'Prescriptions',     href: '/dashboard/prescriptions',    icon: IC.Clipboard },
-      { name: 'Expiry Register',   href: '/dashboard/expiry-register',  icon: IC.Clock,  badge: '!' },
-      { name: 'Batch Management',  href: '/dashboard/batches',          icon: IC.Box },
+      { name: 'Pharmacy POS',     href: '/dashboard/pos',              icon: IC.CartPill },
+      { name: 'Dispensing',        href: '/dashboard/dispensing',       icon: IC.DispensingClip },
+      { name: 'Prescriptions',    href: '/dashboard/prescriptions',    icon: IC.PrescriptionClip },
+      { name: 'Expiry Register',  href: '/dashboard/expiry-register',  icon: IC.Clock, badge: '3' },
+      { name: 'Batch Management', href: '/dashboard/batches',          icon: IC.BatchBox },
     ],
   },
   {
-    id: 'clinical', name: 'Clinical', icon: IC.HeartPulse,
+    id: 'clinical',
+    name: 'Clinical',
+    icon: IC.Stethoscope,
     items: [
-      { name: 'Patients',          href: '/dashboard/patients',         icon: IC.UserPlus },
-      { name: 'Dangerous Drugs',   href: '/dashboard/dangerous-drugs',  icon: IC.ShieldCheck, badge: 'DDR' },
-      { name: 'Pharmacovigilance', href: '/dashboard/pharmacovigilance', icon: IC.Heart },
-      { name: 'Drug Interactions', href: '/dashboard/drug-interactions', icon: IC.Warning },
-      { name: 'Data Protection 🔒', href: '/dashboard/data-protection', icon: IC.ShieldCheck, badge: 'DPA' },
+      { name: 'Patients',          href: '/dashboard/patients',         icon: IC.Users },
+      { name: 'Dangerous Drugs',   href: '/dashboard/dangerous-drugs',  icon: IC.InsuranceShield, badge: 'DDR' },
+      { name: 'Pharmacovigilance', href: '/dashboard/pharmacovigilance', icon: IC.PrescriptionClip },
+      { name: 'Drug Interactions', href: '/dashboard/drug-interactions', icon: IC.DispensingClip },
+      { name: 'Data Protection 🔒', href: '/dashboard/data-protection', icon: IC.InsuranceShield, badge: 'DPA' },
     ],
   },
   {
-    id: 'products', name: 'Products & Sales', icon: IC.Tag,
+    id: 'products',
+    name: 'Products & Sales',
+    icon: IC.ProductsBox,
     items: [
-      { name: 'Products / Drugs',  href: '/dashboard/products',         icon: IC.Pill },
-      { name: 'Categories',        href: '/dashboard/categories',        icon: IC.Tag },
-      { name: 'Sales Records',     href: '/dashboard/sales',            icon: IC.File },
-      { name: 'Sales Return',      href: '/dashboard/sales-return',     icon: IC.Refresh },
+      { name: 'Products / Drugs', href: '/dashboard/products',         icon: IC.PillAngled },
+      { name: 'Categories',       href: '/dashboard/categories',       icon: IC.BatchBox },
+      { name: 'Sales Records',    href: '/dashboard/sales',            icon: IC.PrescriptionClip },
+      { name: 'Sales Return',     href: '/dashboard/sales-return',     icon: IC.Refresh },
     ],
   },
   {
-    id: 'purchases', name: 'Purchases', icon: IC.Cart,
+    id: 'purchases',
+    name: 'Purchases',
+    icon: IC.PurchasesCart,
     items: [
-      { name: 'Suppliers',              href: '/dashboard/suppliers',        icon: IC.Building },
-      { name: 'Purchase Entry',         href: '/dashboard/purchase',         icon: IC.Box },
-      { name: 'Purchase Records',       href: '/dashboard/purchases',        icon: IC.File },
-      { name: 'Purchase Return',        href: '/dashboard/purchase-return',  icon: IC.Refresh },
-      { name: 'Goods Received (GRN)',   href: '/dashboard/grn',              icon: IC.Box,    badge: 'NEW' },
-      { name: 'Accounts Payable',       href: '/dashboard/accounts-payable', icon: IC.Dollar, badge: 'NEW' },
+      { name: 'Suppliers',            href: '/dashboard/suppliers',        icon: IC.InventoryStore },
+      { name: 'Purchase Entry',       href: '/dashboard/purchase',         icon: IC.BatchBox },
+      { name: 'Purchase Records',     href: '/dashboard/purchases',        icon: IC.PrescriptionClip },
+      { name: 'Purchase Return',      href: '/dashboard/purchase-return',  icon: IC.Refresh },
+      { name: 'Goods Received (GRN)', href: '/dashboard/grn',              icon: IC.BatchBox, badge: 'NEW' },
+      { name: 'Accounts Payable',     href: '/dashboard/accounts-payable', icon: IC.Card,     badge: 'NEW' },
     ],
   },
   {
-    id: 'inventory', name: 'Inventory', icon: IC.Layers,
+    id: 'inventory',
+    name: 'Inventory',
+    icon: IC.InventoryStore,
     items: [
-      { name: 'Stock Movement',    href: '/dashboard/stock-movement',   icon: IC.Refresh },
-      { name: 'Stock Take',        href: '/dashboard/stock-take',       icon: IC.ClipboardCheck },
-      { name: 'Stock Transfer',    href: '/dashboard/stock-transfer',   icon: IC.Box },
-      { name: 'Low Stock',         href: '/dashboard/low-stock',        icon: IC.Warning },
-      { name: 'Cold Chain 🌡️',    href: '/dashboard/cold-chain',       icon: IC.Shield,  badge: 'NEW' },
+      { name: 'Stock Movement',   href: '/dashboard/stock-movement', icon: IC.Refresh },
+      { name: 'Stock Take',       href: '/dashboard/stock-take',     icon: IC.DispensingClip },
+      { name: 'Stock Transfer',   href: '/dashboard/stock-transfer', icon: IC.BatchBox },
+      { name: 'Low Stock',        href: '/dashboard/low-stock',      icon: IC.Clock },
+      { name: 'Cold Chain 🌡️',   href: '/dashboard/cold-chain',     icon: IC.InsuranceShield, badge: 'NEW' },
     ],
   },
   {
-    id: 'insurance', name: 'Insurance', icon: IC.ShieldLock,
+    id: 'insurance',
+    name: 'Insurance',
+    icon: IC.InsuranceShield,
     items: [
-      { name: 'Insurance Claims',    href: '/dashboard/insurance-claims',   icon: IC.ShieldCheck },
-      { name: 'Credit Customers',    href: '/dashboard/credit-customers',   icon: IC.UserPlus },
-      { name: 'Credit Payments',     href: '/dashboard/credit-payments',    icon: IC.Dollar },
+      { name: 'Insurance Claims',    href: '/dashboard/insurance-claims',   icon: IC.InsuranceShield },
+      { name: 'Credit Customers',    href: '/dashboard/credit-customers',   icon: IC.Users },
+      { name: 'Credit Payments',     href: '/dashboard/credit-payments',    icon: IC.Card },
       { name: 'Accounts Receivable', href: '/dashboard/accounts-receivable', icon: IC.Chart, badge: 'NEW' },
     ],
   },
   {
-    id: 'finance', name: 'Finance', icon: IC.Card,
+    id: 'finance',
+    name: 'Finance',
+    icon: IC.Card,
     items: [
-      { name: 'Expenses',              href: '/dashboard/expenses',              icon: IC.Dollar },
-      { name: 'Petty Cash',            href: '/dashboard/petty-cash',            icon: IC.Dollar,   badge: 'NEW' },
-      { name: 'Split Payment',         href: '/dashboard/split-payment',         icon: IC.Card,     badge: 'NEW' },
-      { name: 'Bank Reconciliation',   href: '/dashboard/bank-reconciliation',   icon: IC.Card,     badge: 'NEW' },
-      { name: 'M-Pesa Reconciliation', href: '/dashboard/mpesa-reconciliation',  icon: IC.Dollar,   badge: 'NEW' },
-      { name: 'Accounts Receivable',   href: '/dashboard/accounts-receivable',   icon: IC.Chart,    badge: 'NEW' },
-      { name: 'Loyalty Program',       href: '/dashboard/loyalty',               icon: IC.Star },
+      { name: 'Expenses',              href: '/dashboard/expenses',             icon: IC.Card },
+      { name: 'Petty Cash',            href: '/dashboard/petty-cash',           icon: IC.Card,  badge: 'NEW' },
+      { name: 'Split Payment',         href: '/dashboard/split-payment',        icon: IC.Card,  badge: 'NEW' },
+      { name: 'Bank Reconciliation',   href: '/dashboard/bank-reconciliation',  icon: IC.Card,  badge: 'NEW' },
+      { name: 'M-Pesa Reconciliation', href: '/dashboard/mpesa-reconciliation', icon: IC.Card,  badge: 'NEW' },
+      { name: 'Accounts Receivable',   href: '/dashboard/accounts-receivable',  icon: IC.Chart, badge: 'NEW' },
     ],
   },
   {
-    id: 'hr', name: 'HR & Payroll', icon: IC.Users,
+    id: 'hr',
+    name: 'HR & Payroll',
+    icon: IC.Users,
     items: [
-      { name: 'Shifts',            href: '/dashboard/shifts',           icon: IC.Clock },
-      { name: 'Shift Reports',     href: '/dashboard/shift-reports',    icon: IC.File },
+      { name: 'Shifts',        href: '/dashboard/shifts',        icon: IC.Clock },
+      { name: 'Shift Reports', href: '/dashboard/shift-reports', icon: IC.PrescriptionClip },
     ],
   },
   {
-    id: 'reports', name: 'Reports', icon: IC.Chart,
+    id: 'reports',
+    name: 'Reports',
+    icon: IC.Chart,
     items: [
-      { name: 'Sales Report',      href: '/dashboard/reports/sales',    icon: IC.Trend },
-      { name: 'Profit Report',     href: '/dashboard/reports/profit',   icon: IC.Trend },
-      { name: 'Stock Report',      href: '/dashboard/reports/stock',    icon: IC.Chart },
-      { name: 'Expiry Report',     href: '/dashboard/reports/expiry',   icon: IC.Clock },
-      { name: 'M-Pesa Report',     href: '/dashboard/reports/mpesa',    icon: IC.Dollar },
-      { name: 'P&L Statement',     href: '/dashboard/reports/profit-loss', icon: IC.Trend },
-      { name: 'Balance Sheet',     href: '/dashboard/reports/balance-sheet', icon: IC.File },
-      { name: 'Cash Book',         href: '/dashboard/reports/cash-book', icon: IC.Dollar },
-      { name: 'Trial Balance',     href: '/dashboard/reports/trial-balance', icon: IC.Chart },
+      { name: 'Sales Report',  href: '/dashboard/reports/sales',  icon: IC.Chart },
+      { name: 'Profit Report', href: '/dashboard/reports/profit', icon: IC.Chart },
+      { name: 'Stock Report',  href: '/dashboard/reports/stock',  icon: IC.Chart },
+      { name: 'Expiry Report', href: '/dashboard/reports/expiry', icon: IC.Clock },
     ],
   },
   {
-    id: 'admin', name: 'Administration', icon: IC.Shield,
+    id: 'admin',
+    name: 'Administration',
+    icon: IC.Shield,
     items: [
-      { name: 'Outlets',           href: '/dashboard/outlets',          icon: IC.Pin,    superAdminOnly: true },
-      { name: 'Users',             href: '/dashboard/users',            icon: IC.Users },
-      { name: 'User Roles',        href: '/dashboard/user-roles',       icon: IC.Shield },
-      { name: 'Activity Log',      href: '/dashboard/activity-log',     icon: IC.Scroll, adminOnly: true },
-      { name: 'Company',           href: '/dashboard/company',          icon: IC.Building },
-      { name: 'Units',             href: '/dashboard/units',            icon: IC.Ruler },
-      { name: 'Tax Settings',      href: '/dashboard/tax-settings',     icon: IC.Gear },
+      { name: 'Outlets',      href: '/dashboard/outlets',      icon: IC.InventoryStore, superAdminOnly: true },
+      { name: 'Users',        href: '/dashboard/users',        icon: IC.Users },
+      { name: 'User Roles',   href: '/dashboard/user-roles',   icon: IC.Shield },
+      { name: 'Activity Log', href: '/dashboard/activity-log', icon: IC.PrescriptionClip, adminOnly: true },
+      { name: 'Company',      href: '/dashboard/company',      icon: IC.InventoryStore },
+      { name: 'Tax Settings', href: '/dashboard/tax-settings', icon: IC.Gear },
     ],
   },
 ];
@@ -341,30 +295,15 @@ const menuGroups: MenuGroup[] = [
 /* ─── Role badge helper ──────────────────────────────────────────── */
 function getRoleBadge(userType: string) {
   const t = (userType || '').toLowerCase();
-  if (t.includes('super')) return { label: 'Administrator', cls: 'bg-zinc-800 text-zinc-300 border border-zinc-700' };
-  if (t === 'admin')       return { label: 'Administrator', cls: 'bg-zinc-800 text-zinc-300 border border-zinc-700' };
-  if (t === 'manager')     return { label: 'Manager',       cls: 'bg-zinc-800 text-zinc-300 border border-zinc-700' };
-  if (t === 'pharmacist')  return { label: 'Pharmacist',    cls: 'bg-zinc-800 text-zinc-300 border border-zinc-700' };
-  if (t === 'cashier')     return { label: 'Cashier',       cls: 'bg-zinc-800 text-zinc-300 border border-zinc-700' };
-  return { label: userType, cls: 'bg-zinc-800 text-zinc-300 border border-zinc-700' };
+  if (t.includes('super')) return { label: 'Administrator', cls: 'text-emerald-300' };
+  if (t === 'admin')       return { label: 'Administrator', cls: 'text-emerald-300' };
+  if (t === 'manager')     return { label: 'Manager',       cls: 'text-emerald-300' };
+  if (t === 'pharmacist')  return { label: 'Pharmacist',    cls: 'text-emerald-300' };
+  if (t === 'cashier')     return { label: 'Cashier',       cls: 'text-emerald-300' };
+  return { label: userType, cls: 'text-emerald-300' };
 }
 
-/* ─── Context display helpers ────────────────────────────────────── */
-function CompanyNameDisplay() {
-  const companyName = useCompanyName();
-  const { activeOutlet } = useOutlet();
-  return (
-    <div className="flex flex-col min-w-0">
-      <span className="font-extrabold text-white text-[15px] leading-tight tracking-tight truncate">
-        {companyName || 'Alpha Pharmacy'}
-      </span>
-      <span className="text-[10px] text-zinc-400 font-medium tracking-wide truncate mt-0.5">
-        {activeOutlet ? `📍 ${activeOutlet.outlet_name}` : 'Care Today. Health Tomorrow.'}
-      </span>
-    </div>
-  );
-}
-
+/* ─── Outlet Switcher for Header ─────────────────────────────────── */
 function OutletSwitcher() {
   const { activeOutlet, outlets, switchOutlet } = useOutlet();
   if (outlets.length <= 1) return null;
@@ -372,7 +311,7 @@ function OutletSwitcher() {
     <select
       value={activeOutlet?.outlet_id || ''}
       onChange={e => switchOutlet(Number(e.target.value))}
-      className="px-3 py-1.5 bg-teal-50 border border-teal-200 rounded-xl text-sm font-semibold text-teal-700 focus:border-teal-400 outline-none cursor-pointer"
+      className="px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800 focus:border-emerald-400 outline-none cursor-pointer shadow-sm"
     >
       {outlets.map(o => (
         <option key={o.outlet_id} value={o.outlet_id}>
@@ -383,14 +322,14 @@ function OutletSwitcher() {
   );
 }
 
-/* ─── Main Layout ────────────────────────────────────────────────── */
+/* ─── Main Dashboard Layout ──────────────────────────────────────── */
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router   = useRouter();
   const pathname = usePathname();
   const [user, setUser]               = useState<{ userId: string; name: string; userType: string } | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [expanded, setExpanded]       = useState<Set<string>>(new Set());
+  const [expanded, setExpanded]       = useState<Set<string>>(new Set(['pharmacy']));
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -398,14 +337,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setUser(JSON.parse(userData));
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
 
-    // DPA Compliance: Auto-logout on 30 minutes of inactivity
+    // Auto-logout after 30 minutes of inactivity
     let timeout: NodeJS.Timeout;
     const resetTimer = () => {
       clearTimeout(timeout);
       timeout = setTimeout(() => {
         localStorage.removeItem('user');
         router.push('/?session_expired=1');
-      }, 30 * 60 * 1000); // 30 minutes
+      }, 30 * 60 * 1000);
     };
 
     window.addEventListener('mousemove', resetTimer);
@@ -422,7 +361,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
   }, [router]);
 
-  // Auto-expand the group that owns the current route
+  // Keep active group expanded
   useEffect(() => {
     const active = menuGroups.find(g => !g.single && g.items?.some(i => i.href === pathname));
     if (active) setExpanded(prev => { const s = new Set(prev); s.add(active.id); return s; });
@@ -433,7 +372,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const getGreeting = () => {
     const h = currentTime.getHours();
-    if (h < 12) return { text: 'Good Morning',   emoji: '🌅' };
+    if (h < 12) return { text: 'Good Morning',   emoji: '☀️' };
     if (h < 17) return { text: 'Good Afternoon', emoji: '☀️' };
     if (h < 21) return { text: 'Good Evening',   emoji: '🌆' };
     return         { text: 'Good Night',      emoji: '🌙' };
@@ -452,48 +391,94 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isSuperAdmin = ['superadmin', 'superuser', 'super admin'].includes((user.userType || '').toLowerCase());
   const isAdmin      = isSuperAdmin || ['admin', 'manager'].includes((user.userType || '').toLowerCase());
   const roleBadge    = getRoleBadge(user.userType);
-  const avatarLetter = user.name.charAt(0).toUpperCase();
+  const avatarLetter = (user.name || 'S').charAt(0).toUpperCase();
 
   return (
     <SettingsProvider>
       <OutletProvider>
-        <div className="min-h-screen bg-[#f3f4f6] flex">
+        <div className="min-h-screen bg-[#F0F5F2] flex select-none text-slate-800">
 
-          {/* ── Sleek Obsidian Black Dark Sidebar ── */}
+          {/* ══════════════════════════════════════════════════════════════
+              EXACT SUPER PREMIUM EMERALD GREEN SIDEBAR (Image 1 Pixel Match)
+             ══════════════════════════════════════════════════════════════ */}
           {!isCashier && (
             <aside
               className={`${
-                sidebarOpen ? 'w-[250px]' : 'w-[72px]'
-              } bg-gradient-to-b from-[#0e1015] via-[#090a0d] to-[#040507] border-r border-white/[0.08] flex flex-col fixed h-full z-50 transition-all duration-300 shadow-2xl`}
+                sidebarOpen ? 'w-[252px]' : 'w-[74px]'
+              } bg-gradient-to-b from-[#023318] via-[#023d1e] to-[#011c0d] border-r-2 border-[#00E676]/40 flex flex-col fixed h-full z-50 transition-all duration-300 shadow-[4px_0_30px_rgba(0,180,80,0.22)]`}
             >
-              {/* Logo Header */}
-              <div className="relative flex items-center gap-3 px-4 py-[18px] border-b border-white/[0.07]">
-                <AlphaCrossLogo />
+              {/* ── Top Centered Cross & Brand Header ── */}
+              <div className="flex flex-col items-center justify-center pt-5 pb-3 px-3 border-b border-emerald-900/60 relative">
+                {/* White Medical Cross with Green Leaf */}
+                <div className="relative mb-2">
+                  <svg width="44" height="44" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    {/* White Greek Cross */}
+                    <path
+                      d="M15 4C15 2.89543 15.8954 2 17 2H23C24.1046 2 25 2.89543 25 4V15H36C37.1046 15 38 15.8954 38 17V23C38 24.1046 37.1046 25 36 25H25V36C25 37.1046 24.1046 38 23 38H17C15.8954 38 15 37.1046 15 36V25H4C2.89543 25 2 24.1046 2 23V17C2 15.8954 2.89543 15 4 15H15V4Z"
+                      fill="white"
+                    />
+                    {/* Vibrant Leaf in upper right arm */}
+                    <path
+                      d="M23 15C23 15 25 7 34 5C34 5 36 12 31 17C28 20 23 19 23 19V15Z"
+                      fill="#00E676"
+                    />
+                    <path
+                      d="M24 17.5C27 15.5 30 11.5 33 5"
+                      stroke="#008A3D"
+                      strokeWidth="1.2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </div>
 
                 {sidebarOpen && (
-                  <CompanyNameDisplay />
+                  <div className="flex flex-col items-center text-center">
+                    <h1 className="text-[19px] font-black text-white tracking-tight leading-tight">
+                      Alpha Pharmacy
+                    </h1>
+                    <p className="text-[11px] text-emerald-200/90 font-medium tracking-wide mt-0.5">
+                      Care Today. Health Tomorrow.
+                    </p>
+                  </div>
                 )}
 
-                {/* Collapse toggle — right edge of sidebar */}
+                {/* Edge collapse button */}
                 <button
                   onClick={() => setSidebarOpen(!sidebarOpen)}
-                  className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-zinc-900 border border-zinc-700 text-zinc-300 hover:text-white rounded-full flex items-center justify-center shadow-md hover:bg-zinc-800 transition-colors z-10"
+                  className="absolute -right-3 top-8 w-6 h-6 bg-[#00A848] border border-emerald-300 text-white rounded-full flex items-center justify-center shadow-md hover:bg-[#00D060] transition-colors z-10"
                   title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
                 >
                   {sidebarOpen ? <IC.ChevronLeft /> : <IC.ChevronRight />}
                 </button>
               </div>
 
-              {/* Navigation List */}
-              <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-1 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent">
-                {menuGroups.map(group => {
-                  const isGroupActive  = group.single
-                    ? pathname === group.href
-                    : group.items?.some(i => i.href === pathname) ?? false;
-                  const isOpen         = expanded.has(group.id);
-                  const GroupIcon      = group.icon;
+              {/* ── Standalone Dashboard Glowing Pill ── */}
+              <div className="px-2.5 pt-3">
+                <Link
+                  href="/dashboard"
+                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl transition-all duration-200 group relative ${
+                    pathname === '/dashboard'
+                      ? 'bg-gradient-to-r from-[#00D060]/30 via-[#00A848]/40 to-[#00D060]/30 border-2 border-[#00E676] text-white font-extrabold shadow-[0_0_22px_rgba(0,230,118,0.45)]'
+                      : 'text-white/95 hover:text-white bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 font-bold'
+                  }`}
+                  title={!sidebarOpen ? 'Dashboard' : undefined}
+                >
+                  <span className="flex-shrink-0 text-white">
+                    <IC.Home />
+                  </span>
+                  {sidebarOpen && (
+                    <span className="text-[14px] truncate font-bold">Dashboard</span>
+                  )}
+                </Link>
+              </div>
 
-                  // filter sub-items by permission
+              {/* ── Nav Groups ── */}
+              <nav className="flex-1 overflow-y-auto py-2 px-2.5 space-y-1 scrollbar-thin scrollbar-thumb-emerald-800/40">
+                {menuGroups.map(group => {
+                  const isGroupActive = group.items?.some(i => i.href === pathname) ?? false;
+                  const isOpen = expanded.has(group.id);
+                  const GroupIcon = group.icon;
+
                   const visibleItems = group.items?.filter(item => {
                     if (item.superAdminOnly && !isSuperAdmin) return false;
                     if (item.adminOnly      && !isAdmin)      return false;
@@ -501,75 +486,71 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   }) ?? [];
 
                   return (
-                    <div key={group.id} className="space-y-0.5">
-                      {/* Parent Row */}
-                      {group.single ? (
-                        <Link
-                          href={group.href!}
-                          className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all group relative ${
-                            isGroupActive
-                              ? 'bg-gradient-to-r from-zinc-800 to-zinc-900 text-white font-bold border border-zinc-700/80 shadow-[0_4px_16px_rgba(0,0,0,0.5)]'
-                              : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04] font-medium border border-transparent'
-                          }`}
-                          title={!sidebarOpen ? group.name : undefined}
-                        >
-                          <span className={`flex-shrink-0 ${isGroupActive ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-100'}`}>
-                            <GroupIcon />
-                          </span>
-                          {sidebarOpen && (
-                            <span className="text-[13.5px] truncate font-semibold">{group.name}</span>
-                          )}
-                        </Link>
-                      ) : (
-                        <button
-                          onClick={() => toggleGroup(group.id)}
-                          className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all group relative ${
-                            isGroupActive
-                              ? 'text-white font-bold bg-white/[0.06] border border-white/[0.08]'
-                              : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04] font-medium border border-transparent'
-                          }`}
-                          title={!sidebarOpen ? group.name : undefined}
-                        >
-                          <span className={`flex-shrink-0 ${isGroupActive ? 'text-white' : 'text-zinc-400 group-hover:text-zinc-100'}`}>
-                            <GroupIcon />
-                          </span>
-                          {sidebarOpen && (
-                            <>
-                              <span className="text-[13.5px] truncate flex-1 text-left font-semibold">{group.name}</span>
-                              <span className={`flex-shrink-0 ${isGroupActive ? 'text-white' : 'text-zinc-500 group-hover:text-zinc-300'}`}>
-                                <IC.ChevronDown rotated={isOpen} />
-                              </span>
-                            </>
-                          )}
-                        </button>
-                      )}
+                    <div key={group.id} className="space-y-1">
+                      {/* Parent Group Button */}
+                      <button
+                        onClick={() => toggleGroup(group.id)}
+                        className={`w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl transition-all group relative ${
+                          isGroupActive
+                            ? 'text-white font-bold bg-white/[0.06]'
+                            : 'text-emerald-100/85 hover:text-white hover:bg-white/[0.05] font-semibold'
+                        }`}
+                        title={!sidebarOpen ? group.name : undefined}
+                      >
+                        <span className="flex-shrink-0 text-white">
+                          <GroupIcon />
+                        </span>
+                        {sidebarOpen && (
+                          <>
+                            <span className="text-[14px] truncate flex-1 text-left font-bold">{group.name}</span>
+                            <span className="flex-shrink-0 text-emerald-300">
+                              <IC.ChevronDown rotated={isOpen} />
+                            </span>
+                          </>
+                        )}
+                      </button>
 
-                      {/* Sub-items */}
-                      {!group.single && isOpen && sidebarOpen && visibleItems.length > 0 && (
-                        <div className="ml-3 pl-2.5 border-l border-zinc-800/80 mt-1 mb-1.5 space-y-1">
+                      {/* Sub-items (Pharmacy POS, Dispensing, Prescriptions, Expiry, Batches) */}
+                      {isOpen && sidebarOpen && visibleItems.length > 0 && (
+                        <div className="space-y-1 pt-0.5">
                           {visibleItems.map(item => {
                             const isActive = pathname === item.href;
                             const SubIcon  = item.icon;
+
+                            // ── Glowing Solid Emerald Pill for Active Item (Pharmacy POS) ──
+                            if (isActive) {
+                              return (
+                                <Link
+                                  key={item.href}
+                                  href={item.href}
+                                  className="w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl bg-gradient-to-r from-[#00E676] via-[#00C853] to-[#00A848] text-white font-extrabold shadow-[0_4px_22px_rgba(0,230,118,0.5)] border border-emerald-300/40 transition-all active:scale-[0.99]"
+                                >
+                                  <span className="flex-shrink-0 text-white">
+                                    <SubIcon />
+                                  </span>
+                                  <span className="text-[14px] truncate flex-1 font-extrabold tracking-wide">{item.name}</span>
+                                  {item.badge && (
+                                    <span className="w-5 h-5 rounded-full bg-[#E52538] text-white text-[10px] font-black flex items-center justify-center shadow-md">
+                                      {item.badge}
+                                    </span>
+                                  )}
+                                </Link>
+                              );
+                            }
+
+                            // ── Inactive Sub-Item ──
                             return (
                               <Link
                                 key={item.href}
                                 href={item.href}
-                                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-[13px] transition-all group relative ${
-                                  isActive
-                                    ? 'bg-gradient-to-r from-zinc-800 via-zinc-850 to-zinc-900 text-white font-bold border border-zinc-600/70 shadow-[0_3px_12px_rgba(0,0,0,0.6)]'
-                                    : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04] font-medium border border-transparent'
-                                }`}
+                                className="flex items-center gap-3.5 px-4 py-2 rounded-xl text-[13.5px] text-white/90 hover:text-white hover:bg-white/[0.08] transition-all font-medium group"
                               >
-                                <span className={`flex-shrink-0 ${isActive ? 'text-white' : 'text-zinc-500 group-hover:text-zinc-200'}`}>
+                                <span className="flex-shrink-0 text-white/80 group-hover:text-white">
                                   <SubIcon />
                                 </span>
                                 <span className="truncate flex-1">{item.name}</span>
                                 {item.badge && (
-                                  <span className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full shadow-sm flex items-center justify-center ${
-                                    item.badge === '!' || item.badge === '3'
-                                      ? 'bg-red-500 text-white min-w-[18px] h-[18px]'
-                                      : 'bg-zinc-800 text-zinc-300 border border-zinc-700/80'
-                                  }`}>
+                                  <span className="w-5 h-5 rounded-full bg-[#E52538] text-white text-[10px] font-black flex items-center justify-center shadow-md flex-shrink-0">
                                     {item.badge}
                                   </span>
                                 )}
@@ -583,48 +564,72 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 })}
               </nav>
 
-              {/* ── Secure & Compliant Badge ── */}
+              {/* ── Secure & Compliant Glassmorphic Badge ── */}
               {sidebarOpen && (
-                <div className="mx-2.5 mb-2 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.07] backdrop-blur-md flex items-center gap-2.5 shadow-sm">
-                  <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 text-sm flex-shrink-0">
-                    🛡️
+                <div className="mx-3 mb-1 px-3.5 py-2.5 rounded-2xl bg-white/[0.08] border border-white/20 backdrop-blur-md flex items-center gap-3 shadow-lg">
+                  <div className="flex-shrink-0">
+                    <IC.GoldShieldBadge />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[11px] font-bold text-zinc-200 tracking-wide leading-tight">Secure & Compliant</p>
-                    <p className="text-[9.5px] text-zinc-400 truncate">Pharmacy Management System</p>
+                    <p className="text-[12px] font-extrabold text-white tracking-wide leading-tight">Secure & Compliant</p>
+                    <p className="text-[10px] text-emerald-200/80 font-medium truncate mt-0.5">Pharmacy Management System</p>
                   </div>
                 </div>
               )}
 
-              {/* ── Bottom User Card ── */}
-              <div className="border-t border-white/[0.07] px-3 py-2.5 bg-black/40">
-                <div className="flex items-center gap-2.5">
-                  {/* User Initial Circle */}
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-zinc-700 to-zinc-600 border border-zinc-500/40 flex items-center justify-center text-white font-extrabold text-sm flex-shrink-0 shadow-md">
-                    {avatarLetter}
+              {/* ── Decorative 3D Capsule & Leaves Artwork ── */}
+              {sidebarOpen && (
+                <div className="px-2 my-1 overflow-hidden flex items-center justify-center">
+                  <img
+                    src="/sidebar-pill-leaves.png"
+                    alt="Pharmacy Artwork"
+                    className="w-full h-16 object-contain rounded-xl drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
+                  />
+                </div>
+              )}
+
+              {/* ── User Profile Footer ── */}
+              <div className="border-t border-emerald-900/60 px-3.5 py-3 bg-[#011a0c]/80 backdrop-blur-md">
+                <div className="flex items-center gap-3">
+                  {/* Avatar Circle with White/Green Ring */}
+                  <div className="relative w-9 h-9 rounded-full overflow-hidden border-2 border-emerald-400/90 flex-shrink-0 shadow-md bg-gradient-to-tr from-[#00A848] to-[#00E676]">
+                    <img
+                      src="/admin-avatar.png"
+                      alt={user.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                    <div className="w-full h-full flex items-center justify-center text-white font-black text-sm absolute inset-0 -z-10">
+                      {avatarLetter}
+                    </div>
                   </div>
 
                   {sidebarOpen && (
                     <>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[12.5px] font-bold text-zinc-100 truncate leading-tight">{user.name}</p>
-                        <p className="text-[10px] text-zinc-400 font-medium truncate">{roleBadge.label}</p>
+                        <div className="flex items-center gap-1">
+                          <p className="text-[13px] font-extrabold text-white truncate leading-tight">{user.name}</p>
+                          <span className="text-emerald-300 text-xs">▾</span>
+                        </div>
+                        <p className="text-[10.5px] text-emerald-300/80 font-semibold truncate">{roleBadge.label}</p>
                       </div>
 
                       {/* Settings Gear */}
                       <button
                         onClick={() => router.push('/dashboard/tax-settings')}
                         title="Settings"
-                        className="flex-shrink-0 text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"
+                        className="flex-shrink-0 text-white hover:text-emerald-200 p-1.5 rounded-lg hover:bg-white/10 transition-colors"
                       >
                         <IC.Gear />
                       </button>
 
-                      {/* Power / Logout */}
+                      {/* Power / Sign out */}
                       <button
                         onClick={handleLogout}
                         title="Sign Out"
-                        className="flex-shrink-0 text-zinc-400 hover:text-red-400 p-1 rounded-lg hover:bg-red-500/10 transition-colors"
+                        className="flex-shrink-0 text-white hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/15 transition-colors"
                       >
                         <IC.Power />
                       </button>
@@ -635,47 +640,47 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </aside>
           )}
 
-          {/* ── Main content ── */}
-          <main className={`flex-1 ${isCashier ? 'ml-0' : sidebarOpen ? 'ml-[250px]' : 'ml-[72px]'} transition-all duration-300`}>
+          {/* ── Main Workspace ── */}
+          <main className={`flex-1 ${isCashier ? 'ml-0' : sidebarOpen ? 'ml-[252px]' : 'ml-[74px]'} transition-all duration-300 flex flex-col min-h-screen`}>
             {/* Top header */}
-            <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 sticky top-0 z-40 shadow-sm">
+            <header className="h-16 bg-white border-b border-emerald-100 flex items-center justify-between px-6 sticky top-0 z-40 shadow-xs">
               <div className="flex items-center gap-3">
-                <h2 className="text-[17px] font-semibold text-gray-800 flex items-center gap-2">
-                  {greeting.emoji} {greeting.text}
-                  <span>👋</span>
+                <h2 className="text-[16px] font-bold text-gray-800 flex items-center gap-2">
+                  <span>{greeting.emoji}</span>
+                  <span>{greeting.text} 👋</span>
                 </h2>
-                <span className="text-xs text-gray-600 hidden sm:block">Alpha Pharmacy POS</span>
+                <span className="text-xs text-gray-400 font-medium hidden sm:block">Alpha Pharmacy POS</span>
               </div>
               <div className="flex items-center gap-3">
                 <OutletSwitcher />
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 rounded-full border border-teal-100">
-                  <span className="w-2 h-2 bg-teal-500 rounded-full animate-pulse" />
-                  <span className="text-xs font-medium text-teal-600">Online</span>
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full shadow-xs">
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                  <span className="text-xs font-semibold">Online</span>
                 </div>
                 <button
                   onClick={() => window.location.reload()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#00A848] text-white text-xs font-bold rounded-xl hover:bg-[#00923e] transition-colors shadow-xs"
                 >
                   <IC.Refresh />
                   Refresh
                 </button>
-                <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-800">
+                <button className="relative p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-700">
                   <IC.Bell />
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+                  <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center">3</span>
                 </button>
                 <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
                   <div className="text-right hidden sm:block">
-                    <p className="text-[13px] font-semibold text-gray-800 leading-tight">{user.name}</p>
-                    <p className="text-[11px] text-gray-600">{user.userType || 'Pharmacist'}</p>
+                    <p className="text-[13px] font-bold text-gray-800 leading-tight">{user.name}</p>
+                    <p className="text-[11px] text-gray-400 font-medium">{roleBadge.label}</p>
                   </div>
-                  <div className="w-9 h-9 rounded-full bg-zinc-800 text-white font-bold text-sm shadow flex items-center justify-center">
+                  <div className="w-9 h-9 rounded-full bg-[#00A848] text-white font-black text-sm flex items-center justify-center shadow-xs">
                     {avatarLetter}
                   </div>
                 </div>
               </div>
             </header>
 
-            <div className="p-6">{children}</div>
+            <div className="p-4 flex-1 flex flex-col">{children}</div>
           </main>
         </div>
       </OutletProvider>
