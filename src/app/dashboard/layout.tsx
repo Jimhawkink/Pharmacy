@@ -39,6 +39,7 @@ import {
   TrendingUp,
   FileSpreadsheet,
   Lock,
+  Zap,
 } from 'lucide-react';
 
 /* ─── Menu Groups Definition with Lucide Icons ───────────────────── */
@@ -539,9 +540,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           )}
 
           {/* ── Main Workspace ── */}
-          <main className={`flex-1 ${isCashier ? 'ml-0' : sidebarOpen ? 'ml-[224px]' : 'ml-[68px]'} transition-all duration-300 flex flex-col min-h-screen`}>
+          <main className={`flex-1 ${isCashier ? 'ml-0' : sidebarOpen ? 'ml-[224px]' : 'ml-[68px]'} transition-all duration-300 flex flex-col ${pathname === '/dashboard/pos' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
             {/* Top header */}
-            <header className="h-16 bg-white border-b border-emerald-100 flex items-center justify-between px-6 sticky top-0 z-40 shadow-xs">
+            <header className="h-16 bg-white border-b border-emerald-100 flex items-center justify-between px-6 sticky top-0 z-40 shadow-xs shrink-0">
               <div className="flex items-center gap-3">
                 <h2 className="text-[16px] font-bold text-gray-800 flex items-center gap-2">
                   <span>{greeting.emoji}</span>
@@ -578,7 +579,140 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             </header>
 
-            <div className="p-4 flex-1 flex flex-col">{children}</div>
+            {/* Content Area */}
+            <div className={`flex-1 flex flex-col ${pathname === '/dashboard/pos' ? 'p-0 overflow-hidden' : 'p-4'}`}>
+              {children}
+            </div>
+
+            {/* ── Luxury Emerald Bottom Curved Wave Ribbon Footer ── */}
+            <footer className="h-10 bg-white border-t border-emerald-100/80 flex items-center justify-between select-none shrink-0 sticky bottom-0 z-30 shadow-[0_-1px_6px_rgba(0,0,0,0.03)] overflow-hidden">
+              {/* Left Feature Trust Badges */}
+              <div className="flex items-center gap-2 sm:gap-4 lg:gap-5 pl-4 sm:pl-6 text-[11.5px] font-semibold text-gray-700 whitespace-nowrap overflow-x-auto no-scrollbar">
+                {/* 1. Trusted Pharmacy Solution */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="w-4 h-4 rounded-full bg-[#00A848] flex items-center justify-center shrink-0 shadow-xs">
+                    <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  </div>
+                  <span className="text-gray-800 tracking-tight">Trusted Pharmacy Solution</span>
+                </div>
+
+                <span className="text-gray-300 font-light select-none text-xs">|</span>
+
+                {/* 2. Fast & Efficient */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0 drop-shadow-xs" />
+                  <span className="text-gray-800 tracking-tight">Fast & Efficient</span>
+                </div>
+
+                <span className="text-gray-300 font-light select-none text-xs">|</span>
+
+                {/* 3. Real-time Inventory */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <svg className="w-3.5 h-3.5 fill-[#00A848] shrink-0" viewBox="0 0 24 24">
+                    <rect x="3" y="14" width="3" height="8" rx="1" />
+                    <rect x="9" y="9" width="3" height="13" rx="1" />
+                    <rect x="15" y="4" width="3" height="18" rx="1" />
+                    <rect x="21" y="1" width="3" height="21" rx="1" />
+                  </svg>
+                  <span className="text-gray-800 tracking-tight">Real-time Inventory</span>
+                </div>
+
+                <span className="text-gray-300 font-light select-none text-xs hidden md:inline">|</span>
+
+                {/* 4. Better Patient Care */}
+                <div className="hidden md:flex items-center gap-1.5 shrink-0">
+                  <Users className="w-3.5 h-3.5 text-[#00A848] shrink-0" strokeWidth={2.4} />
+                  <span className="text-gray-800 tracking-tight">Better Patient Care</span>
+                </div>
+              </div>
+
+              {/* Right 3D Emerald Curved Wave Ribbon */}
+              <div className="relative h-full flex items-center justify-end shrink-0 select-none overflow-hidden pl-16 pr-5">
+                {/* SVG Curved Background with Glowing Neon Edge */}
+                <svg
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  viewBox="0 0 380 40"
+                  preserveAspectRatio="none"
+                >
+                  <defs>
+                    <linearGradient id="waveEmeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#00A848" />
+                      <stop offset="45%" stopColor="#007C35" />
+                      <stop offset="100%" stopColor="#00471F" />
+                    </linearGradient>
+
+                    <linearGradient id="neonLineGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#00E676" stopOpacity="0.1" />
+                      <stop offset="25%" stopColor="#00E676" stopOpacity="0.95" />
+                      <stop offset="65%" stopColor="#34D399" />
+                      <stop offset="100%" stopColor="#00E676" />
+                    </linearGradient>
+
+                    <filter id="neonGlow" x="-20%" y="-40%" width="140%" height="180%">
+                      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
+                      <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+
+                    <linearGradient id="goldCrownGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#FDE68A" />
+                      <stop offset="50%" stopColor="#F59E0B" />
+                      <stop offset="100%" stopColor="#D97706" />
+                    </linearGradient>
+                  </defs>
+
+                  {/* Main Curved Wave Ribbon Fill */}
+                  <path
+                    d="M 0,40 C 45,39 72,23 95,10 C 112,0 135,0 160,0 L 380,0 L 380,40 Z"
+                    fill="url(#waveEmeraldGrad)"
+                  />
+
+                  {/* Secondary subtle inner 3D glass highlight contour */}
+                  <path
+                    d="M 20,40 C 58,38 82,26 102,14 C 118,6 138,4 162,4 L 380,4"
+                    stroke="#ffffff"
+                    strokeWidth="1"
+                    strokeOpacity="0.3"
+                    fill="none"
+                  />
+
+                  {/* Radiant Glowing Neon Lime Top Stroke */}
+                  <path
+                    d="M 0,40 C 45,39 72,23 95,10 C 112,0 135,0 160,0 L 380,0"
+                    stroke="url(#neonLineGrad)"
+                    strokeWidth="2.6"
+                    fill="none"
+                    filter="url(#neonGlow)"
+                  />
+                </svg>
+
+                {/* Ribbon Text and Golden Crown */}
+                <div className="relative z-10 flex items-center gap-2">
+                  <span className="font-bold text-[12.5px] text-white tracking-tight drop-shadow-xs">
+                    Alpha Pharmacy POS
+                  </span>
+                  <span className="text-[11px] font-semibold text-emerald-200 drop-shadow-xs">
+                    v1.0
+                  </span>
+                  {/* Golden Crown */}
+                  <svg
+                    className="w-4 h-4 ml-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      d="M2 4l3.2 12h13.6L22 4l-6.2 6.5L12 3.5 8.2 10.5 2 4zm3 14h14v2H5v-2z"
+                      fill="url(#goldCrownGrad)"
+                      stroke="#B45309"
+                      strokeWidth="0.8"
+                    />
+                  </svg>
+                </div>
+              </div>
+            </footer>
           </main>
         </div>
       </OutletProvider>

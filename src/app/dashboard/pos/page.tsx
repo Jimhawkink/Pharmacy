@@ -1340,7 +1340,7 @@ export default function PharmacyPOS() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-full text-gray-500 bg-gray-50 -m-6">
+            <div className="flex items-center justify-center flex-1 h-full text-gray-500 bg-gray-50">
                 <div className="flex flex-col items-center gap-3">
                     <div className="w-12 h-12 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin"></div>
                     <span className="font-semibold text-gray-700">Loading Alpha Pharmacy POS...</span>
@@ -1351,7 +1351,7 @@ export default function PharmacyPOS() {
     }
 
     return (
-        <div className="h-[calc(100vh-64px)] flex flex-col bg-gray-50 -m-6 select-none">
+        <div className="flex-1 h-full flex flex-col bg-gray-50 select-none overflow-hidden">
             {/* ==================== 1. TOP STATUS BAR ==================== */}
             <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between shrink-0">
                 <div className="flex items-center gap-3">
