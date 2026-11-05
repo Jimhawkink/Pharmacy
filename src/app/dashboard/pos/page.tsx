@@ -1352,82 +1352,95 @@ export default function PharmacyPOS() {
 
     return (
         <div className="flex-1 h-full flex flex-col bg-gray-50 select-none overflow-hidden">
-            {/* ==================== 1. TOP STATUS BAR ==================== */}
-            <div className="bg-white px-4 py-2 flex items-center justify-between shrink-0" style={{borderRadius:"0 0 20px 20px", boxShadow:"0 4px 16px rgba(0,0,0,0.08)", marginBottom:"6px", zIndex:10, position:"relative"}}>
-                <div className="flex items-center gap-3">
-                    <span className="text-emerald-700 font-extrabold text-sm flex items-center gap-1.5">
-                        <span className="text-lg">💊</span> ALPHA PHARMACY POS
-                    </span>
-                    <span className="text-gray-300">|</span>
-                    <span className="text-gray-700 text-xs font-semibold bg-gray-100 px-2 py-0.5 rounded-md">
-                        📍 {storeName}
-                    </span>
-                    <span className="text-gray-300">|</span>
-                    {/* Shift & Register Status Indicator */}
-                    <span
-                        className={`px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm ${
+            {/* ==================== 1. TOP STATUS BAR (ROW 2) ==================== */}
+            <div className="bg-[#F8FAF9] px-4 py-2 flex items-center justify-between shrink-0 gap-3 border-b border-gray-100">
+                <div className="flex items-center gap-2.5 flex-wrap">
+                    {/* 1. ALPHA PHARMACY POS (Glossy Rich Green 3D Pill) */}
+                    <div
+                        className="px-4 py-1.5 rounded-full text-white font-extrabold text-xs flex items-center gap-2 select-none"
+                        style={{
+                            background: 'linear-gradient(135deg, #004D25 0%, #007033 50%, #009640 100%)',
+                            boxShadow: '0 4px 14px rgba(0, 77, 37, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.4)',
+                            border: '1px solid rgba(52, 211, 153, 0.3)'
+                        }}
+                    >
+                        <span className="text-sm">💊</span>
+                        <span className="tracking-wide text-white drop-shadow-xs">ALPHA PHARMACY POS</span>
+                    </div>
+
+                    {/* 2. Main Pharmacy (White Rounded Pill) */}
+                    <div className="bg-white px-3.5 py-1.5 rounded-full shadow-xs border border-gray-200/80 flex items-center gap-1.5 text-xs font-bold text-gray-800 select-none">
+                        <span className="text-red-500 text-xs">📍</span>
+                        <span>{storeName}</span>
+                    </div>
+
+                    {/* 3. Shift Status (Soft Green Rounded Pill) */}
+                    <div
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-xs select-none ${
                             registerOpen
-                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-300'
+                                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                                 : 'bg-red-50 text-red-600 border border-red-300 animate-pulse'
                         }`}
                     >
                         <span className={`w-2 h-2 rounded-full ${registerOpen ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                        {registerOpen ? `Shift #${currentShiftId || 1} Open` : 'Register Closed'}
-                    </span>
+                        <span>{registerOpen ? `Shift #${currentShiftId || 1} Open` : 'Register Closed'}</span>
+                    </div>
                 </div>
 
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2 flex-wrap">
                     {/* Held Carts Button */}
                     {heldSales.length > 0 && (
                         <button
                             onClick={() => setShowHeldModal(true)}
-                            className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
+                            className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-xs transition-all"
                             title="View parked sales [F4]"
                         >
                             <span>⏸️</span>
                             <span>Held Sales</span>
-                            <span className="w-4 h-4 rounded-full bg-amber-600 text-white text-[10px] flex items-center justify-center">
+                            <span className="w-4 h-4 rounded-full bg-amber-600 text-white text-[10px] flex items-center justify-center font-bold">
                                 {heldSales.length}
                             </span>
                         </button>
                     )}
 
-                    {/* Sound Toggle */}
+                    {/* Sound Toggle (Soft Green Pill) */}
                     <button
                         onClick={toggleSound}
-                        className={`p-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                        className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border shadow-xs transition-colors flex items-center gap-1.5 ${
                             isMuted
                                 ? 'bg-gray-100 text-gray-400 border-gray-200'
-                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
                         }`}
                         title={isMuted ? 'Unmute scanner beep' : 'Mute scanner beep'}
                     >
-                        {isMuted ? '🔇 Muted' : '🔊 Sound'}
+                        <span>{isMuted ? '🔇' : '🔊'}</span>
+                        <span>Sound</span>
                     </button>
 
-                    {/* Shortcuts Cheatsheet */}
+                    {/* Shortcuts Cheatsheet (White Pill) */}
                     <button
                         onClick={() => setShowShortcutsModal(true)}
-                        className="p-1.5 px-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium border border-gray-200 flex items-center gap-1"
+                        className="px-3.5 py-1.5 bg-white hover:bg-gray-50 text-gray-700 rounded-full text-xs font-semibold border border-gray-200/80 shadow-xs flex items-center gap-1.5 transition-colors"
                         title="Keyboard Shortcuts"
                     >
-                        <span>⌨️</span> <span className="hidden sm:inline">Shortcuts</span>
+                        <span>⌨️</span>
+                        <span className="hidden sm:inline">Shortcuts</span>
                     </button>
 
-                    {/* Live Clock */}
-                    <span className="text-xs font-mono font-bold text-gray-600 bg-gray-50 border border-gray-200 px-2 py-1 rounded-md hidden md:inline">
-                        🕒 {currentTime}
+                    {/* Live Clock (White Pill) */}
+                    <span className="px-3.5 py-1.5 bg-white text-gray-700 font-mono font-bold text-xs rounded-full border border-gray-200/80 shadow-xs hidden md:flex items-center gap-1.5">
+                        <span>🕒</span> {currentTime}
                     </span>
 
-                    {/* Receipt Badge */}
-                    <span className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold font-mono">
+                    {/* Receipt Badge (Soft Blue Pill) */}
+                    <span className="px-3.5 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-bold font-mono shadow-xs">
                         {receiptNo}
                     </span>
 
                     {/* Fullscreen Button */}
                     <button
                         onClick={toggleFullscreen}
-                        className="p-1.5 bg-gray-700 hover:bg-gray-800 text-white rounded-lg transition-all active:scale-95 shadow-sm"
+                        className="p-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full transition-all active:scale-95 shadow-xs border border-gray-200/80"
                         title="Toggle Fullscreen"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1437,16 +1450,16 @@ export default function PharmacyPOS() {
                 </div>
             </div>
 
-            {/* ==================== 2. CONTROLS HEADER ==================== */}
-            <div className="bg-white px-4 py-2.5 shrink-0" style={{borderRadius:"20px 20px 0 0", boxShadow:"0 -2px 10px rgba(0,0,0,0.04)", borderBottom:"1px solid #d1fae5"}}>
-                <div className="flex items-center justify-between gap-3">
-                    {/* Outlets & Counter */}
+            {/* ==================== 2. CONTROLS HEADER (ROW 3) ==================== */}
+            <div className="bg-[#F8FAF9] px-4 py-2 flex items-center justify-between gap-3 border-b border-gray-200/70 shrink-0">
+                <div className="flex items-center justify-between gap-3 w-full">
+                    {/* Outlets & Counter (White Pill Dropdown) */}
                     <div className="flex items-center gap-2">
-                        <div>
+                        <div className="relative">
                             <select
                                 value={activeOutlet?.outlet_id || ''}
                                 onChange={(e) => switchOutlet(Number(e.target.value))}
-                                className="px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-800 text-xs font-semibold focus:outline-none focus:border-emerald-500 cursor-pointer min-w-[150px]"
+                                className="pl-4 pr-8 py-2 border border-gray-200/90 rounded-full bg-white text-gray-800 text-xs font-bold focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs appearance-none min-w-[155px]"
                             >
                                 {outlets.map((o) => (
                                     <option key={o.outlet_id} value={o.outlet_id}>
@@ -1454,13 +1467,14 @@ export default function PharmacyPOS() {
                                     </option>
                                 ))}
                             </select>
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-[10px]">▼</span>
                         </div>
                     </div>
 
-                    {/* Central High-Performance Search & Barcode Scan Bar */}
+                    {/* Central High-Performance Search & Barcode Scan Bar (White Pill) */}
                     <div className="flex-1 max-w-2xl relative">
-                        <div className="relative">
-                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                        <div className="relative flex items-center">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
                                 🔍
                             </span>
                             <input
@@ -1470,10 +1484,10 @@ export default function PharmacyPOS() {
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 onKeyDown={handleSearchKeyDown}
                                 placeholder="Scan Barcode [Enter] or Search by Drug, Generic Name, SKU (Press / or F1)..."
-                                className="w-full pl-9 pr-16 py-2 bg-gray-50 hover:bg-white focus:bg-white border border-gray-200 focus:border-emerald-500 rounded-lg text-sm font-medium transition-all outline-none shadow-inner"
+                                className="w-full pl-10 pr-16 py-2 bg-white hover:bg-white focus:bg-white border border-gray-200/90 focus:border-emerald-500 rounded-full text-xs font-medium text-gray-800 transition-all outline-none shadow-xs"
                                 autoFocus
                             />
-                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
                                 {searchQuery && (
                                     <button
                                         onClick={() => {
@@ -1485,38 +1499,41 @@ export default function PharmacyPOS() {
                                         ✕
                                     </button>
                                 )}
-                                <span className="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded font-mono font-bold hidden sm:inline">
+                                <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-mono font-bold hidden sm:inline border border-gray-200">
                                     F1
                                 </span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Category Dropdown */}
+                    {/* Category Dropdown (White Pill) */}
                     <div className="flex items-center gap-2">
-                        <select
-                            value={selectedCategory || ''}
-                            onChange={(e) => {
-                                const id = Number(e.target.value);
-                                if (id) {
-                                    const cat = categories.find((c) => c.category_id === id);
-                                    if (cat) loadCatProducts(id, cat.category_name);
-                                } else {
-                                    setSelectedCategory(null);
-                                    setCategoryProducts([]);
-                                }
-                            }}
-                            className="px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700 text-xs font-medium focus:outline-none focus:border-emerald-500 cursor-pointer min-w-[130px]"
-                        >
-                            <option value="">All Categories ({categories.length})</option>
-                            {categories.map((c) => (
-                                <option key={c.category_id} value={c.category_id}>
-                                    {c.icon} {c.category_name}
-                                </option>
-                            ))}
-                        </select>
+                        <div className="relative">
+                            <select
+                                value={selectedCategory || ''}
+                                onChange={(e) => {
+                                    const id = Number(e.target.value);
+                                    if (id) {
+                                        const cat = categories.find((c) => c.category_id === id);
+                                        if (cat) loadCatProducts(id, cat.category_name);
+                                    } else {
+                                        setSelectedCategory(null);
+                                        setCategoryProducts([]);
+                                    }
+                                }}
+                                className="pl-4 pr-8 py-2 border border-gray-200/90 rounded-full bg-white text-gray-700 text-xs font-semibold focus:outline-none focus:border-emerald-500 cursor-pointer shadow-xs appearance-none min-w-[145px]"
+                            >
+                                <option value="">All Categories ({categories.length})</option>
+                                {categories.map((c) => (
+                                    <option key={c.category_id} value={c.category_id}>
+                                        {c.icon} {c.category_name}
+                                    </option>
+                                ))}
+                            </select>
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 text-[10px]">▼</span>
+                        </div>
 
-                        {/* Customer Search / Selection */}
+                        {/* Customer Search / Selection (White Pill) */}
                         <div className="relative">
                             <div className="relative">
                                 <input
@@ -1529,10 +1546,10 @@ export default function PharmacyPOS() {
                                     onFocus={() => setShowCustomerDrop(true)}
                                     onBlur={() => setTimeout(() => setShowCustomerDrop(false), 200)}
                                     placeholder={selectedCustomer ? selectedCustomer.customer_name : '👤 Walk-in Patient'}
-                                    className={`px-3 py-2 border rounded-lg text-xs font-medium focus:outline-none focus:border-emerald-500 cursor-text min-w-[170px] ${
+                                    className={`pl-4 pr-7 py-2 border rounded-full text-xs font-semibold focus:outline-none focus:border-emerald-500 cursor-text shadow-xs min-w-[160px] ${
                                         selectedCustomer
-                                            ? 'border-blue-400 bg-blue-50 font-bold text-blue-900'
-                                            : 'border-gray-200 bg-gray-50 text-gray-700'
+                                            ? 'border-blue-400 bg-blue-50 text-blue-900 font-bold'
+                                            : 'border-gray-200/90 bg-white text-gray-700'
                                     }`}
                                 />
                                 {selectedCustomer && (
@@ -1541,7 +1558,7 @@ export default function PharmacyPOS() {
                                             setSelectedCustomer(null);
                                             setCustomerSearch('');
                                         }}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs font-bold"
+                                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 text-xs font-bold"
                                     >
                                         ✕
                                     </button>
@@ -1549,7 +1566,7 @@ export default function PharmacyPOS() {
                             </div>
 
                             {showCustomerDrop && customerSearch && (
-                                <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-52 w-64 overflow-y-auto">
+                                <div className="absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-2xl shadow-xl z-50 max-h-52 w-64 overflow-y-auto p-1">
                                     {creditCustomers
                                         .filter((c) => c.customer_name?.toLowerCase().includes(customerSearch.toLowerCase()))
                                         .slice(0, 8)
@@ -1561,7 +1578,7 @@ export default function PharmacyPOS() {
                                                     setCustomerSearch(c.customer_name);
                                                     setShowCustomerDrop(false);
                                                 }}
-                                                className="w-full text-left px-3 py-2 hover:bg-emerald-50 transition-colors border-b border-gray-50 last:border-0"
+                                                className="w-full text-left px-3 py-2 hover:bg-emerald-50 rounded-xl transition-colors border-b border-gray-50 last:border-0"
                                             >
                                                 <p className="font-semibold text-gray-800 text-xs">{c.customer_name}</p>
                                                 <p className="text-[10px] text-gray-500">
@@ -1573,20 +1590,24 @@ export default function PharmacyPOS() {
                             )}
                         </div>
 
-                        {/* Open / Close Register Button */}
+                        {/* Open / Close Register Button (3D Glossy Pill) */}
                         {!registerOpen ? (
                             <button
                                 onClick={() => setShowOpeningDrop(true)}
-                                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 active:scale-95"
+                                className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-full text-xs font-extrabold transition-all shadow-md flex items-center gap-1.5 active:scale-95"
                             >
                                 <span>🟢</span> Open Register
                             </button>
                         ) : (
                             <button
                                 onClick={handleCloseRegister}
-                                className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 active:scale-95"
+                                className="px-4 py-2 text-white rounded-full text-xs font-extrabold transition-all shadow-md flex items-center gap-1.5 active:scale-95"
+                                style={{
+                                    background: 'linear-gradient(135deg, #DC2626 0%, #B91C1C 60%, #991B1B 100%)',
+                                    boxShadow: '0 4px 14px rgba(220, 38, 38, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.3)'
+                                }}
                             >
-                                <span>🔴</span> Close Register
+                                <span className="text-sm">❌</span> Close Register
                             </button>
                         )}
                     </div>

@@ -40,6 +40,8 @@ import {
   FileSpreadsheet,
   Lock,
   Zap,
+  Calendar,
+  Menu,
 } from 'lucide-react';
 
 /* ─── Menu Groups Definition with Lucide Icons ───────────────────── */
@@ -277,6 +279,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const isAdmin      = isSuperAdmin || ['admin', 'manager'].includes((user.userType || '').toLowerCase());
   const roleBadge    = getRoleBadge(user.userType);
   const avatarLetter = (user.name || 'S').charAt(0).toUpperCase();
+
+  const formattedDate = currentTime.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const formattedTime = currentTime.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  });
 
   return (
     <SettingsProvider>
@@ -541,40 +555,84 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* ── Main Workspace ── */}
           <main className={`flex-1 ${isCashier ? 'ml-0' : sidebarOpen ? 'ml-[224px]' : 'ml-[68px]'} transition-all duration-300 flex flex-col ${pathname === '/dashboard/pos' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
-            {/* Top header - White floating card with curved bottom corners */}
-            <header className="h-16 bg-white flex items-center justify-between px-6 sticky top-0 z-40 shrink-0" style={{borderRadius:'0 0 22px 22px', boxShadow:'0 4px 20px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)'}}>
+            {/* Top header - Exactly matching reference */}
+            <header className="h-16 bg-white/95 backdrop-blur-sm border-b border-gray-100 flex items-center justify-between px-6 sticky top-0 z-40 shrink-0 shadow-xs">
+              {/* Left Greeting & Sidebar Toggle */}
               <div className="flex items-center gap-3">
-                <h2 className="text-[16px] font-bold text-gray-800 flex items-center gap-2">
-                  <span>{greeting.emoji}</span>
-                  <span>{greeting.text} 👋</span>
-                </h2>
-                <span className="text-xs text-gray-400 font-medium hidden sm:block">Alpha Pharmacy POS</span>
+                {!isCashier && (
+                  <button
+                    onClick={() => setSidebarOpen(prev => !prev)}
+                    className="p-1.5 rounded-xl hover:bg-gray-100 text-gray-700 transition-colors"
+                    title="Toggle Sidebar"
+                  >
+                    <Menu className="w-5 h-5 text-gray-800" />
+                  </button>
+                )}
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl select-none">☀️</span>
+                  <div>
+                    <h2 className="text-[15px] font-extrabold text-gray-900 leading-tight">
+                      {greeting.text} 👋
+                    </h2>
+                    <p className="text-[11px] text-gray-400 font-semibold">Alpha Pharmacy POS</p>
+                  </div>
+                </div>
               </div>
+
+              {/* Center Search Pill */}
+              <div className="hidden xl:flex items-center flex-1 max-w-xl mx-6">
+                <div className="relative w-full">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+                  <input
+                    type="text"
+                    placeholder="Scan Barcode or Search by Drug, Generic Name, SKU (Press Enter)"
+                    className="w-full pl-10 pr-10 py-2 bg-gray-50/70 hover:bg-white focus:bg-white border border-gray-200/90 rounded-full text-xs font-medium text-gray-700 outline-none shadow-xs transition-all focus:border-emerald-500"
+                    readOnly
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-xs cursor-pointer" title="Scan Barcode">
+                    📷
+                  </span>
+                </div>
+              </div>
+
+              {/* Right Controls */}
               <div className="flex items-center gap-3">
                 <OutletSwitcher />
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full shadow-xs">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200/80 rounded-full shadow-xs">
                   <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                  <span className="text-xs font-semibold">Online</span>
+                  <span className="text-xs font-bold">Online</span>
                 </div>
                 <button
                   onClick={() => window.location.reload()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#00A848] text-white text-xs font-bold rounded-xl hover:bg-[#00923e] transition-colors shadow-xs"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#00A848] text-white text-xs font-bold rounded-full hover:bg-[#00923e] transition-colors shadow-xs"
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-white" />
                   Refresh
                 </button>
-                <button className="relative p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-700">
-                  <Bell className="w-4 h-4" />
+                <button className="relative p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-700">
+                  <Bell className="w-4 h-4 text-gray-700" />
                   <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center">3</span>
                 </button>
-                <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
-                  <div className="text-right hidden sm:block">
-                    <p className="text-[13px] font-bold text-gray-800 leading-tight">{user.name}</p>
-                    <p className="text-[11px] text-gray-400 font-medium">{roleBadge.label}</p>
+
+                {/* 3D Rich Emerald Calendar & Time Capsule */}
+                <div
+                  className="hidden sm:flex items-center gap-2.5 px-4 py-1.5 rounded-2xl text-white select-none cursor-default"
+                  style={{
+                    background: 'linear-gradient(135deg, #004D25 0%, #006837 50%, #008A45 100%)',
+                    boxShadow: '0 4px 14px rgba(0, 77, 37, 0.35), inset 0 1px 1px rgba(255, 255, 255, 0.3)',
+                    border: '1px solid rgba(52, 211, 153, 0.3)'
+                  }}
+                >
+                  <Calendar className="w-4 h-4 text-emerald-200 shrink-0" />
+                  <div className="text-left leading-tight">
+                    <p className="text-[11px] font-bold text-white tracking-tight">{formattedDate}</p>
+                    <p className="text-[10px] text-emerald-200 font-semibold">{formattedTime}</p>
                   </div>
-                  <div className="w-9 h-9 rounded-full bg-[#00A848] text-white font-black text-sm flex items-center justify-center shadow-xs">
-                    {avatarLetter}
-                  </div>
+                </div>
+
+                {/* Circular Avatar */}
+                <div className="w-9 h-9 rounded-full bg-[#00A848] text-white font-extrabold text-sm flex items-center justify-center shadow-xs">
+                  {avatarLetter}
                 </div>
               </div>
             </header>
