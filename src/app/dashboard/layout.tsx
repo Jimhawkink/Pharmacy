@@ -586,20 +586,46 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* ── Luxury Emerald Bottom Curved Wave Ribbon Footer ── */}
             <footer className="h-10 bg-white border-t border-emerald-100/80 flex items-center justify-between select-none shrink-0 sticky bottom-0 z-30 shadow-[0_-1px_6px_rgba(0,0,0,0.03)] overflow-hidden">
-              {/* Left Feature Trust Badges */}
-              <div className="flex items-center gap-2 sm:gap-4 lg:gap-5 pl-4 sm:pl-6 text-[11.5px] font-semibold text-gray-700 whitespace-nowrap overflow-x-auto no-scrollbar">
-                {/* 1. Trusted Pharmacy Solution */}
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <div className="w-4 h-4 rounded-full bg-[#00A848] flex items-center justify-center shrink-0 shadow-xs">
+              {/* Left Curved Wave - mirrors the right ribbon */}
+              <div className="relative h-full flex items-center shrink-0 overflow-hidden pr-14 pl-5">
+                {/* Left SVG wave shape */}
+                <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 380 40" preserveAspectRatio="none">
+                  <defs>
+                    <linearGradient id="leftWaveGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#00471F" />
+                      <stop offset="55%" stopColor="#007C35" />
+                      <stop offset="100%" stopColor="#00A848" />
+                    </linearGradient>
+                    <linearGradient id="leftNeonGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#00E676" />
+                      <stop offset="60%" stopColor="#34D399" />
+                      <stop offset="100%" stopColor="#00E676" stopOpacity="0.1" />
+                    </linearGradient>
+                    <filter id="leftNeonGlow" x="-20%" y="-40%" width="140%" height="180%">
+                      <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur" />
+                      <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                    </filter>
+                  </defs>
+                  {/* Mirror curve: starts at top-left (0,0), swoops down-right */}
+                  <path d="M 0,0 L 220,0 C 245,0 268,0 285,10 C 308,23 335,39 380,40 L 0,40 Z" fill="url(#leftWaveGrad)" />
+                  {/* Inner 3D glass highlight */}
+                  <path d="M 0,5 L 215,5 C 238,5 260,6 278,15 C 298,26 320,38 355,40" stroke="#ffffff" strokeWidth="1" strokeOpacity="0.25" fill="none" />
+                  {/* Neon edge stroke along the curve */}
+                  <path d="M 0,0 L 220,0 C 245,0 268,0 285,10 C 308,23 335,39 380,40" stroke="url(#leftNeonGrad)" strokeWidth="2.6" fill="none" filter="url(#leftNeonGlow)" />
+                </svg>
+                {/* Left ribbon text */}
+                <div className="relative z-10 flex items-center gap-2">
+                  <div className="w-4 h-4 rounded-full bg-white/25 flex items-center justify-center shrink-0">
                     <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   </div>
-                  <span className="text-gray-800 tracking-tight">Trusted Pharmacy Solution</span>
+                  <span className="text-white font-bold text-[11.5px] tracking-tight drop-shadow-xs">Trusted Pharmacy Solution</span>
                 </div>
+              </div>
 
-                <span className="text-gray-300 font-light select-none text-xs">|</span>
-
+              {/* Centre Feature Badges */}
+              <div className="flex items-center gap-2 sm:gap-4 lg:gap-5 text-[11.5px] font-semibold text-gray-700 whitespace-nowrap overflow-x-auto no-scrollbar">
                 {/* 2. Fast & Efficient */}
                 <div className="flex items-center gap-1.5 shrink-0">
                   <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-400 shrink-0 drop-shadow-xs" />

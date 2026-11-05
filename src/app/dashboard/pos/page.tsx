@@ -1353,16 +1353,16 @@ export default function PharmacyPOS() {
     return (
         <div className="flex-1 h-full flex flex-col bg-gray-50 select-none overflow-hidden">
             {/* ==================== 1. TOP STATUS BAR ==================== */}
-            <div className="bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between shrink-0">
+            <div className="px-4 py-2 flex items-center justify-between shrink-0" style={{background:"linear-gradient(90deg,#00471F 0%,#007C35 50%,#00A848 100%)",borderRadius:"0 0 16px 16px",boxShadow:"0 4px 16px rgba(0,168,72,0.20)"}}>
                 <div className="flex items-center gap-3">
-                    <span className="text-emerald-700 font-extrabold text-sm flex items-center gap-1.5">
+                    <span className="text-white font-extrabold text-sm flex items-center gap-1.5">
                         <span className="text-lg">💊</span> ALPHA PHARMACY POS
                     </span>
-                    <span className="text-gray-300">|</span>
-                    <span className="text-gray-700 text-xs font-semibold bg-gray-100 px-2 py-0.5 rounded-md">
+                    <span className="text-emerald-300 opacity-50">|</span>
+                    <span className="text-white text-xs font-semibold bg-white/15 px-2 py-0.5 rounded-md">
                         📍 {storeName}
                     </span>
-                    <span className="text-gray-300">|</span>
+                    <span className="text-emerald-300 opacity-50">|</span>
                     {/* Shift & Register Status Indicator */}
                     <span
                         className={`px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm ${
@@ -1415,12 +1415,12 @@ export default function PharmacyPOS() {
                     </button>
 
                     {/* Live Clock */}
-                    <span className="text-xs font-mono font-bold text-gray-600 bg-gray-50 border border-gray-200 px-2 py-1 rounded-md hidden md:inline">
+                    <span className="text-xs font-mono font-bold text-white bg-white/15 border border-white/20 px-2 py-1 rounded-md hidden md:inline">
                         🕒 {currentTime}
                     </span>
 
                     {/* Receipt Badge */}
-                    <span className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold font-mono">
+                    <span className="px-3 py-1 bg-white/20 text-white border border-white/30 rounded-lg text-xs font-bold font-mono">
                         {receiptNo}
                     </span>
 
@@ -1644,9 +1644,9 @@ export default function PharmacyPOS() {
                 </div>
 
                 {/* ==================== 4. CART SIDEBAR ==================== */}
-                <div className="w-[410px] bg-white flex flex-col border-l border-gray-200 shadow-xl shrink-0">
+                <div className="w-[410px] bg-white flex flex-col shrink-0" style={{borderRadius:"16px 0 0 16px",boxShadow:"-4px 0 24px rgba(0,0,0,0.10)",overflow:"hidden",margin:"8px 0 8px 0"}}>
                     {/* Cart Header */}
-                    <div className="px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white flex items-center justify-between shadow-md shrink-0">
+                    <div className="px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white flex items-center justify-between shrink-0" style={{borderRadius:"16px 0 0 0",boxShadow:"0 4px 12px rgba(0,168,72,0.25)"}}>
                         <div className="flex items-center gap-2">
                             <span className="text-lg">🛒</span>
                             <h2 className="font-extrabold text-sm tracking-wide">
@@ -1753,7 +1753,7 @@ export default function PharmacyPOS() {
                                 setShowPayment(true);
                             }}
                             disabled={cart.length === 0}
-                            className="w-full py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-extrabold text-base hover:from-green-600 hover:to-emerald-700 hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.99] shadow-md"
+                            className="w-full py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl font-extrabold text-base hover:from-green-600 hover:to-emerald-700 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.99] shadow-lg"
                         >
                             <span>💳</span>
                             <span>CHECKOUT Ksh {grandTotal.toLocaleString()}</span>
