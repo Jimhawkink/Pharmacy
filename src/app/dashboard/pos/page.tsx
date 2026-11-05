@@ -1133,7 +1133,8 @@ export default function PharmacyPOS() {
         setMpesaPhone(phone);
         setC2bTransactions(prev => prev.filter(t => t.id !== txn.id));
         // Complete the sale
-        completeSale('MPESA', grandTotal, receipt, payCustomerName, '', phone);
+        const customerName = txn.customer_name || payCustomerName || 'Walk-in';
+        completeSale('MPESA', grandTotal, receipt, customerName, '', phone);
     };
 
     // Complete Sale Transaction

@@ -1,12 +1,12 @@
 'use client';
 // =====================================================================
-// Alpha Pharmacy - Super Ultra Sales Master Register & Revenue Audit Hub v2.0
-// Ultra-Detailed POS Ledger, Glassmorphic KPI Cards, 360° Sale Dossier,
-// Super Pagination, Multi-Dimensional Filters, Bright Excel & Landscape Print
+// Alpha Pharmacy - Super Ultra Sales Master Register & Revenue Audit Hub v2.1
+// Fits Any Screen Perfectly (Zero Horizontal Bleed), One Single Row of 6 Cards
+// Like Purchase Page, C2B M-Pesa Sender Name Resolution, Super Pagination & Excel
 // =====================================================================
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { supabase, logActivity } from '@/lib/supabase';
+import { supabase, c2bSupabase, logActivity } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
@@ -54,6 +54,7 @@ export default function SalesMasterReportPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [avgMarginRate, setAvgMarginRate] = useState(0.3);
     const [isAutoFit, setIsAutoFit] = useState(true);
+    const [showAnalyticsStrip, setShowAnalyticsStrip] = useState(false);
 
     // Multi-Dimensional Filters
     const [search, setSearch] = useState('');
@@ -63,8 +64,6 @@ export default function SalesMasterReportPage() {
     const [dateFrom, setDateFrom] = useState(new Date().toISOString().split('T')[0]);
     const [dateTo, setDateTo] = useState(new Date().toISOString().split('T')[0]);
     const [preset, setPreset] = useState<'today' | 'yesterday' | 'week' | 'month' | 'quarter' | 'all'>('today');
-    const [minAmount, setMinAmount] = useState<string>('');
-    const [maxAmount, setMaxAmount] = useState<string>('');
     const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'amount_high' | 'amount_low' | 'profit_high' | 'receipt_asc'>('newest');
 
     // Selection & Bulk Actions
@@ -89,7 +88,7 @@ export default function SalesMasterReportPage() {
     };
 
     // =====================================================================
-    // LOAD SALES & ESTIMATE MARGIN RATE FROM PRODUCT CATALOGUE
+    // LOAD SALES & RESOLVE C2B M-PESA CUSTOMER NAMES AUTOMATICALLY
     // =====================================================================
     const loadSales = useCallback(async () => {
         setIsLoading(true);
@@ -105,7 +104,61 @@ export default function SalesMasterReportPage() {
             const { data, error } = await query.order('sale_datetime', { ascending: false });
 
             if (!error && data) {
-                setSales(data);
+                let salesList: SaleRecord[] = data;
+
+                // Extract all valid M-Pesa receipts
+                const mpesaCodes = salesList
+                    .map((s) => s.mpesa_receipt?.trim().toUpperCase())
+                    .filter((code): code is string => Boolean(code));
+
+                // Fetch customer names from c2b_transactions
+                if (mpesaCodes.length > 0) {
+                    try {
+                        const { data: c2bRows } = await c2bSupabase
+                            .from('c2b_transactions')
+                            .select('mpesa_receipt, customer_name, phone')
+                            .in('mpesa_receipt', mpesaCodes);
+
+                        if (c2bRows && c2bRows.length > 0) {
+                            const c2bMap = new Map<string, { name: string; phone: string }>();
+                            c2bRows.forEach((r) => {
+                                if (r.mpesa_receipt) {
+                                    c2bMap.set(r.mpesa_receipt.trim().toUpperCase(), {
+                                        name: r.customer_name || '',
+                                        phone: r.phone || '',
+                                    });
+                                }
+                            });
+
+                            // Enrich sales with resolved M-Pesa sender names
+                            salesList = salesList.map((s) => {
+                                const code = s.mpesa_receipt?.trim().toUpperCase();
+                                if (code && c2bMap.has(code)) {
+                                    const c2bInfo = c2bMap.get(code)!;
+                                    const existingName = (s.customer_name || '').trim();
+                                    const isGeneric =
+                                        !existingName ||
+                                        existingName.toLowerCase() === 'walk-in' ||
+                                        existingName.toLowerCase() === 'walk-in patient' ||
+                                        existingName.toLowerCase() === 'walk-in customer';
+
+                                    return {
+                                        ...s,
+                                        customer_name: isGeneric && c2bInfo.name ? c2bInfo.name : (s.customer_name || c2bInfo.name),
+                                        customer_phone:
+                                            s.customer_phone ||
+                                            (c2bInfo.phone && c2bInfo.phone.length <= 15 ? c2bInfo.phone : null),
+                                    };
+                                }
+                                return s;
+                            });
+                        }
+                    } catch (c2bErr) {
+                        console.warn('C2B customer name lookup warning:', c2bErr);
+                    }
+                }
+
+                setSales(salesList);
             } else {
                 console.error('Failed to load sales:', error);
                 toast.error('Failed to load sales records');
@@ -233,10 +286,6 @@ export default function SalesMasterReportPage() {
                     }
                 }
 
-                // Amount Range
-                if (minAmount && (s.total || 0) < Number(minAmount)) return false;
-                if (maxAmount && (s.total || 0) > Number(maxAmount)) return false;
-
                 return true;
             })
             .sort((a, b) => {
@@ -252,7 +301,7 @@ export default function SalesMasterReportPage() {
                 if (sortBy === 'receipt_asc') return (a.receipt_no || '').localeCompare(b.receipt_no || '');
                 return 0;
             });
-    }, [sales, search, filterPayment, filterCashier, filterStatus, minAmount, maxAmount, sortBy, avgMarginRate]);
+    }, [sales, search, filterPayment, filterCashier, filterStatus, sortBy, avgMarginRate]);
 
     // =====================================================================
     // KPI METRICS COMPUTATION
@@ -368,7 +417,6 @@ export default function SalesMasterReportPage() {
 
     // =====================================================================
     // BRIGHT COLORS EXCEL EXPORTER (SpreadsheetML XML)
-    // Matches the exact high-voltage vivid styling of Purchases Master Ledger
     // =====================================================================
     const exportBrightExcel = () => {
         if (filtered.length === 0) {
@@ -387,7 +435,6 @@ export default function SalesMasterReportPage() {
   <Style ss:ID="Default" ss:Name="Normal">
    <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#0f172a"/>
   </Style>
-  <!-- BRIGHT TITLE BANNERS -->
   <Style ss:ID="TitleBanner">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
    <Font ss:FontName="Calibri" ss:Size="16" ss:Bold="1" ss:Color="#ffffff"/>
@@ -398,43 +445,6 @@ export default function SalesMasterReportPage() {
    <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#ffffff"/>
    <Interior ss:Color="#0091EA" ss:Pattern="Solid"/>
   </Style>
-
-  <!-- VIVID KPI CARDS -->
-  <Style ss:ID="KpiHdrPurple">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="9" ss:Bold="1" ss:Color="#ffffff"/>
-   <Interior ss:Color="#5E35B1" ss:Pattern="Solid"/>
-  </Style>
-  <Style ss:ID="KpiValPurple">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="13" ss:Bold="1" ss:Color="#311B92"/>
-   <Interior ss:Color="#EDE7F6" ss:Pattern="Solid"/>
-   <NumberFormat ss:Format="&quot;Ksh &quot;#,##0.00"/>
-  </Style>
-  <Style ss:ID="KpiHdrGreen">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="9" ss:Bold="1" ss:Color="#ffffff"/>
-   <Interior ss:Color="#00C853" ss:Pattern="Solid"/>
-  </Style>
-  <Style ss:ID="KpiValGreen">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="13" ss:Bold="1" ss:Color="#1B5E20"/>
-   <Interior ss:Color="#E8F8F5" ss:Pattern="Solid"/>
-   <NumberFormat ss:Format="&quot;Ksh &quot;#,##0.00"/>
-  </Style>
-  <Style ss:ID="KpiHdrRed">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="9" ss:Bold="1" ss:Color="#ffffff"/>
-   <Interior ss:Color="#FF1744" ss:Pattern="Solid"/>
-  </Style>
-  <Style ss:ID="KpiValRed">
-   <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
-   <Font ss:FontName="Calibri" ss:Size="13" ss:Bold="1" ss:Color="#B71C1C"/>
-   <Interior ss:Color="#FFEBEE" ss:Pattern="Solid"/>
-   <NumberFormat ss:Format="&quot;Ksh &quot;#,##0.00"/>
-  </Style>
-
-  <!-- TABLE HEADER -->
   <Style ss:ID="ColHeader">
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
    <Font ss:FontName="Calibri" ss:Size="10" ss:Bold="1" ss:Color="#ffffff"/>
@@ -443,8 +453,6 @@ export default function SalesMasterReportPage() {
     <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#00E676"/>
    </Borders>
   </Style>
-
-  <!-- CELL STYLES -->
   <Style ss:ID="CellText">
    <Alignment ss:Horizontal="Left" ss:Vertical="Center"/>
   </Style>
@@ -479,8 +487,6 @@ export default function SalesMasterReportPage() {
    <Font ss:FontName="Calibri" ss:Size="9.5" ss:Bold="1" ss:Color="#E65100"/>
    <Interior ss:Color="#FFE0B2" ss:Pattern="Solid"/>
   </Style>
-
-  <!-- TOTALS -->
   <Style ss:ID="SummaryLabel">
    <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>
    <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#ffffff"/>
@@ -496,52 +502,37 @@ export default function SalesMasterReportPage() {
 
  <Worksheet ss:Name="Sales Revenue Ledger">
   <Table ss:DefaultRowHeight="20">
-   <Column ss:Width="40"/>  <!-- # -->
-   <Column ss:Width="75"/>  <!-- Date -->
-   <Column ss:Width="60"/>  <!-- Time -->
-   <Column ss:Width="95"/>  <!-- Receipt # -->
-   <Column ss:Width="140"/> <!-- Customer -->
-   <Column ss:Width="95"/>  <!-- Phone -->
-   <Column ss:Width="85"/>  <!-- Payment -->
-   <Column ss:Width="90"/>  <!-- Subtotal -->
-   <Column ss:Width="75"/>  <!-- Discount -->
-   <Column ss:Width="95"/>  <!-- Total -->
-   <Column ss:Width="95"/>  <!-- Est. Profit -->
-   <Column ss:Width="110"/> <!-- M-Pesa Code -->
-   <Column ss:Width="110"/> <!-- Cashier -->
-   <Column ss:Width="80"/>  <!-- Status -->
+   <Column ss:Width="40"/>
+   <Column ss:Width="75"/>
+   <Column ss:Width="60"/>
+   <Column ss:Width="95"/>
+   <Column ss:Width="140"/>
+   <Column ss:Width="95"/>
+   <Column ss:Width="85"/>
+   <Column ss:Width="90"/>
+   <Column ss:Width="75"/>
+   <Column ss:Width="95"/>
+   <Column ss:Width="95"/>
+   <Column ss:Width="110"/>
+   <Column ss:Width="110"/>
+   <Column ss:Width="80"/>
 
-   <!-- Title Banner -->
    <Row ss:Height="34">
     <Cell ss:MergeAcross="13" ss:StyleID="TitleBanner"><Data ss:Type="String">ALPHA PHARMACY - SALES MASTER AUDIT &amp; REVENUE LEDGER</Data></Cell>
    </Row>
 
-   <!-- Meta Banner -->
    <Row ss:Height="20">
     <Cell ss:MergeAcross="13" ss:StyleID="MetaBanner"><Data ss:Type="String">Generated: ${genDate} | Outlet: ${escapeXml(outletName)} | Period: ${dateFrom || 'All'} to ${dateTo || 'All'} | Count: ${filtered.length} Orders</Data></Cell>
    </Row>
 
-   <!-- KPI Cards Row -->
-   <Row ss:Height="18">
-    <Cell ss:MergeAcross="3" ss:StyleID="KpiHdrPurple"><Data ss:Type="String">TOTAL REVENUE COLLECTED</Data></Cell>
-    <Cell ss:MergeAcross="4" ss:StyleID="KpiHdrGreen"><Data ss:Type="String">ESTIMATED GROSS PROFIT (${Math.round(avgMarginRate * 100)}% MARGIN)</Data></Cell>
-    <Cell ss:MergeAcross="4" ss:StyleID="KpiHdrRed"><Data ss:Type="String">TOTAL DISCOUNTS ALLOWED</Data></Cell>
-   </Row>
-   <Row ss:Height="24">
-    <Cell ss:MergeAcross="3" ss:StyleID="KpiValPurple"><Data ss:Type="Number">${kpis.totalRevenue}</Data></Cell>
-    <Cell ss:MergeAcross="4" ss:StyleID="KpiValGreen"><Data ss:Type="Number">${kpis.estProfit}</Data></Cell>
-    <Cell ss:MergeAcross="4" ss:StyleID="KpiValRed"><Data ss:Type="Number">${kpis.totalDiscount}</Data></Cell>
-   </Row>
-
    <Row ss:Height="10"/>
 
-   <!-- Table Headers -->
    <Row ss:Height="24">
     <Cell ss:StyleID="ColHeader"><Data ss:Type="String">#</Data></Cell>
     <Cell ss:StyleID="ColHeader"><Data ss:Type="String">DATE</Data></Cell>
     <Cell ss:StyleID="ColHeader"><Data ss:Type="String">TIME</Data></Cell>
     <Cell ss:StyleID="ColHeader"><Data ss:Type="String">RECEIPT #</Data></Cell>
-    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">CUSTOMER</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">CUSTOMER (SENDER)</Data></Cell>
     <Cell ss:StyleID="ColHeader"><Data ss:Type="String">PHONE</Data></Cell>
     <Cell ss:StyleID="ColHeader"><Data ss:Type="String">PAYMENT</Data></Cell>
     <Cell ss:StyleID="ColHeader"><Data ss:Type="String">SUBTOTAL</Data></Cell>
@@ -553,7 +544,6 @@ export default function SalesMasterReportPage() {
     <Cell ss:StyleID="ColHeader"><Data ss:Type="String">STATUS</Data></Cell>
    </Row>
 
-   <!-- Rows -->
    ${filtered
        .map((s, idx) => {
            const pStyle = (s.payment_method || '').toLowerCase().includes('mpesa')
@@ -568,7 +558,7 @@ export default function SalesMasterReportPage() {
     <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(fmtDate(s.sale_datetime))}</Data></Cell>
     <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(fmtTime(s.sale_datetime))}</Data></Cell>
     <Cell ss:StyleID="CellTextBold"><Data ss:Type="String">${escapeXml(s.receipt_no)}</Data></Cell>
-    <Cell ss:StyleID="CellText"><Data ss:Type="String">${escapeXml(s.customer_name || 'Walk-in')}</Data></Cell>
+    <Cell ss:StyleID="CellTextBold"><Data ss:Type="String">${escapeXml(s.customer_name || 'Walk-in')}</Data></Cell>
     <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(s.customer_phone || '—')}</Data></Cell>
     <Cell ss:StyleID="${pStyle}"><Data ss:Type="String">${escapeXml(s.payment_method || 'Cash')}</Data></Cell>
     <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${s.subtotal || 0}</Data></Cell>
@@ -582,7 +572,6 @@ export default function SalesMasterReportPage() {
        })
        .join('\n')}
 
-   <!-- Grand Summary Totals -->
    <Row ss:Height="24">
     <Cell ss:MergeAcross="6" ss:StyleID="SummaryLabel"><Data ss:Type="String">GRAND TOTALS (${filtered.length} TRANSACTIONS):</Data></Cell>
     <Cell ss:StyleID="SummaryVal"><Data ss:Type="Number">${kpis.totalSubtotal}</Data></Cell>
@@ -610,7 +599,7 @@ export default function SalesMasterReportPage() {
     // CSV Export
     const exportCSV = () => {
         const rows = [
-            ['#', 'Date', 'Time', 'Receipt #', 'Customer', 'Phone', 'Payment', 'Subtotal', 'Discount', 'Total', 'Est. Profit', 'M-Pesa Code', 'Cashier', 'Status']
+            ['#', 'Date', 'Time', 'Receipt #', 'Customer (Sender)', 'Phone', 'Payment', 'Subtotal', 'Discount', 'Total', 'Est. Profit', 'M-Pesa Code', 'Cashier', 'Status']
         ];
         filtered.forEach((s, idx) => {
             rows.push([
@@ -675,13 +664,13 @@ tfoot tr{background:#ecfdf5;font-weight:800;border-top:2px solid #1e293b;}
 <div class="metric"><div class="lbl">Order Volume</div><div class="val">${kpis.completedCount}/${filtered.length}</div></div>
 </div>
 <table><thead><tr>
-<th>#</th><th>Date</th><th>Time</th><th>Receipt #</th><th>Customer</th><th>Phone</th>
+<th>#</th><th>Date</th><th>Time</th><th>Receipt #</th><th>Customer (M-Pesa Sender)</th><th>Phone</th>
 <th>Payment</th><th class="r">Subtotal</th><th class="r">Disc.</th>
 <th class="r">Total</th><th class="r">Est. Profit</th><th>M-Pesa Code</th><th>Cashier</th><th>Status</th>
 </tr></thead><tbody>
 ${filtered.map((s, i) => `<tr>
 <td class="c">${i + 1}</td><td class="c">${fmtDate(s.sale_datetime)}</td><td class="c">${fmtTime(s.sale_datetime)}</td>
-<td class="b">${escapeXml(s.receipt_no)}</td><td>${escapeXml(s.customer_name || 'Walk-in')}</td>
+<td class="b">${escapeXml(s.receipt_no)}</td><td class="b">${escapeXml(s.customer_name || 'Walk-in')}</td>
 <td class="c">${escapeXml(s.customer_phone || '—')}</td>
 <td class="c b ${(s.payment_method || '').toLowerCase().includes('mpesa') ? 'mpesa' : (s.payment_method || '').toLowerCase().includes('cash') ? 'cash' : 'credit'}">${escapeXml(s.payment_method)}</td>
 <td class="r">Ksh ${(s.subtotal || 0).toLocaleString()}</td>
@@ -698,7 +687,6 @@ ${filtered.map((s, i) => `<tr>
 <td class="r b profit">Ksh ${kpis.estProfit.toLocaleString()}</td>
 <td colspan="3"></td>
 </tr></tfoot></table>
-<div style="margin-top:6px;font-size:7px;color:#64748b;">* Est. Profit calculated with ${Math.round(avgMarginRate * 100)}% catalogue cost margin fallback.</div>
 </body></html>`;
         const w = window.open('', '_blank');
         if (w) {
@@ -722,7 +710,7 @@ table{width:100%;border-collapse:collapse;}td{padding:2px 0;}
 <div class="line"></div>
 <div>Receipt: <span class="b">${escapeXml(sale.receipt_no)}</span></div>
 <div>Date: ${fmtDate(sale.sale_datetime)} ${fmtTime(sale.sale_datetime)}</div>
-<div>Customer: ${escapeXml(sale.customer_name || 'Walk-in Patient')}</div>
+<div>Customer: <span class="b">${escapeXml(sale.customer_name || 'Walk-in Patient')}</span></div>
 ${sale.customer_phone ? `<div>Phone: ${escapeXml(sale.customer_phone)}</div>` : ''}
 <div>Cashier: ${escapeXml(sale.cashier_name || 'Staff')}</div>
 <div class="line"></div>
@@ -738,7 +726,6 @@ ${sale.mpesa_receipt ? `<div>M-Pesa Ref: <span class="b font-mono">${escapeXml(s
 ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
 <div class="line"></div>
 <div class="c" style="font-size:9px;">Quick Recovery • Quality Medicines</div>
-<div class="c" style="font-size:8px;">Thank you for choosing Alpha Pharmacy!</div>
 </body></html>`;
         const w = window.open('', '_blank');
         if (w) {
@@ -753,47 +740,47 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
             <div className="flex flex-col items-center justify-center h-96" style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
                 <div className="w-12 h-12 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
                 <p className="mt-4 text-gray-900 font-bold text-sm">Loading Sales Master Register...</p>
-                <p className="text-xs text-gray-500 mt-1">Calculating revenue analytics, payment audit &amp; profit margins</p>
+                <p className="text-xs text-gray-500 mt-1">Connecting to live transactions &amp; resolving customer names</p>
             </div>
         );
     }
 
     return (
         <div
-            className="w-full max-w-full min-w-0 overflow-x-hidden space-y-4 px-1 md:px-2 pb-16"
+            className="w-full max-w-full min-w-0 overflow-x-hidden space-y-3 pb-16 px-1 md:px-2"
             style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}
         >
             {/* =====================================================================
-                HEADER: TITLE, OUTLET BADGES & ACTION SUITE (LIKE PURCHASES PAGE)
+                HEADER: TITLE, OUTLET BADGES & COMPACT ACTION SUITE (FITS CLEANLY)
             ===================================================================== */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 w-full">
-                <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg flex-shrink-0">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2.5 w-full min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-700 rounded-xl flex items-center justify-center text-white text-xl shadow-md shrink-0">
                         📊
                     </div>
-                    <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <h1 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                            <h1 className="text-lg md:text-xl font-black text-gray-900 tracking-tight truncate">
                                 Sales Master Register &amp; Ledger
                             </h1>
-                            <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-900 rounded-full text-xs font-bold border border-emerald-200">
+                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-900 rounded-full text-[11px] font-bold border border-emerald-200 shrink-0">
                                 Enterprise Audit
                             </span>
-                            <span className="px-2 py-0.5 bg-blue-50 text-blue-900 rounded-md text-[11px] font-bold border border-blue-200">
+                            <span className="px-2 py-0.5 bg-blue-50 text-blue-900 rounded-md text-[10px] font-bold border border-blue-200 shrink-0">
                                 Live DB: pharmacy_sales
                             </span>
                         </div>
-                        <p className="text-gray-600 text-xs mt-0.5">
-                            Active Outlet: <span className="font-bold text-gray-900">{outletName}</span> • Real-time POS collections, M-Pesa settlements, cashier audit &amp; estimated gross profit
+                        <p className="text-gray-600 text-[11px] mt-0.5 truncate">
+                            Active Outlet: <span className="font-bold text-gray-900">{outletName}</span> • Real-time POS collections &amp; M-Pesa verified customer audit
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center flex-wrap gap-2">
+                <div className="flex items-center flex-wrap gap-1.5 shrink-0">
                     {/* Link to POS */}
                     <Link
                         href="/dashboard/pos"
-                        className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl font-bold shadow-xs hover:shadow transition-all flex items-center gap-1.5 text-xs active:scale-95"
+                        className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-lg font-bold shadow-xs hover:shadow transition-all flex items-center gap-1 text-xs active:scale-95"
                     >
                         <span>🛒</span> Open POS
                     </Link>
@@ -801,8 +788,8 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                     {/* Bright Excel Export */}
                     <button
                         onClick={exportBrightExcel}
-                        className="px-3.5 py-2 bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-xl font-bold shadow-xs transition-all flex items-center gap-1.5 text-xs"
-                        title="Download Massive Styled Excel Workbook"
+                        className="px-2.5 py-1.5 bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-lg font-bold shadow-xs transition-all flex items-center gap-1 text-xs"
+                        title="Download Styled Excel Workbook"
                     >
                         <span>📊</span> Super Excel
                     </button>
@@ -810,7 +797,7 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                     {/* CSV Export */}
                     <button
                         onClick={exportCSV}
-                        className="px-3 py-2 bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-xl font-bold shadow-xs transition-all flex items-center gap-1.5 text-xs"
+                        className="px-2.5 py-1.5 bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-lg font-bold shadow-xs transition-all flex items-center gap-1 text-xs"
                     >
                         <span>📥</span> CSV
                     </button>
@@ -818,7 +805,7 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                     {/* Print Master View */}
                     <button
                         onClick={printReport}
-                        className="px-3 py-2 bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-xl font-bold shadow-xs transition-all flex items-center gap-1 text-xs"
+                        className="px-2.5 py-1.5 bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-lg font-bold shadow-xs transition-all flex items-center gap-1 text-xs"
                     >
                         <span>🖨️</span> Print
                     </button>
@@ -829,7 +816,7 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                             loadSales();
                             toast.success('Sales reloaded from live DB!');
                         }}
-                        className="px-3 py-2 bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-xl font-bold shadow-xs transition-all flex items-center gap-1 text-xs"
+                        className="px-2.5 py-1.5 bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-lg font-bold shadow-xs transition-all flex items-center gap-1 text-xs"
                     >
                         <span>🔄</span> Refresh
                     </button>
@@ -837,245 +824,140 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
             </div>
 
             {/* =====================================================================
-                GLASSMORPHIC STAT CARDS (ROW 1 & 2): 8 SUPER VIVID CARDS THAT FIT
+                EXACTLY ONE LINE OF 6 LIGHT GRADIENT STAT CARDS (PURCHASE PAGE STYLE)
+                Takes minimal vertical space, fits the screen width with zero cutoff
             ===================================================================== */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 w-full">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 w-full min-w-0">
                 {/* 1. Total Revenue */}
-                <div
-                    style={{ background: 'linear-gradient(135deg,#667eea 0%,#764ba2 100%)', boxShadow: '0 8px 24px rgba(102,126,234,0.3)' }}
-                    className="rounded-2xl p-3.5 text-white relative overflow-hidden flex flex-col justify-between"
-                >
-                    <div style={{ position: 'absolute', top: -15, right: -15, width: 65, height: 65, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
-                    <div style={{ position: 'absolute', bottom: -20, left: -10, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
-                    <div>
-                        <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">TOTAL REVENUE</div>
-                        <div className="text-base sm:text-lg font-black tracking-tight mt-1">Ksh {kpis.totalRevenue.toLocaleString()}</div>
-                    </div>
-                    <div className="text-[10px] opacity-75 mt-1">{filtered.length} Filtered Transactions</div>
-                    <div className="absolute bottom-2 right-2.5 text-2xl opacity-20">💰</div>
+                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-3 border border-indigo-100 shadow-xs relative overflow-hidden min-w-0">
+                    <p className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider truncate">Total Revenue</p>
+                    <p className="text-base sm:text-lg font-black text-indigo-950 mt-0.5 truncate">
+                        Ksh {kpis.totalRevenue.toLocaleString()}
+                    </p>
+                    <p className="text-[10px] text-gray-600 mt-0.5 truncate">
+                        {filtered.length} Filtered Transactions
+                    </p>
                 </div>
 
-                {/* 2. Cash Collections */}
-                <div
-                    style={{ background: 'linear-gradient(135deg,#11998e 0%,#38ef7d 100%)', boxShadow: '0 8px 24px rgba(17,153,142,0.3)' }}
-                    className="rounded-2xl p-3.5 text-white relative overflow-hidden flex flex-col justify-between"
-                >
-                    <div style={{ position: 'absolute', top: -15, right: -15, width: 65, height: 65, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
-                    <div style={{ position: 'absolute', bottom: -20, left: -10, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
-                    <div>
-                        <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">CASH COLLECTED</div>
-                        <div className="text-base sm:text-lg font-black tracking-tight mt-1">Ksh {kpis.totalCash.toLocaleString()}</div>
-                    </div>
-                    <div className="text-[10px] opacity-75 mt-1">{kpis.cashCount} Cash Orders ({kpis.totalRevenue > 0 ? Math.round((kpis.totalCash / kpis.totalRevenue) * 100) : 0}%)</div>
-                    <div className="absolute bottom-2 right-2.5 text-2xl opacity-20">💵</div>
+                {/* 2. Cash Collected */}
+                <div className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-2xl p-3 border border-cyan-100 shadow-xs relative overflow-hidden min-w-0">
+                    <p className="text-[10px] font-bold text-blue-700 uppercase tracking-wider truncate">Cash Collected</p>
+                    <p className="text-base sm:text-lg font-black text-blue-950 mt-0.5 truncate">
+                        Ksh {kpis.totalCash.toLocaleString()}
+                    </p>
+                    <p className="text-[10px] text-blue-800 font-bold mt-0.5 truncate">
+                        {kpis.cashCount} Cash Orders ({kpis.totalRevenue > 0 ? Math.round((kpis.totalCash / kpis.totalRevenue) * 100) : 0}%)
+                    </p>
                 </div>
 
-                {/* 3. M-Pesa Collections */}
-                <div
-                    style={{ background: 'linear-gradient(135deg,#059669 0%,#10b981 100%)', boxShadow: '0 8px 24px rgba(16,185,129,0.3)' }}
-                    className="rounded-2xl p-3.5 text-white relative overflow-hidden flex flex-col justify-between"
-                >
-                    <div style={{ position: 'absolute', top: -15, right: -15, width: 65, height: 65, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
-                    <div style={{ position: 'absolute', bottom: -20, left: -10, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
-                    <div>
-                        <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">M-PESA SETTLED</div>
-                        <div className="text-base sm:text-lg font-black tracking-tight mt-1">Ksh {kpis.totalMpesa.toLocaleString()}</div>
-                    </div>
-                    <div className="text-[10px] opacity-75 mt-1">{kpis.mpesaCount} Mobile Money ({kpis.totalRevenue > 0 ? Math.round((kpis.totalMpesa / kpis.totalRevenue) * 100) : 0}%)</div>
-                    <div className="absolute bottom-2 right-2.5 text-2xl opacity-20">📱</div>
+                {/* 3. M-Pesa Settled */}
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-3 border border-emerald-200 shadow-xs relative overflow-hidden min-w-0">
+                    <p className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider truncate">M-Pesa Settled</p>
+                    <p className="text-base sm:text-lg font-black text-emerald-950 mt-0.5 truncate">
+                        Ksh {kpis.totalMpesa.toLocaleString()}
+                    </p>
+                    <p className="text-[10px] text-emerald-800 font-bold mt-0.5 truncate">
+                        {kpis.mpesaCount} Mobile Money ({kpis.totalRevenue > 0 ? Math.round((kpis.totalMpesa / kpis.totalRevenue) * 100) : 0}%)
+                    </p>
                 </div>
 
-                {/* 4. Credit Sales */}
-                <div
-                    style={{ background: 'linear-gradient(135deg,#f7971e 0%,#ffd200 100%)', boxShadow: '0 8px 24px rgba(247,151,30,0.3)' }}
-                    className="rounded-2xl p-3.5 text-white relative overflow-hidden flex flex-col justify-between"
-                >
-                    <div style={{ position: 'absolute', top: -15, right: -15, width: 65, height: 65, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
-                    <div style={{ position: 'absolute', bottom: -20, left: -10, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
-                    <div>
-                        <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">CREDIT / ON-ACCOUNT</div>
-                        <div className="text-base sm:text-lg font-black tracking-tight mt-1">Ksh {kpis.totalCredit.toLocaleString()}</div>
-                    </div>
-                    <div className="text-[10px] opacity-75 mt-1">{kpis.creditCount} Credit Sales</div>
-                    <div className="absolute bottom-2 right-2.5 text-2xl opacity-20">📋</div>
+                {/* 4. Credit / On-Account */}
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-3 border border-amber-100 shadow-xs relative overflow-hidden min-w-0">
+                    <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider truncate">Credit / On-Account</p>
+                    <p className="text-base sm:text-lg font-black text-amber-950 mt-0.5 truncate">
+                        Ksh {kpis.totalCredit.toLocaleString()}
+                    </p>
+                    <p className="text-[10px] text-amber-800 font-bold mt-0.5 truncate">
+                        {kpis.creditCount} Credit Invoices
+                    </p>
                 </div>
 
-                {/* 5. Est. Gross Profit */}
-                <div
-                    style={{ background: 'linear-gradient(135deg,#00b09b 0%,#96c93d 100%)', boxShadow: '0 8px 24px rgba(0,176,155,0.3)' }}
-                    className="rounded-2xl p-3.5 text-white relative overflow-hidden flex flex-col justify-between"
-                >
-                    <div style={{ position: 'absolute', top: -15, right: -15, width: 65, height: 65, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
-                    <div style={{ position: 'absolute', bottom: -20, left: -10, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
-                    <div>
-                        <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">EST. GROSS PROFIT</div>
-                        <div className="text-base sm:text-lg font-black tracking-tight mt-1">Ksh {kpis.estProfit.toLocaleString()}</div>
-                    </div>
-                    <div className="text-[10px] opacity-75 mt-1">{kpis.profitMarginPct}% Est. Margin ({Math.round(avgMarginRate * 100)}% base)</div>
-                    <div className="absolute bottom-2 right-2.5 text-2xl opacity-20">📈</div>
+                {/* 5. Total Discounts */}
+                <div className="bg-gradient-to-br from-slate-50 to-gray-100 rounded-2xl p-3 border border-gray-200 shadow-xs relative overflow-hidden min-w-0">
+                    <p className="text-[10px] font-bold text-gray-700 uppercase tracking-wider truncate">Total Discounts</p>
+                    <p className="text-base sm:text-lg font-black text-gray-950 mt-0.5 truncate">
+                        Ksh {kpis.totalDiscount.toLocaleString()}
+                    </p>
+                    <p className="text-[10px] text-gray-600 mt-0.5 truncate">
+                        {filtered.filter((s) => s.discount > 0).length} Concessions Issued
+                    </p>
                 </div>
 
-                {/* 6. Total Discounts */}
-                <div
-                    style={{ background: 'linear-gradient(135deg,#f44336 0%,#e91e63 100%)', boxShadow: '0 8px 24px rgba(244,67,54,0.3)' }}
-                    className="rounded-2xl p-3.5 text-white relative overflow-hidden flex flex-col justify-between"
-                >
-                    <div style={{ position: 'absolute', top: -15, right: -15, width: 65, height: 65, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
-                    <div style={{ position: 'absolute', bottom: -20, left: -10, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
-                    <div>
-                        <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">TOTAL DISCOUNTS</div>
-                        <div className="text-base sm:text-lg font-black tracking-tight mt-1">Ksh {kpis.totalDiscount.toLocaleString()}</div>
-                    </div>
-                    <div className="text-[10px] opacity-75 mt-1">{filtered.filter((s) => s.discount > 0).length} Concessions Issued</div>
-                    <div className="absolute bottom-2 right-2.5 text-2xl opacity-20">🏷️</div>
-                </div>
-
-                {/* 7. Average Basket */}
-                <div
-                    style={{ background: 'linear-gradient(135deg,#06b6d4 0%,#3b82f6 100%)', boxShadow: '0 8px 24px rgba(6,182,212,0.3)' }}
-                    className="rounded-2xl p-3.5 text-white relative overflow-hidden flex flex-col justify-between"
-                >
-                    <div style={{ position: 'absolute', top: -15, right: -15, width: 65, height: 65, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
-                    <div style={{ position: 'absolute', bottom: -20, left: -10, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
-                    <div>
-                        <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">AVERAGE BASKET</div>
-                        <div className="text-base sm:text-lg font-black tracking-tight mt-1">Ksh {kpis.avgOrder.toLocaleString()}</div>
-                    </div>
-                    <div className="text-[10px] opacity-75 mt-1">Mean Value per Transaction</div>
-                    <div className="absolute bottom-2 right-2.5 text-2xl opacity-20">🛒</div>
-                </div>
-
-                {/* 8. Order Volume */}
-                <div
-                    style={{ background: 'linear-gradient(135deg,#1e293b 0%,#334155 100%)', boxShadow: '0 8px 24px rgba(30,41,59,0.3)' }}
-                    className="rounded-2xl p-3.5 text-white relative overflow-hidden flex flex-col justify-between"
-                >
-                    <div style={{ position: 'absolute', top: -15, right: -15, width: 65, height: 65, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
-                    <div style={{ position: 'absolute', bottom: -20, left: -10, width: 50, height: 50, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
-                    <div>
-                        <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">TOTAL VOLUME</div>
-                        <div className="text-base sm:text-lg font-black tracking-tight mt-1">{filtered.length} Orders</div>
-                    </div>
-                    <div className="text-[10px] opacity-75 mt-1">{kpis.completedCount} Dispensed &amp; Completed</div>
-                    <div className="absolute bottom-2 right-2.5 text-2xl opacity-20">🧾</div>
+                {/* 6. Est. Gross Profit */}
+                <div className="bg-gradient-to-br from-rose-50 to-red-50 rounded-2xl p-3 border border-rose-100 shadow-xs relative overflow-hidden min-w-0">
+                    <p className="text-[10px] font-bold text-rose-700 uppercase tracking-wider truncate">Est. Gross Profit</p>
+                    <p className="text-base sm:text-lg font-black text-rose-950 mt-0.5 truncate">
+                        Ksh {kpis.estProfit.toLocaleString()}
+                    </p>
+                    <p className="text-[10px] text-rose-800 font-bold mt-0.5 truncate">
+                        {kpis.profitMarginPct}% Est Margin ({Math.round(avgMarginRate * 100)}% base)
+                    </p>
                 </div>
             </div>
 
-            {/* =====================================================================
-                ANALYTICS BREAKDOWN STRIP: PAYMENT DISTRIBUTION & CASHIER AUDIT
-            ===================================================================== */}
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 w-full">
-                {/* Payment Breakdown Bar Strip */}
-                <div className="lg:col-span-3 bg-white rounded-3xl border border-gray-200 p-4 shadow-xs">
-                    <div className="flex items-center justify-between mb-3">
-                        <div>
-                            <h3 className="text-xs font-black text-gray-900 uppercase tracking-wider">📊 Payment Channel Distribution</h3>
-                            <p className="text-[11px] text-gray-500 mt-0.5">Real-time revenue split across active payment gateways</p>
-                        </div>
-                        <span className="text-xs font-bold text-gray-900">Total: Ksh {kpis.totalRevenue.toLocaleString()}</span>
-                    </div>
+            {/* Optional Collapsible Analytics Mini-Bar */}
+            <div className="flex items-center justify-between text-[11px] text-gray-500 px-1">
+                <button
+                    onClick={() => setShowAnalyticsStrip(!showAnalyticsStrip)}
+                    className="hover:text-emerald-700 font-bold flex items-center gap-1 transition-colors"
+                >
+                    <span>{showAnalyticsStrip ? '▼ Hide' : '▶ Show'}</span>
+                    <span>Payment Channel Breakdown &amp; Cashier Leaderboard</span>
+                </button>
+                <span>
+                    Mean Order: <strong className="text-gray-800">Ksh {kpis.avgOrder.toLocaleString()}</strong> • Completed: <strong className="text-emerald-700">{kpis.completedCount}</strong> / {filtered.length}
+                </span>
+            </div>
 
-                    <div className="space-y-2.5">
+            {showAnalyticsStrip && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 p-3 bg-white rounded-2xl border border-gray-200 shadow-xs min-w-0">
+                    {/* Payment breakdown */}
+                    <div className="space-y-1.5 min-w-0">
+                        <p className="text-[10px] font-bold text-gray-700 uppercase">Payment Channel Share</p>
                         {[
                             { label: 'M-Pesa Mobile Money', value: kpis.totalMpesa, count: kpis.mpesaCount, color: '#10b981', icon: '📱' },
                             { label: 'Cash Payments', value: kpis.totalCash, count: kpis.cashCount, color: '#3b82f6', icon: '💵' },
                             { label: 'Credit / Accounts', value: kpis.totalCredit, count: kpis.creditCount, color: '#f59e0b', icon: '📋' },
-                            { label: 'Debit / Credit Card', value: kpis.totalCard, count: kpis.cardCount, color: '#8b5cf6', icon: '💳' },
                         ].map((m, i) => {
                             const pct = kpis.totalRevenue > 0 ? Math.round((m.value / kpis.totalRevenue) * 100) : 0;
                             return (
-                                <div key={i}>
-                                    <div className="flex items-center justify-between text-xs mb-1">
-                                        <span className="font-semibold text-gray-800 flex items-center gap-1.5">
-                                            <span>{m.icon}</span> {m.label}
-                                            <span className="text-[10px] text-gray-400 font-mono">({m.count} txns)</span>
-                                        </span>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[11px] text-gray-400 font-mono">{pct}%</span>
-                                            <span className="font-bold text-gray-900 font-mono">Ksh {m.value.toLocaleString()}</span>
-                                        </div>
+                                <div key={i} className="text-xs">
+                                    <div className="flex justify-between text-[11px] mb-0.5">
+                                        <span className="font-semibold text-gray-800">{m.icon} {m.label} ({m.count})</span>
+                                        <span className="font-mono font-bold text-gray-900">{pct}% (Ksh {m.value.toLocaleString()})</span>
                                     </div>
-                                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                                        <div style={{ width: `${pct}%`, background: m.color, height: '100%', borderRadius: 999, transition: 'width 0.5s ease' }} />
+                                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                        <div style={{ width: `${pct}%`, background: m.color, height: '100%', borderRadius: 999 }} />
                                     </div>
                                 </div>
                             );
                         })}
                     </div>
 
-                    <div className="mt-4 pt-3 border-t border-gray-100 grid grid-cols-3 gap-2">
-                        <div className="p-2.5 bg-gray-50 rounded-xl border border-gray-200 text-center">
-                            <p className="text-[10px] text-gray-500 uppercase font-bold">Gross Revenue</p>
-                            <p className="text-xs font-black text-gray-900 mt-0.5">Ksh {kpis.totalRevenue.toLocaleString()}</p>
-                        </div>
-                        <div className="p-2.5 bg-red-50 rounded-xl border border-red-200 text-center">
-                            <p className="text-[10px] text-red-700 uppercase font-bold">Est. Product COGS</p>
-                            <p className="text-xs font-black text-red-700 mt-0.5">Ksh {kpis.estCOGS.toLocaleString()}</p>
-                        </div>
-                        <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-center">
-                            <p className="text-[10px] text-emerald-800 uppercase font-bold">Est. Gross Profit</p>
-                            <p className="text-xs font-black text-emerald-800 mt-0.5">Ksh {kpis.estProfit.toLocaleString()}</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Cashier Performance Leaderboard */}
-                <div className="lg:col-span-2 bg-white rounded-3xl border border-gray-200 p-4 shadow-xs flex flex-col justify-between">
-                    <div>
-                        <div className="flex items-center justify-between mb-3">
-                            <div>
-                                <h3 className="text-xs font-black text-gray-900 uppercase tracking-wider">👨‍⚕️ Cashier Performance</h3>
-                                <p className="text-[11px] text-gray-500 mt-0.5">Top dispensing staff by revenue</p>
-                            </div>
-                        </div>
-
+                    {/* Cashier rankings */}
+                    <div className="space-y-1.5 min-w-0">
+                        <p className="text-[10px] font-bold text-gray-700 uppercase">Cashier Dispensing Leaderboard</p>
                         {kpis.cashierStats.length === 0 ? (
-                            <p className="text-xs text-gray-400 text-center py-6">No cashier records in range</p>
+                            <p className="text-xs text-gray-400 py-2">No cashier data</p>
                         ) : (
-                            <div className="space-y-2">
-                                {kpis.cashierStats.map((c, idx) => {
-                                    const pct = kpis.totalRevenue > 0 ? Math.round((c.revenue / kpis.totalRevenue) * 100) : 0;
-                                    const medals = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
-                                    return (
-                                        <div key={idx} className="flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-gray-50">
-                                            <span className="text-sm">{medals[idx] || '👤'}</span>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center justify-between text-xs mb-0.5">
-                                                    <span className="font-bold text-gray-900 truncate">{c.name}</span>
-                                                    <span className="font-mono font-bold text-gray-800 text-[11px]">Ksh {c.revenue.toLocaleString()}</span>
-                                                </div>
-                                                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                                    <div style={{ width: `${pct}%`, background: '#10b981', height: '100%', borderRadius: 999 }} />
-                                                </div>
-                                                <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
-                                                    <span>{c.count} transactions</span>
-                                                    <span>{pct}% of revenue</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                            kpis.cashierStats.map((c, i) => (
+                                <div key={i} className="flex items-center justify-between text-[11px] py-0.5">
+                                    <span className="font-bold text-gray-800 truncate">👤 {c.name}</span>
+                                    <span className="font-mono font-bold text-gray-900">{c.count} sales • Ksh {c.revenue.toLocaleString()}</span>
+                                </div>
+                            ))
                         )}
                     </div>
-
-                    <div className="mt-3 p-2.5 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 flex items-center justify-between">
-                        <div>
-                            <p className="text-[10px] font-bold text-emerald-800 uppercase">Estimated Profit Margin</p>
-                            <p className="text-sm font-black text-emerald-900">{kpis.profitMarginPct}%</p>
-                        </div>
-                        <span className="text-xl">📈</span>
-                    </div>
                 </div>
-            </div>
+            )}
 
             {/* =====================================================================
-                MULTI-DIMENSIONAL FILTER SUITE (PURCHASES PAGE STYLE)
+                MULTI-DIMENSIONAL FILTER SUITE (PURCHASES PAGE STYLE - RESPONSIVE)
             ===================================================================== */}
-            <div className="bg-white rounded-3xl p-4 border border-gray-200 shadow-xs space-y-3">
-                <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2">
+            <div className="bg-white rounded-2xl p-3 border border-gray-200 shadow-xs space-y-2.5 w-full min-w-0">
+                <div className="flex flex-wrap items-center gap-2 w-full min-w-0">
                     {/* Omni-Search */}
-                    <div className="relative flex-1 min-w-[220px]">
+                    <div className="relative flex-1 min-w-[200px]">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
                         <input
                             type="text"
@@ -1084,8 +966,8 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                                 setSearch(e.target.value);
                                 setCurrentPage(1);
                             }}
-                            placeholder="Search by Receipt # (RX-001), Customer, Phone, M-Pesa Code, Cashier..."
-                            className="w-full pl-8 pr-7 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-semibold focus:bg-white focus:border-emerald-600 outline-none text-gray-900"
+                            placeholder="Search by Receipt #, Customer Name, Phone, M-Pesa Code, Cashier..."
+                            className="w-full pl-8 pr-7 py-1.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-semibold focus:bg-white focus:border-emerald-600 outline-none text-gray-900"
                         />
                         {search && (
                             <button
@@ -1104,12 +986,12 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                             setFilterPayment(e.target.value);
                             setCurrentPage(1);
                         }}
-                        className="px-2.5 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:border-emerald-600 outline-none"
+                        className="px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:border-emerald-600 outline-none"
                     >
-                        <option value="All">💳 All Payment Methods</option>
+                        <option value="All">💳 All Methods</option>
                         <option value="Cash">💵 Cash</option>
                         <option value="Mpesa">📱 M-Pesa</option>
-                        <option value="Credit">📋 Credit / Account</option>
+                        <option value="Credit">📋 Credit</option>
                         <option value="Card">💳 Card</option>
                     </select>
 
@@ -1120,7 +1002,7 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                             setFilterCashier(e.target.value);
                             setCurrentPage(1);
                         }}
-                        className="px-2.5 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:border-emerald-600 outline-none"
+                        className="px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:border-emerald-600 outline-none"
                     >
                         <option value="All">👨‍⚕️ All Cashiers</option>
                         {cashierList.map((c) => (
@@ -1137,7 +1019,7 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                             setFilterStatus(e.target.value);
                             setCurrentPage(1);
                         }}
-                        className="px-2.5 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:border-emerald-600 outline-none"
+                        className="px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:border-emerald-600 outline-none"
                     >
                         <option value="All">📌 All Statuses</option>
                         <option value="Completed">✅ Completed</option>
@@ -1148,34 +1030,34 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                     <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as any)}
-                        className="px-2.5 py-2 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:border-emerald-600 outline-none"
+                        className="px-2.5 py-1.5 bg-gray-50 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:border-emerald-600 outline-none"
                     >
-                        <option value="newest">Sort: Newest First</option>
-                        <option value="oldest">Sort: Oldest First</option>
+                        <option value="newest">Sort: Newest</option>
+                        <option value="oldest">Sort: Oldest</option>
                         <option value="amount_high">Sort: Amount (High→Low)</option>
                         <option value="amount_low">Sort: Amount (Low→High)</option>
                         <option value="profit_high">Sort: Profit (High→Low)</option>
-                        <option value="receipt_asc">Sort: Receipt # (Asc)</option>
+                        <option value="receipt_asc">Sort: Receipt #</option>
                     </select>
 
-                    {/* Dense View Toggle (Guarantees Page Fit) */}
+                    {/* Dense Fit Toggle */}
                     <button
                         onClick={() => setIsAutoFit(!isAutoFit)}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
+                        className={`px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1 shrink-0 ${
                             isAutoFit
                                 ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
                                 : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                         }`}
-                        title="Toggle dense datagrid layout to fit all columns on screen"
+                        title="Toggle dense datagrid layout"
                     >
-                        <span>⛶</span> {isAutoFit ? 'Dense Fit' : 'Standard'}
+                        <span>⛶</span> {isAutoFit ? 'Dense View' : 'Standard'}
                     </button>
                 </div>
 
-                {/* Date Presets & Range Row */}
+                {/* Date Presets Row */}
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-100 text-xs font-bold text-gray-700">
-                    <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-gray-500 text-[11px]">Date Range:</span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-gray-500 text-[11px]">Dates:</span>
                         <input
                             type="date"
                             value={dateFrom}
@@ -1184,9 +1066,9 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                                 setPreset('today');
                                 setCurrentPage(1);
                             }}
-                            className="px-2 py-1 bg-gray-50 border border-gray-300 rounded-lg text-xs font-mono text-gray-900"
+                            className="px-2 py-0.5 bg-gray-50 border border-gray-300 rounded-lg text-xs font-mono text-gray-900"
                         />
-                        <span className="text-gray-400">to</span>
+                        <span className="text-gray-400 text-xs">to</span>
                         <input
                             type="date"
                             value={dateTo}
@@ -1195,7 +1077,7 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                                 setPreset('today');
                                 setCurrentPage(1);
                             }}
-                            className="px-2 py-1 bg-gray-50 border border-gray-300 rounded-lg text-xs font-mono text-gray-900"
+                            className="px-2 py-0.5 bg-gray-50 border border-gray-300 rounded-lg text-xs font-mono text-gray-900"
                         />
                         {(dateFrom || dateTo) && (
                             <button
@@ -1204,14 +1086,13 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                                     setDateTo('');
                                     setCurrentPage(1);
                                 }}
-                                className="text-[11px] text-red-600 hover:underline"
+                                className="text-[11px] text-red-600 hover:underline font-bold ml-1"
                             >
-                                Clear Dates
+                                Clear
                             </button>
                         )}
                     </div>
 
-                    {/* Presets */}
                     <div className="flex items-center gap-1 flex-wrap">
                         <span className="text-gray-500 text-[11px]">Presets:</span>
                         {[
@@ -1239,11 +1120,11 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
             </div>
 
             {/* =====================================================================
-                MAIN SALES DATAGRID TABLE (FITS ANY SCREEN, NO OVERFLOW CLIPPING)
+                MAIN SALES DATAGRID TABLE WITH RESOLVED CUSTOMER NAME & ZERO OVERFLOW
             ===================================================================== */}
-            <div className="bg-white rounded-3xl border border-gray-200 shadow-xs overflow-hidden w-full max-w-full">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-xs overflow-hidden w-full max-w-full min-w-0">
                 {/* Table Control Header */}
-                <div className="px-4 py-3 bg-gray-50/90 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="px-3.5 py-2.5 bg-gray-50/90 border-b border-gray-200 flex flex-wrap items-center justify-between gap-2 text-xs">
                     <div className="flex items-center gap-2">
                         <span className="font-black text-gray-900 uppercase tracking-wide">
                             📋 Transactions Ledger ({filtered.length})
@@ -1254,7 +1135,7 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                             </span>
                         )}
                     </div>
-                    <div className="text-gray-600 text-xs flex items-center gap-3">
+                    <div className="text-gray-600 text-xs flex items-center gap-2.5">
                         <span>Revenue: <strong className="text-gray-900 font-mono">Ksh {kpis.totalRevenue.toLocaleString()}</strong></span>
                         <span>•</span>
                         <span>Est. Profit: <strong className="text-emerald-700 font-mono">Ksh {kpis.estProfit.toLocaleString()}</strong></span>
@@ -1278,7 +1159,7 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                                 <th className="p-2.5 w-8 text-center">#</th>
                                 <th className="p-2.5 whitespace-nowrap">Date / Time</th>
                                 <th className="p-2.5 whitespace-nowrap">Receipt #</th>
-                                <th className="p-2.5 whitespace-nowrap">Customer / Phone</th>
+                                <th className="p-2.5 whitespace-nowrap">Customer (M-Pesa Sender)</th>
                                 <th className="p-2.5 text-center whitespace-nowrap">Payment</th>
                                 <th className="p-2.5 text-right whitespace-nowrap">Subtotal</th>
                                 <th className="p-2.5 text-right whitespace-nowrap">Discount</th>
@@ -1287,7 +1168,7 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                                 <th className="p-2.5 text-center whitespace-nowrap">M-Pesa Code</th>
                                 <th className="p-2.5 text-center whitespace-nowrap">Cashier</th>
                                 <th className="p-2.5 text-center whitespace-nowrap">Status</th>
-                                <th className="p-2.5 text-center whitespace-nowrap w-24">Actions</th>
+                                <th className="p-2.5 text-center whitespace-nowrap w-20">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-gray-900 font-medium">
@@ -1348,12 +1229,26 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                                                 </button>
                                             </td>
 
-                                            {/* Customer */}
+                                            {/* Customer Name with M-Pesa sender resolution */}
                                             <td className="p-2.5 whitespace-nowrap">
-                                                <p className="font-bold text-gray-900">{s.customer_name || 'Walk-in Patient'}</p>
-                                                {s.customer_phone && (
-                                                    <p className="text-[10px] text-gray-500 font-mono">{s.customer_phone}</p>
-                                                )}
+                                                <div className="flex items-center gap-1.5">
+                                                    {s.mpesa_receipt && (
+                                                        <span
+                                                            className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-[9px] shrink-0 font-bold"
+                                                            title={`M-Pesa Verified Transaction: ${s.mpesa_receipt}`}
+                                                        >
+                                                            📱
+                                                        </span>
+                                                    )}
+                                                    <div>
+                                                        <p className="font-bold text-gray-900">
+                                                            {s.customer_name || 'Walk-in Patient'}
+                                                        </p>
+                                                        {s.customer_phone && (
+                                                            <p className="text-[10px] text-gray-500 font-mono">{s.customer_phone}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
                                             </td>
 
                                             {/* Payment Badge */}
@@ -1452,22 +1347,22 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                         {filtered.length > 0 && (
                             <tfoot>
                                 <tr className="bg-gray-100/90 border-t-2 border-gray-300 font-black text-gray-900">
-                                    <td colSpan={6} className="p-3 text-left">
+                                    <td colSpan={6} className="p-2.5 text-left">
                                         GRAND TOTALS ({filtered.length} TRANSACTIONS):
                                     </td>
-                                    <td className="p-3 text-right font-mono">
+                                    <td className="p-2.5 text-right font-mono">
                                         Ksh {kpis.totalSubtotal.toLocaleString()}
                                     </td>
-                                    <td className="p-3 text-right font-mono text-red-600">
+                                    <td className="p-2.5 text-right font-mono text-red-600">
                                         -Ksh {kpis.totalDiscount.toLocaleString()}
                                     </td>
-                                    <td className="p-3 text-right font-mono font-black text-blue-900">
+                                    <td className="p-2.5 text-right font-mono font-black text-blue-900">
                                         Ksh {kpis.totalRevenue.toLocaleString()}
                                     </td>
-                                    <td className="p-3 text-right font-mono font-black text-emerald-700">
+                                    <td className="p-2.5 text-right font-mono font-black text-emerald-700">
                                         Ksh {kpis.estProfit.toLocaleString()}
                                     </td>
-                                    <td colSpan={4} className="p-3 text-xs text-gray-500 font-normal">
+                                    <td colSpan={4} className="p-2.5 text-[11px] text-gray-500 font-normal">
                                         Avg: Ksh {kpis.avgOrder.toLocaleString()} / sale • Margin: {kpis.profitMarginPct}%
                                     </td>
                                 </tr>
@@ -1479,7 +1374,7 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                 {/* =====================================================================
                     SUPER PAGINATION STEPPER (LIKE PURCHASES MASTER REGISTER)
                 ===================================================================== */}
-                <div className="p-3.5 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-700 font-semibold">
+                <div className="p-3 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2.5 text-xs text-gray-700 font-semibold">
                     <div className="flex items-center gap-2 flex-wrap">
                         <span>
                             Showing <strong className="text-gray-900">{filtered.length === 0 ? 0 : (currentPage - 1) * (pageSize === -1 ? filtered.length : pageSize) + 1}</strong> to{' '}
@@ -1564,10 +1459,6 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                 </div>
             </div>
 
-            <p className="text-center text-[10px] text-gray-400">
-                * Estimated Gross Profit is computed at <strong>{Math.round(avgMarginRate * 100)}%</strong> average margin based on current product catalogue costs.
-            </p>
-
             {/* =====================================================================
                 MODAL: 360° SALE DOSSIER & COMPREHENSIVE SETTLEMENT AUDIT
             ===================================================================== */}
@@ -1607,11 +1498,11 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                         </div>
 
                         {/* Modal Body */}
-                        <div className="p-4 space-y-3.5 overflow-y-auto text-xs">
+                        <div className="p-4 space-y-3 overflow-y-auto text-xs">
                             {/* Key Sale Info Grid */}
                             <div className="grid grid-cols-2 gap-2">
                                 {[
-                                    { label: 'Customer', value: activeSale.customer_name || 'Walk-in Patient', icon: '👤' },
+                                    { label: 'Customer (M-Pesa Sender)', value: activeSale.customer_name || 'Walk-in Patient', icon: '👤' },
                                     { label: 'Cashier / Dispenser', value: activeSale.cashier_name || 'Staff', icon: '👨‍⚕️' },
                                     { label: 'Payment Method', value: activeSale.payment_method, icon: '💳' },
                                     { label: 'Sale Status', value: activeSale.status || 'Completed', icon: '📌' },
