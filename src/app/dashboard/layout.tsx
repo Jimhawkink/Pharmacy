@@ -6,288 +6,169 @@ import Link from 'next/link';
 import { SettingsProvider } from '@/context/SettingsContext';
 import { OutletProvider, useOutlet } from '@/context/OutletContext';
 import { logActivity } from '@/lib/supabase';
-import { SidebarPillArtwork } from '@/lib/medicineVisual';
+import {
+  Home,
+  Pill,
+  ShoppingCart,
+  ClipboardList,
+  FileText,
+  Clock,
+  Boxes,
+  Stethoscope,
+  Box,
+  ShoppingBag,
+  Store,
+  ShieldCheck,
+  CreditCard,
+  Users,
+  BarChart3,
+  Shield,
+  Settings,
+  Power,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Bell,
+  RotateCcw,
+  AlertTriangle,
+  Heart,
+  Activity,
+  Calendar,
+  Building2,
+  DollarSign,
+  UserPlus,
+  TrendingUp,
+  FileSpreadsheet,
+  Lock,
+} from 'lucide-react';
 
-/* ─── Super Premium SVG Icon Library ─────────────────────────────── */
-const IC = {
-  Home: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 3L2 12H5V20H10V14H14V20H19V12H22L12 3Z"/>
-    </svg>
-  ),
-  PillAngled: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/>
-      <path d="m8.5 8.5 7 7"/>
-    </svg>
-  ),
-  CartPill: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="8" cy="21" r="1.5" fill="currentColor"/>
-      <circle cx="19" cy="21" r="1.5" fill="currentColor"/>
-      <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>
-      <line x1="11" y1="8" x2="16" y2="8" strokeWidth="2.4"/>
-      <line x1="13.5" y1="5.5" x2="13.5" y2="10.5" strokeWidth="2.4"/>
-    </svg>
-  ),
-  DispensingClip: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="4" y="4" width="16" height="18" rx="2" ry="2"/>
-      <line x1="9" y1="2" x2="15" y2="2"/>
-      <line x1="12" y1="10" x2="12" y2="16"/>
-      <line x1="9" y1="13" x2="15" y2="13"/>
-    </svg>
-  ),
-  PrescriptionClip: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-      <polyline points="14 2 14 8 20 8"/>
-      <line x1="12" y1="18" x2="12" y2="12"/>
-      <line x1="9" y1="15" x2="15" y2="15"/>
-    </svg>
-  ),
-  Clock: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10"/>
-      <polyline points="12 6 12 12 16 14"/>
-    </svg>
-  ),
-  BatchBox: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
-      <path d="m3.3 7 8.7 5 8.7-5"/>
-      <path d="M12 22V12"/>
-    </svg>
-  ),
-  Stethoscope: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/>
-      <path d="M8 15v1a6 6 0 0 0 6 6v0a6 6 0 0 0 6-6v-4"/>
-      <circle cx="20" cy="10" r="2.5"/>
-    </svg>
-  ),
-  ProductsBox: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/>
-      <path d="m3.3 7 8.7 5 8.7-5"/>
-      <path d="M12 22V12"/>
-    </svg>
-  ),
-  PurchasesCart: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="9" cy="21" r="1.5"/>
-      <circle cx="20" cy="21" r="1.5"/>
-      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-    </svg>
-  ),
-  InventoryStore: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-      <polyline points="9 22 9 12 15 12 15 22"/>
-    </svg>
-  ),
-  InsuranceShield: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-      <path d="m9 12 2 2 4-4"/>
-    </svg>
-  ),
-  Card: () => (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect width="22" height="16" x="1" y="4" rx="2" ry="2"/><line x1="1" x2="23" y1="10" y2="10"/>
-    </svg>
-  ),
-  Users: () => (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-    </svg>
-  ),
-  Chart: () => (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" x2="18" y1="20" y2="10"/><line x1="12" x2="12" y1="20" y2="4"/><line x1="6" x2="6" y1="20" y2="14"/>
-    </svg>
-  ),
-  Shield: () => (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-    </svg>
-  ),
-  Gear: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3"/>
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-    </svg>
-  ),
-  Power: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
-      <line x1="12" y1="2" x2="12" y2="12"/>
-    </svg>
-  ),
-  ChevronDown: ({ rotated }: { rotated?: boolean }) => (
-    <svg
-      width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-      style={{ transform: rotated ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
-    >
-      <polyline points="6 9 12 15 18 9"/>
-    </svg>
-  ),
-  ChevronLeft: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="15 18 9 12 15 6"/>
-    </svg>
-  ),
-  ChevronRight: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="9 18 15 12 9 6"/>
-    </svg>
-  ),
-  Bell: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-    </svg>
-  ),
-  Refresh: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>
-    </svg>
-  ),
-  GoldShieldBadge: () => (
-    <svg width="30" height="30" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="goldShieldGrad" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#FBBF24" />
-          <stop offset="50%" stopColor="#D97706" />
-          <stop offset="100%" stopColor="#92400E" />
-        </linearGradient>
-      </defs>
-      <path d="M14 2L4 6V13C4 19.5 8.2 24.8 14 26C19.8 24.8 24 19.5 24 13V6L14 2Z" fill="url(#goldShieldGrad)" stroke="#FDE68A" strokeWidth="1.2" />
-      <path d="M9.5 14L12.5 17L18.5 10.5" stroke="#FFFFFF" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  ),
-};
-
-/* ─── Menu Groups Definition ─────────────────────────────────────── */
-type SubItem = { name: string; href: string; icon: () => JSX.Element; badge?: string; adminOnly?: boolean; superAdminOnly?: boolean };
-type MenuGroup = { id: string; name: string; icon: () => JSX.Element; href?: string; single?: boolean; items?: SubItem[] };
+/* ─── Menu Groups Definition with Lucide Icons ───────────────────── */
+type SubItem = { name: string; href: string; icon: any; badge?: string; adminOnly?: boolean; superAdminOnly?: boolean };
+type MenuGroup = { id: string; name: string; icon: any; href?: string; single?: boolean; items?: SubItem[] };
 
 const menuGroups: MenuGroup[] = [
   {
+    id: 'dashboard',
+    name: 'Dashboard',
+    icon: Home,
+    href: '/dashboard',
+    single: true,
+  },
+  {
     id: 'pharmacy',
     name: 'Pharmacy',
-    icon: IC.PillAngled,
+    icon: Pill,
     items: [
-      { name: 'Pharmacy POS',     href: '/dashboard/pos',              icon: IC.CartPill },
-      { name: 'Dispensing',        href: '/dashboard/dispensing',       icon: IC.DispensingClip },
-      { name: 'Prescriptions',    href: '/dashboard/prescriptions',    icon: IC.PrescriptionClip },
-      { name: 'Expiry Register',  href: '/dashboard/expiry-register',  icon: IC.Clock, badge: '3' },
-      { name: 'Batch Management', href: '/dashboard/batches',          icon: IC.BatchBox },
+      { name: 'Pharmacy POS',     href: '/dashboard/pos',              icon: ShoppingCart },
+      { name: 'Dispensing',        href: '/dashboard/dispensing',       icon: ClipboardList },
+      { name: 'Prescriptions',    href: '/dashboard/prescriptions',    icon: FileText },
+      { name: 'Expiry Register',  href: '/dashboard/expiry-register',  icon: Clock, badge: '3' },
+      { name: 'Batch Management', href: '/dashboard/batches',          icon: Boxes },
     ],
   },
   {
     id: 'clinical',
     name: 'Clinical',
-    icon: IC.Stethoscope,
+    icon: Stethoscope,
     items: [
-      { name: 'Patients',          href: '/dashboard/patients',         icon: IC.Users },
-      { name: 'Dangerous Drugs',   href: '/dashboard/dangerous-drugs',  icon: IC.InsuranceShield, badge: 'DDR' },
-      { name: 'Pharmacovigilance', href: '/dashboard/pharmacovigilance', icon: IC.PrescriptionClip },
-      { name: 'Drug Interactions', href: '/dashboard/drug-interactions', icon: IC.DispensingClip },
-      { name: 'Data Protection 🔒', href: '/dashboard/data-protection', icon: IC.InsuranceShield, badge: 'DPA' },
+      { name: 'Patients',          href: '/dashboard/patients',         icon: UserPlus },
+      { name: 'Dangerous Drugs',   href: '/dashboard/dangerous-drugs',  icon: AlertTriangle, badge: 'DDR' },
+      { name: 'Pharmacovigilance', href: '/dashboard/pharmacovigilance', icon: Activity },
+      { name: 'Drug Interactions', href: '/dashboard/drug-interactions', icon: Heart },
+      { name: 'Data Protection 🔒', href: '/dashboard/data-protection', icon: Lock, badge: 'DPA' },
     ],
   },
   {
     id: 'products',
     name: 'Products & Sales',
-    icon: IC.ProductsBox,
+    icon: Box,
     items: [
-      { name: 'Products / Drugs', href: '/dashboard/products',         icon: IC.PillAngled },
-      { name: 'Categories',       href: '/dashboard/categories',       icon: IC.BatchBox },
-      { name: 'Sales Records',    href: '/dashboard/sales',            icon: IC.PrescriptionClip },
-      { name: 'Sales Return',     href: '/dashboard/sales-return',     icon: IC.Refresh },
+      { name: 'Products / Drugs', href: '/dashboard/products',         icon: Pill },
+      { name: 'Categories',       href: '/dashboard/categories',       icon: Boxes },
+      { name: 'Sales Records',    href: '/dashboard/sales',            icon: FileText },
+      { name: 'Sales Return',     href: '/dashboard/sales-return',     icon: RotateCcw },
     ],
   },
   {
     id: 'purchases',
     name: 'Purchases',
-    icon: IC.PurchasesCart,
+    icon: ShoppingBag,
     items: [
-      { name: 'Suppliers',            href: '/dashboard/suppliers',        icon: IC.InventoryStore },
-      { name: 'Purchase Entry',       href: '/dashboard/purchase',         icon: IC.BatchBox },
-      { name: 'Purchase Records',     href: '/dashboard/purchases',        icon: IC.PrescriptionClip },
-      { name: 'Purchase Return',      href: '/dashboard/purchase-return',  icon: IC.Refresh },
-      { name: 'Goods Received (GRN)', href: '/dashboard/grn',              icon: IC.BatchBox, badge: 'NEW' },
-      { name: 'Accounts Payable',     href: '/dashboard/accounts-payable', icon: IC.Card,     badge: 'NEW' },
+      { name: 'Suppliers',            href: '/dashboard/suppliers',        icon: Building2 },
+      { name: 'Purchase Entry',       href: '/dashboard/purchase',         icon: Boxes },
+      { name: 'Purchase Records',     href: '/dashboard/purchases',        icon: FileText },
+      { name: 'Purchase Return',      href: '/dashboard/purchase-return',  icon: RotateCcw },
+      { name: 'Goods Received (GRN)', href: '/dashboard/grn',              icon: Boxes, badge: 'NEW' },
+      { name: 'Accounts Payable',     href: '/dashboard/accounts-payable', icon: DollarSign, badge: 'NEW' },
     ],
   },
   {
     id: 'inventory',
     name: 'Inventory',
-    icon: IC.InventoryStore,
+    icon: Store,
     items: [
-      { name: 'Stock Movement',   href: '/dashboard/stock-movement', icon: IC.Refresh },
-      { name: 'Stock Take',       href: '/dashboard/stock-take',     icon: IC.DispensingClip },
-      { name: 'Stock Transfer',   href: '/dashboard/stock-transfer', icon: IC.BatchBox },
-      { name: 'Low Stock',        href: '/dashboard/low-stock',      icon: IC.Clock },
-      { name: 'Cold Chain 🌡️',   href: '/dashboard/cold-chain',     icon: IC.InsuranceShield, badge: 'NEW' },
+      { name: 'Stock Movement',   href: '/dashboard/stock-movement', icon: RotateCcw },
+      { name: 'Stock Take',       href: '/dashboard/stock-take',     icon: ClipboardList },
+      { name: 'Stock Transfer',   href: '/dashboard/stock-transfer', icon: Boxes },
+      { name: 'Low Stock',        href: '/dashboard/low-stock',      icon: AlertTriangle },
+      { name: 'Cold Chain 🌡️',   href: '/dashboard/cold-chain',     icon: ShieldCheck, badge: 'NEW' },
     ],
   },
   {
     id: 'insurance',
     name: 'Insurance',
-    icon: IC.InsuranceShield,
+    icon: ShieldCheck,
     items: [
-      { name: 'Insurance Claims',    href: '/dashboard/insurance-claims',   icon: IC.InsuranceShield },
-      { name: 'Credit Customers',    href: '/dashboard/credit-customers',   icon: IC.Users },
-      { name: 'Credit Payments',     href: '/dashboard/credit-payments',    icon: IC.Card },
-      { name: 'Accounts Receivable', href: '/dashboard/accounts-receivable', icon: IC.Chart, badge: 'NEW' },
+      { name: 'Insurance Claims',    href: '/dashboard/insurance-claims',   icon: ShieldCheck },
+      { name: 'Credit Customers',    href: '/dashboard/credit-customers',   icon: Users },
+      { name: 'Credit Payments',     href: '/dashboard/credit-payments',    icon: CreditCard },
+      { name: 'Accounts Receivable', href: '/dashboard/accounts-receivable', icon: BarChart3, badge: 'NEW' },
     ],
   },
   {
     id: 'finance',
     name: 'Finance',
-    icon: IC.Card,
+    icon: CreditCard,
     items: [
-      { name: 'Expenses',              href: '/dashboard/expenses',             icon: IC.Card },
-      { name: 'Petty Cash',            href: '/dashboard/petty-cash',           icon: IC.Card,  badge: 'NEW' },
-      { name: 'Split Payment',         href: '/dashboard/split-payment',        icon: IC.Card,  badge: 'NEW' },
-      { name: 'Bank Reconciliation',   href: '/dashboard/bank-reconciliation',  icon: IC.Card,  badge: 'NEW' },
-      { name: 'M-Pesa Reconciliation', href: '/dashboard/mpesa-reconciliation', icon: IC.Card,  badge: 'NEW' },
-      { name: 'Accounts Receivable',   href: '/dashboard/accounts-receivable',  icon: IC.Chart, badge: 'NEW' },
+      { name: 'Expenses',              href: '/dashboard/expenses',             icon: CreditCard },
+      { name: 'Petty Cash',            href: '/dashboard/petty-cash',           icon: DollarSign,  badge: 'NEW' },
+      { name: 'Split Payment',         href: '/dashboard/split-payment',        icon: CreditCard,  badge: 'NEW' },
+      { name: 'Bank Reconciliation',   href: '/dashboard/bank-reconciliation',  icon: Building2,   badge: 'NEW' },
+      { name: 'M-Pesa Reconciliation', href: '/dashboard/mpesa-reconciliation', icon: DollarSign,  badge: 'NEW' },
+      { name: 'Accounts Receivable',   href: '/dashboard/accounts-receivable',  icon: BarChart3,   badge: 'NEW' },
     ],
   },
   {
     id: 'hr',
     name: 'HR & Payroll',
-    icon: IC.Users,
+    icon: Users,
     items: [
-      { name: 'Shifts',        href: '/dashboard/shifts',        icon: IC.Clock },
-      { name: 'Shift Reports', href: '/dashboard/shift-reports', icon: IC.PrescriptionClip },
+      { name: 'Shifts',        href: '/dashboard/shifts',        icon: Clock },
+      { name: 'Shift Reports', href: '/dashboard/shift-reports', icon: FileSpreadsheet },
     ],
   },
   {
     id: 'reports',
     name: 'Reports',
-    icon: IC.Chart,
+    icon: BarChart3,
     items: [
-      { name: 'Sales Report',  href: '/dashboard/reports/sales',  icon: IC.Chart },
-      { name: 'Profit Report', href: '/dashboard/reports/profit', icon: IC.Chart },
-      { name: 'Stock Report',  href: '/dashboard/reports/stock',  icon: IC.Chart },
-      { name: 'Expiry Report', href: '/dashboard/reports/expiry', icon: IC.Clock },
+      { name: 'Sales Report',  href: '/dashboard/reports/sales',  icon: TrendingUp },
+      { name: 'Profit Report', href: '/dashboard/reports/profit', icon: TrendingUp },
+      { name: 'Stock Report',  href: '/dashboard/reports/stock',  icon: BarChart3 },
+      { name: 'Expiry Report', href: '/dashboard/reports/expiry', icon: Clock },
     ],
   },
   {
     id: 'admin',
     name: 'Administration',
-    icon: IC.Shield,
+    icon: Shield,
     items: [
-      { name: 'Outlets',      href: '/dashboard/outlets',      icon: IC.InventoryStore, superAdminOnly: true },
-      { name: 'Users',        href: '/dashboard/users',        icon: IC.Users },
-      { name: 'User Roles',   href: '/dashboard/user-roles',   icon: IC.Shield },
-      { name: 'Activity Log', href: '/dashboard/activity-log', icon: IC.PrescriptionClip, adminOnly: true },
-      { name: 'Company',      href: '/dashboard/company',      icon: IC.InventoryStore },
-      { name: 'Tax Settings', href: '/dashboard/tax-settings', icon: IC.Gear },
+      { name: 'Outlets',      href: '/dashboard/outlets',      icon: Building2, superAdminOnly: true },
+      { name: 'Users',        href: '/dashboard/users',        icon: Users },
+      { name: 'User Roles',   href: '/dashboard/user-roles',   icon: Shield },
+      { name: 'Activity Log', href: '/dashboard/activity-log', icon: FileText, adminOnly: true },
+      { name: 'Company',      href: '/dashboard/company',      icon: Building2 },
+      { name: 'Tax Settings', href: '/dashboard/tax-settings', icon: Settings },
     ],
   },
 ];
@@ -399,19 +280,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="min-h-screen bg-[#F0F5F2] flex select-none text-slate-800">
 
           {/* ══════════════════════════════════════════════════════════════
-              EXACT SUPER PREMIUM EMERALD GREEN SIDEBAR (Image 1 Pixel Match)
+              EXACT SUPER PREMIUM EMERALD SIDEBAR WITH REAL BACKGROUND
              ══════════════════════════════════════════════════════════════ */}
           {!isCashier && (
             <aside
+              style={{
+                backgroundImage: "url('/sidebar-bg.jpg')",
+                backgroundSize: '100% 100%',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat',
+              }}
               className={`${
-                sidebarOpen ? 'w-[252px]' : 'w-[74px]'
-              } bg-gradient-to-b from-[#023318] via-[#023d1e] to-[#011c0d] border-r-2 border-[#00E676]/40 flex flex-col fixed h-full z-50 transition-all duration-300 shadow-[4px_0_30px_rgba(0,180,80,0.22)]`}
+                sidebarOpen ? 'w-[264px]' : 'w-[76px]'
+              } bg-[#023318] border-r border-[#00E676]/40 flex flex-col fixed h-full z-50 transition-all duration-300 shadow-[4px_0_30px_rgba(0,180,80,0.25)] overflow-hidden`}
             >
               {/* ── Top Centered Cross & Brand Header ── */}
-              <div className="flex flex-col items-center justify-center pt-5 pb-3 px-3 border-b border-emerald-900/60 relative">
+              <div className="flex flex-col items-center justify-center pt-5 pb-3 px-3 border-b border-emerald-900/60 relative flex-shrink-0">
                 {/* White Medical Cross with Green Leaf */}
                 <div className="relative mb-2">
-                  <svg width="44" height="44" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <svg width="46" height="46" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
                     {/* White Greek Cross */}
                     <path
                       d="M15 4C15 2.89543 15.8954 2 17 2H23C24.1046 2 25 2.89543 25 4V15H36C37.1046 15 38 15.8954 38 17V23C38 24.1046 37.1046 25 36 25H25V36C25 37.1046 24.1046 38 23 38H17C15.8954 38 15 37.1046 15 36V25H4C2.89543 25 2 24.1046 2 23V17C2 15.8954 2.89543 15 4 15H15V4Z"
@@ -448,36 +335,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   className="absolute -right-3 top-8 w-6 h-6 bg-[#00A848] border border-emerald-300 text-white rounded-full flex items-center justify-center shadow-md hover:bg-[#00D060] transition-colors z-10"
                   title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
                 >
-                  {sidebarOpen ? <IC.ChevronLeft /> : <IC.ChevronRight />}
+                  {sidebarOpen ? <ChevronLeft className="w-3.5 h-3.5 text-white" /> : <ChevronRight className="w-3.5 h-3.5 text-white" />}
                 </button>
               </div>
 
-              {/* ── Standalone Dashboard Glowing Pill ── */}
-              <div className="px-2.5 pt-3">
-                <Link
-                  href="/dashboard"
-                  className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl transition-all duration-200 group relative ${
-                    pathname === '/dashboard'
-                      ? 'bg-gradient-to-r from-[#00D060]/30 via-[#00A848]/40 to-[#00D060]/30 border-2 border-[#00E676] text-white font-extrabold shadow-[0_0_22px_rgba(0,230,118,0.45)]'
-                      : 'text-white/95 hover:text-white bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 font-bold'
-                  }`}
-                  title={!sidebarOpen ? 'Dashboard' : undefined}
-                >
-                  <span className="flex-shrink-0 text-white">
-                    <IC.Home />
-                  </span>
-                  {sidebarOpen && (
-                    <span className="text-[14px] truncate font-bold">Dashboard</span>
-                  )}
-                </Link>
-              </div>
-
-              {/* ── Nav Groups ── */}
-              <nav className="flex-1 overflow-y-auto py-2 px-2.5 space-y-1 scrollbar-thin scrollbar-thumb-emerald-800/40">
+              {/* ── Nav Items Scroll Area ── */}
+              <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-2 scrollbar-none">
                 {menuGroups.map(group => {
-                  const isGroupActive = group.items?.some(i => i.href === pathname) ?? false;
+                  const isGroupActive = group.single
+                    ? pathname === group.href
+                    : group.items?.some(i => i.href === pathname) ?? false;
                   const isOpen = expanded.has(group.id);
                   const GroupIcon = group.icon;
+
+                  // ── Dashboard Standalone Pill ──
+                  if (group.single) {
+                    return (
+                      <div key={group.id} className="pt-0.5">
+                        <Link
+                          href={group.href!}
+                          className={`w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl transition-all duration-200 group relative ${
+                            isGroupActive
+                              ? 'bg-gradient-to-r from-[#00D060]/30 via-[#00A848]/40 to-[#00D060]/30 border-2 border-[#00E676] text-white font-extrabold shadow-[0_0_22px_rgba(0,230,118,0.45)]'
+                              : 'text-white/95 hover:text-white bg-black/20 hover:bg-black/35 border border-[#00E676]/40 shadow-[0_0_14px_rgba(0,230,118,0.2)] font-bold'
+                          }`}
+                          title={!sidebarOpen ? group.name : undefined}
+                        >
+                          <span className="flex-shrink-0 text-white">
+                            <GroupIcon className="w-5 h-5 text-white" />
+                          </span>
+                          {sidebarOpen && (
+                            <span className="text-[14px] truncate font-bold">{group.name}</span>
+                          )}
+                        </Link>
+                      </div>
+                    );
+                  }
 
                   const visibleItems = group.items?.filter(item => {
                     if (item.superAdminOnly && !isSuperAdmin) return false;
@@ -487,46 +380,46 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                   return (
                     <div key={group.id} className="space-y-1">
-                      {/* Parent Group Button */}
+                      {/* Parent Group Header */}
                       <button
                         onClick={() => toggleGroup(group.id)}
                         className={`w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl transition-all group relative ${
                           isGroupActive
-                            ? 'text-white font-bold bg-white/[0.06]'
-                            : 'text-emerald-100/85 hover:text-white hover:bg-white/[0.05] font-semibold'
+                            ? 'text-white font-bold bg-white/[0.08]'
+                            : 'text-white/85 hover:text-white hover:bg-white/[0.06] font-semibold'
                         }`}
                         title={!sidebarOpen ? group.name : undefined}
                       >
                         <span className="flex-shrink-0 text-white">
-                          <GroupIcon />
+                          <GroupIcon className="w-5 h-5 text-white" />
                         </span>
                         {sidebarOpen && (
                           <>
-                            <span className="text-[14px] truncate flex-1 text-left font-bold">{group.name}</span>
+                            <span className="text-[14px] truncate flex-1 text-left font-bold tracking-wide">{group.name}</span>
                             <span className="flex-shrink-0 text-emerald-300">
-                              <IC.ChevronDown rotated={isOpen} />
+                              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
                             </span>
                           </>
                         )}
                       </button>
 
-                      {/* Sub-items (Pharmacy POS, Dispensing, Prescriptions, Expiry, Batches) */}
+                      {/* Sub-items List */}
                       {isOpen && sidebarOpen && visibleItems.length > 0 && (
-                        <div className="space-y-1 pt-0.5">
+                        <div className="space-y-1.5 pt-0.5 pl-1">
                           {visibleItems.map(item => {
                             const isActive = pathname === item.href;
                             const SubIcon  = item.icon;
 
-                            // ── Glowing Solid Emerald Pill for Active Item (Pharmacy POS) ──
+                            // ── Active Pill (Pharmacy POS) ──
                             if (isActive) {
                               return (
                                 <Link
                                   key={item.href}
                                   href={item.href}
-                                  className="w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl bg-gradient-to-r from-[#00E676] via-[#00C853] to-[#00A848] text-white font-extrabold shadow-[0_4px_22px_rgba(0,230,118,0.5)] border border-emerald-300/40 transition-all active:scale-[0.99]"
+                                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-[#00E676] via-[#00C853] to-[#00A848] text-white font-extrabold shadow-[0_4px_20px_rgba(0,230,118,0.55)] border border-emerald-300/40 transition-all active:scale-[0.99]"
                                 >
                                   <span className="flex-shrink-0 text-white">
-                                    <SubIcon />
+                                    <SubIcon className="w-5 h-5 text-white" />
                                   </span>
                                   <span className="text-[14px] truncate flex-1 font-extrabold tracking-wide">{item.name}</span>
                                   {item.badge && (
@@ -543,10 +436,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                               <Link
                                 key={item.href}
                                 href={item.href}
-                                className="flex items-center gap-3.5 px-4 py-2 rounded-xl text-[13.5px] text-white/90 hover:text-white hover:bg-white/[0.08] transition-all font-medium group"
+                                className="flex items-center gap-3 px-3.5 py-2 rounded-xl text-[13.5px] text-white/90 hover:text-white hover:bg-white/[0.08] transition-all font-medium group"
                               >
                                 <span className="flex-shrink-0 text-white/80 group-hover:text-white">
-                                  <SubIcon />
+                                  <SubIcon className="w-4 h-4 text-white" />
                                 </span>
                                 <span className="truncate flex-1">{item.name}</span>
                                 {item.badge && (
@@ -562,48 +455,36 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
                   );
                 })}
+
+                {/* ── Secure & Compliant Card ── */}
+                {sidebarOpen && (
+                  <div className="pt-2">
+                    <div className="px-3.5 py-2.5 rounded-2xl bg-black/25 border border-white/20 backdrop-blur-md flex items-center gap-3 shadow-lg">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white shadow-md flex-shrink-0">
+                        <ShieldCheck className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-extrabold text-white tracking-wide leading-tight">Secure & Compliant</p>
+                        <p className="text-[10px] text-emerald-200/80 font-medium truncate mt-0.5">Pharmacy Management System</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Bottom Spacer so items don't cover the background pill & leaves */}
+                <div className="h-16" />
               </nav>
 
-              {/* ── Secure & Compliant Glassmorphic Badge ── */}
-              {sidebarOpen && (
-                <div className="mx-3 mb-1 px-3.5 py-2.5 rounded-2xl bg-white/[0.08] border border-white/20 backdrop-blur-md flex items-center gap-3 shadow-lg">
-                  <div className="flex-shrink-0">
-                    <IC.GoldShieldBadge />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-extrabold text-white tracking-wide leading-tight">Secure & Compliant</p>
-                    <p className="text-[10px] text-emerald-200/80 font-medium truncate mt-0.5">Pharmacy Management System</p>
-                  </div>
-                </div>
-              )}
-
-              {/* ── Decorative 3D Capsule & Leaves Artwork ── */}
-              {sidebarOpen && (
-                <div className="px-2 my-1 overflow-hidden flex items-center justify-center">
-                  <img
-                    src="/sidebar-pill-leaves.png"
-                    alt="Pharmacy Artwork"
-                    className="w-full h-16 object-contain rounded-xl drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
-                  />
-                </div>
-              )}
-
               {/* ── User Profile Footer ── */}
-              <div className="border-t border-emerald-900/60 px-3.5 py-3 bg-[#011a0c]/80 backdrop-blur-md">
+              <div className="border-t border-emerald-900/60 px-3.5 py-3 bg-[#011a0c]/90 backdrop-blur-md flex-shrink-0">
                 <div className="flex items-center gap-3">
-                  {/* Avatar Circle with White/Green Ring */}
-                  <div className="relative w-9 h-9 rounded-full overflow-hidden border-2 border-emerald-400/90 flex-shrink-0 shadow-md bg-gradient-to-tr from-[#00A848] to-[#00E676]">
+                  {/* Avatar Circle with Generated Photo */}
+                  <div className="relative w-9 h-9 rounded-full overflow-hidden border-2 border-emerald-400 flex-shrink-0 shadow-md">
                     <img
                       src="/admin-avatar.png"
                       alt={user.name}
                       className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
                     />
-                    <div className="w-full h-full flex items-center justify-center text-white font-black text-sm absolute inset-0 -z-10">
-                      {avatarLetter}
-                    </div>
                   </div>
 
                   {sidebarOpen && (
@@ -611,7 +492,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1">
                           <p className="text-[13px] font-extrabold text-white truncate leading-tight">{user.name}</p>
-                          <span className="text-emerald-300 text-xs">▾</span>
+                          <ChevronDown className="w-3 h-3 text-emerald-300" />
                         </div>
                         <p className="text-[10.5px] text-emerald-300/80 font-semibold truncate">{roleBadge.label}</p>
                       </div>
@@ -622,7 +503,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         title="Settings"
                         className="flex-shrink-0 text-white hover:text-emerald-200 p-1.5 rounded-lg hover:bg-white/10 transition-colors"
                       >
-                        <IC.Gear />
+                        <Settings className="w-4 h-4 text-white" />
                       </button>
 
                       {/* Power / Sign out */}
@@ -631,7 +512,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         title="Sign Out"
                         className="flex-shrink-0 text-white hover:text-red-400 p-1.5 rounded-lg hover:bg-red-500/15 transition-colors"
                       >
-                        <IC.Power />
+                        <Power className="w-4 h-4 text-white" />
                       </button>
                     </>
                   )}
@@ -641,7 +522,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           )}
 
           {/* ── Main Workspace ── */}
-          <main className={`flex-1 ${isCashier ? 'ml-0' : sidebarOpen ? 'ml-[252px]' : 'ml-[74px]'} transition-all duration-300 flex flex-col min-h-screen`}>
+          <main className={`flex-1 ${isCashier ? 'ml-0' : sidebarOpen ? 'ml-[264px]' : 'ml-[76px]'} transition-all duration-300 flex flex-col min-h-screen`}>
             {/* Top header */}
             <header className="h-16 bg-white border-b border-emerald-100 flex items-center justify-between px-6 sticky top-0 z-40 shadow-xs">
               <div className="flex items-center gap-3">
@@ -661,11 +542,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   onClick={() => window.location.reload()}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-[#00A848] text-white text-xs font-bold rounded-xl hover:bg-[#00923e] transition-colors shadow-xs"
                 >
-                  <IC.Refresh />
+                  <RotateCcw className="w-3.5 h-3.5 text-white" />
                   Refresh
                 </button>
                 <button className="relative p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-700">
-                  <IC.Bell />
+                  <Bell className="w-4 h-4" />
                   <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center">3</span>
                 </button>
                 <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
