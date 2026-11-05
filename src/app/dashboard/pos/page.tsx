@@ -1353,7 +1353,7 @@ export default function PharmacyPOS() {
     return (
         <div className="flex-1 h-full flex flex-col bg-gray-50 select-none overflow-hidden">
             {/* ==================== 1. TOP STATUS BAR ==================== */}
-            <div className="bg-white px-4 py-2 flex items-center justify-between shrink-0" style={{borderBottom:"1px solid #d1fae5"}}>
+            <div className="bg-white px-4 py-2 flex items-center justify-between shrink-0" style={{borderRadius:"0 0 20px 20px", boxShadow:"0 4px 16px rgba(0,0,0,0.08)", marginBottom:"6px", zIndex:10, position:"relative"}}>
                 <div className="flex items-center gap-3">
                     <span className="text-emerald-700 font-extrabold text-sm flex items-center gap-1.5">
                         <span className="text-lg">💊</span> ALPHA PHARMACY POS
@@ -1438,7 +1438,7 @@ export default function PharmacyPOS() {
             </div>
 
             {/* ==================== 2. CONTROLS HEADER ==================== */}
-            <div className="bg-white border-b border-emerald-100 px-4 py-2.5 shrink-0" style={{borderTop:"2px solid #00A848",marginTop:"4px"}}>
+            <div className="bg-white px-4 py-2.5 shrink-0" style={{borderRadius:"20px 20px 0 0", boxShadow:"0 -2px 10px rgba(0,0,0,0.04)", borderBottom:"1px solid #d1fae5"}}>
                 <div className="flex items-center justify-between gap-3">
                     {/* Outlets & Counter */}
                     <div className="flex items-center gap-2">

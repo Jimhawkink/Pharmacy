@@ -541,45 +541,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* ── Main Workspace ── */}
           <main className={`flex-1 ${isCashier ? 'ml-0' : sidebarOpen ? 'ml-[224px]' : 'ml-[68px]'} transition-all duration-300 flex flex-col ${pathname === '/dashboard/pos' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
-            {/* Top header - Dark Rich Emerald with curved bottom */}
-            <header
-              className="h-16 flex items-center justify-between px-6 sticky top-0 z-40 shrink-0"
-              style={{
-                background: 'linear-gradient(135deg,#001F0E 0%,#003D1A 35%,#005C28 65%,#007A36 100%)',
-                borderRadius: '0 0 24px 24px',
-                boxShadow: '0 6px 28px rgba(0,60,20,0.40), 0 2px 8px rgba(0,0,0,0.20)',
-              }}
-            >
+            {/* Top header - White floating card with curved bottom corners */}
+            <header className="h-16 bg-white flex items-center justify-between px-6 sticky top-0 z-40 shrink-0" style={{borderRadius:'0 0 22px 22px', boxShadow:'0 4px 20px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06)'}}>
               <div className="flex items-center gap-3">
-                <h2 className="text-[16px] font-bold text-white flex items-center gap-2">
+                <h2 className="text-[16px] font-bold text-gray-800 flex items-center gap-2">
                   <span>{greeting.emoji}</span>
                   <span>{greeting.text} 👋</span>
                 </h2>
-                <span className="text-xs text-emerald-300 font-medium hidden sm:block">Alpha Pharmacy POS</span>
+                <span className="text-xs text-gray-400 font-medium hidden sm:block">Alpha Pharmacy POS</span>
               </div>
               <div className="flex items-center gap-3">
                 <OutletSwitcher />
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-white/15 text-emerald-100 border border-white/20 rounded-full">
-                  <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full shadow-xs">
+                  <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                   <span className="text-xs font-semibold">Online</span>
                 </div>
                 <button
                   onClick={() => window.location.reload()}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/15 hover:bg-white/25 text-white text-xs font-bold rounded-xl transition-colors border border-white/20"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#00A848] text-white text-xs font-bold rounded-xl hover:bg-[#00923e] transition-colors shadow-xs"
                 >
                   <RotateCcw className="w-3.5 h-3.5 text-white" />
                   Refresh
                 </button>
-                <button className="relative p-2 hover:bg-white/15 rounded-xl transition-colors text-white">
+                <button className="relative p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-700">
                   <Bell className="w-4 h-4" />
                   <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-extrabold rounded-full flex items-center justify-center">3</span>
                 </button>
-                <div className="flex items-center gap-2.5 pl-3 border-l border-white/20">
+                <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
                   <div className="text-right hidden sm:block">
-                    <p className="text-[13px] font-bold text-white leading-tight">{user.name}</p>
-                    <p className="text-[11px] text-emerald-300 font-medium">{roleBadge.label}</p>
+                    <p className="text-[13px] font-bold text-gray-800 leading-tight">{user.name}</p>
+                    <p className="text-[11px] text-gray-400 font-medium">{roleBadge.label}</p>
                   </div>
-                  <div className="w-9 h-9 rounded-full bg-white/20 text-white font-black text-sm flex items-center justify-center border-2 border-white/30">
+                  <div className="w-9 h-9 rounded-full bg-[#00A848] text-white font-black text-sm flex items-center justify-center shadow-xs">
                     {avatarLetter}
                   </div>
                 </div>
