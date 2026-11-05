@@ -1353,7 +1353,7 @@ export default function PharmacyPOS() {
     return (
         <div className="flex-1 h-full flex flex-col bg-gray-50 select-none overflow-hidden">
             {/* ==================== 1. TOP STATUS BAR ==================== */}
-            <div className="px-4 py-2 flex items-center justify-between shrink-0" style={{background:"linear-gradient(90deg,#00471F 0%,#007C35 50%,#00A848 100%)",borderRadius:"0 0 16px 16px",boxShadow:"0 4px 16px rgba(0,168,72,0.20)"}}>
+            <div className="px-4 py-2 flex items-center justify-between shrink-0" style={{background:"linear-gradient(135deg,#003318 0%,#005C28 40%,#00803A 75%,#00A848 100%)",borderRadius:"0 0 28px 28px",boxShadow:"0 6px 24px rgba(0,100,40,0.35),0 2px 8px rgba(0,0,0,0.15)"}}>
                 <div className="flex items-center gap-3">
                     <span className="text-white font-extrabold text-sm flex items-center gap-1.5">
                         <span className="text-lg">💊</span> ALPHA PHARMACY POS
@@ -1438,7 +1438,7 @@ export default function PharmacyPOS() {
             </div>
 
             {/* ==================== 2. CONTROLS HEADER ==================== */}
-            <div className="bg-white border-b border-gray-200 px-4 py-2.5 shrink-0">
+            <div className="bg-white border-b border-emerald-100 px-4 py-2.5 shrink-0" style={{borderTop:"2px solid #00A848",marginTop:"4px"}}>
                 <div className="flex items-center justify-between gap-3">
                     {/* Outlets & Counter */}
                     <div className="flex items-center gap-2">
@@ -1644,9 +1644,9 @@ export default function PharmacyPOS() {
                 </div>
 
                 {/* ==================== 4. CART SIDEBAR ==================== */}
-                <div className="w-[410px] bg-white flex flex-col shrink-0" style={{borderRadius:"16px 0 0 16px",boxShadow:"-4px 0 24px rgba(0,0,0,0.10)",overflow:"hidden",margin:"8px 0 8px 0"}}>
+                <div className="w-[360px] bg-white flex flex-col shrink-0" style={{borderRadius:"20px 0 0 20px",boxShadow:"-6px 0 32px rgba(0,80,30,0.18)",overflow:"hidden",margin:"6px 0 6px 0"}}>
                     {/* Cart Header */}
-                    <div className="px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white flex items-center justify-between shrink-0" style={{borderRadius:"16px 0 0 0",boxShadow:"0 4px 12px rgba(0,168,72,0.25)"}}>
+                    <div className="px-4 py-3 text-white flex items-center justify-between shrink-0" style={{background:"linear-gradient(135deg,#002E18 0%,#005228 45%,#007C38 100%)",borderRadius:"20px 0 0 0",boxShadow:"0 4px 16px rgba(0,80,30,0.40)"}}>
                         <div className="flex items-center gap-2">
                             <span className="text-lg">🛒</span>
                             <h2 className="font-extrabold text-sm tracking-wide">
@@ -1722,7 +1722,7 @@ export default function PharmacyPOS() {
                     </div>
 
                     {/* Cart Summary */}
-                    <div className="border-t border-gray-200 p-3 bg-gray-50 space-y-1.5 shrink-0">
+                    <div className="border-t border-emerald-100 p-3 space-y-1.5 shrink-0" style={{background:"linear-gradient(180deg,#f0fdf4 0%,#f7fffe 100%)"}}>
                         <div className="flex justify-between text-xs text-gray-600 font-medium">
                             <span>Subtotal ({cart.reduce((s, c) => s + c.qty, 0)} items)</span>
                             <span>Ksh {subtotal.toLocaleString()}</span>
@@ -1753,7 +1753,7 @@ export default function PharmacyPOS() {
                                 setShowPayment(true);
                             }}
                             disabled={cart.length === 0}
-                            className="w-full py-3.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl font-extrabold text-base hover:from-green-600 hover:to-emerald-700 hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.99] shadow-lg"
+                            className="w-full py-3.5 text-white rounded-2xl font-extrabold text-base transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.99]" style={{background:"linear-gradient(135deg,#005228 0%,#007C38 50%,#00A848 100%)",boxShadow:"0 4px 20px rgba(0,120,56,0.5),0 1px 4px rgba(0,0,0,0.2)"}}
                         >
                             <span>💳</span>
                             <span>CHECKOUT Ksh {grandTotal.toLocaleString()}</span>
