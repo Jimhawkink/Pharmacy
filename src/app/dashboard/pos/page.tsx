@@ -1925,376 +1925,429 @@ export default function PharmacyPOS() {
 
             {/* 2. Payment Modal */}
             {showPayment && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl max-h-[92vh] overflow-y-auto border border-gray-100">
-                        <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-lg font-extrabold text-gray-800 flex items-center gap-2">
-                                <span>💳</span> Complete Dispensing & Payment
-                            </h2>
-                            <div className="text-right">
-                                <p className="text-[10px] text-gray-400 uppercase font-bold">Receipt</p>
-                                <p className="font-bold text-xs text-blue-700 font-mono">{receiptNo}</p>
+                <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl w-full max-w-lg shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35)] border border-slate-100 flex flex-col max-h-[92vh] overflow-hidden">
+                        
+                        {/* Modal Header */}
+                        <div className="px-6 pt-5 pb-3 border-b border-slate-100/80 flex items-center justify-between flex-shrink-0 bg-gradient-to-r from-slate-50/50 via-white to-slate-50/50">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 text-white flex items-center justify-center shadow-md shadow-emerald-500/20 text-lg">
+                                    💳
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-extrabold text-gray-800 tracking-tight leading-tight flex items-center gap-1.5">
+                                        Complete Dispensing & Payment
+                                    </h2>
+                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                                        Alpha POS Enterprise Register
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-
-                        {/* Grand Total Hero Box */}
-                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl p-4 text-white mb-4 shadow-md">
-                            <p className="text-xs font-semibold opacity-90 uppercase tracking-wider">Total Payable</p>
-                            <p className="text-3xl font-black mt-0.5">Ksh {grandTotal.toLocaleString()}</p>
-                            {cart.some((c) => c.requires_prescription) && (
-                                <p className="text-[11px] bg-white/20 rounded px-2 py-0.5 mt-2 inline-block font-semibold">
-                                    ℞ Contains Prescription Medicines
-                                </p>
-                            )}
-                        </div>
-
-                        {/* Payment Method Selector */}
-                        <div className="grid grid-cols-4 gap-2 mb-4">
-                            {[
-                                { id: 'cash', icon: '💵', label: 'Cash (F2)' },
-                                { id: 'mpesa', icon: '📱', label: 'M-Pesa (F3)' },
-                                { id: 'card', icon: '💳', label: 'Card' },
-                                { id: 'credit', icon: '📋', label: 'Credit' },
-                            ].map((m) => (
+                            <div className="flex items-center gap-2">
+                                <div className="text-right px-2.5 py-1 bg-slate-50 border border-slate-200/80 rounded-xl">
+                                    <p className="text-[10px] text-gray-400 uppercase font-bold">Receipt</p>
+                                    <p className="font-bold text-xs text-blue-700 font-mono">{receiptNo}</p>
+                                </div>
                                 <button
-                                    key={m.id}
                                     onClick={() => {
-                                        setPayMethod(m.id);
+                                        setShowPayment(false);
                                         resetStk();
                                     }}
-                                    className={`p-2.5 rounded-xl border-2 transition-all flex flex-col items-center justify-center ${
-                                        payMethod === m.id
-                                            ? 'border-emerald-500 bg-emerald-50/80 text-emerald-800 shadow-sm'
-                                            : 'border-gray-200 hover:border-gray-300 bg-gray-50 text-gray-600'
-                                    }`}
+                                    className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors font-bold text-sm"
+                                    title="Close [Esc]"
                                 >
-                                    <span className="text-xl">{m.icon}</span>
-                                    <span className="text-[11px] font-bold mt-1">{m.label}</span>
+                                    ✕
                                 </button>
-                            ))}
+                            </div>
                         </div>
 
-                        {/* Cash Payment Mode */}
-                        {payMethod === 'cash' && (
-                            <div className="space-y-3 mb-4">
-                                <div>
-                                    <label className="text-xs font-bold text-gray-700 mb-1 block">Cash Tendered by Patient</label>
-                                    <input
-                                        type="number"
-                                        value={amountPaid}
-                                        onChange={(e) => setAmountPaid(e.target.value)}
-                                        placeholder="Enter amount given..."
-                                        className="w-full p-3 bg-gray-50 border-2 border-gray-200 focus:border-emerald-500 rounded-xl text-lg font-bold outline-none"
-                                        autoFocus
-                                    />
-                                </div>
-
-                                {/* Quick Tender Buttons */}
-                                <div className="grid grid-cols-6 gap-1.5">
-                                    {[100, 200, 500, 1000, 2000, 5000].map((amt) => (
-                                        <button
-                                            key={amt}
-                                            onClick={() => setAmountPaid(amt.toString())}
-                                            className="py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-bold text-xs transition-colors"
-                                        >
-                                            {amt}
-                                        </button>
-                                    ))}
-                                </div>
-
-                                <button
-                                    onClick={() => setAmountPaid(grandTotal.toString())}
-                                    className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-emerald-800 font-bold text-xs transition-colors"
-                                >
-                                    Exact Amount (Ksh {grandTotal.toLocaleString()})
-                                </button>
-
-                                {/* Live Change Calculator */}
-                                <div
-                                    className={`flex items-center justify-between p-3 rounded-xl border ${
-                                        Number(amountPaid) >= grandTotal
-                                            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                                            : 'bg-amber-50 border-amber-200 text-amber-900'
-                                    }`}
-                                >
-                                    <span className="font-semibold text-xs">
-                                        {Number(amountPaid) >= grandTotal ? 'Change to Return:' : 'Remaining Balance:'}
-                                    </span>
-                                    <span className="text-xl font-black">
-                                        Ksh{' '}
-                                        {Number(amountPaid) >= grandTotal
-                                            ? change.toLocaleString()
-                                            : (grandTotal - (Number(amountPaid) || 0)).toLocaleString()}
-                                    </span>
+                        {/* Modal Scrollable Body */}
+                        <div className="px-6 py-4 overflow-y-auto flex-1 space-y-4" style={{ scrollbarWidth: 'thin' }}>
+                            
+                            {/* Grand Total Hero Box */}
+                            <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 rounded-2xl p-4 text-white shadow-lg shadow-emerald-950/20 border border-emerald-500/30">
+                                <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+                                <div className="absolute -left-8 -top-8 w-24 h-24 bg-teal-400/10 rounded-full blur-xl pointer-events-none" />
+                                
+                                <div className="relative z-10">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs font-semibold opacity-90 uppercase tracking-wider text-emerald-100">Total Payable</p>
+                                        <span className="text-[9px] bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full font-bold uppercase tracking-widest text-white border border-white/20">
+                                            LIVE BILL
+                                        </span>
+                                    </div>
+                                    <p className="text-3xl font-black mt-0.5 tracking-tight drop-shadow-sm">Ksh {grandTotal.toLocaleString()}</p>
+                                    {cart.some((c) => c.requires_prescription) && (
+                                        <p className="text-[11px] bg-white/20 backdrop-blur-sm rounded-lg px-2.5 py-0.5 mt-2 inline-block font-semibold border border-white/20">
+                                            ℞ Contains Prescription Medicines
+                                        </p>
+                                    )}
                                 </div>
                             </div>
-                        )}
 
-                        {/* M-Pesa Mode — STK Push / C2B Sub-tabs */}
-                        {payMethod === 'mpesa' && (
-                            <div className="space-y-3 mb-4">
-                                {/* Sub-tab switcher */}
-                                <div className="grid grid-cols-2 gap-1 bg-gray-100 rounded-xl p-1">
+                            {/* Payment Method Selector */}
+                            <div className="grid grid-cols-4 gap-2">
+                                {[
+                                    { id: 'cash', icon: '💵', label: 'Cash (F2)' },
+                                    { id: 'mpesa', icon: '📱', label: 'M-Pesa (F3)' },
+                                    { id: 'card', icon: '💳', label: 'Card' },
+                                    { id: 'credit', icon: '📋', label: 'Credit' },
+                                ].map((m) => (
                                     <button
-                                        onClick={() => setC2bTab('stk')}
-                                        className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                            c2bTab === 'stk'
-                                                ? 'bg-white text-emerald-800 shadow-sm'
-                                                : 'text-gray-500 hover:text-gray-700'
+                                        key={m.id}
+                                        onClick={() => {
+                                            setPayMethod(m.id);
+                                            resetStk();
+                                        }}
+                                        className={`p-2.5 rounded-2xl border-2 transition-all flex flex-col items-center justify-center ${
+                                            payMethod === m.id
+                                                ? 'border-emerald-500 bg-gradient-to-b from-emerald-50 to-emerald-100/70 text-emerald-900 shadow-md shadow-emerald-500/10 ring-2 ring-emerald-500/20'
+                                                : 'border-slate-200/90 hover:border-slate-300 bg-slate-50/70 hover:bg-slate-100/70 text-gray-600'
                                         }`}
                                     >
-                                        📱 STK Push
+                                        <span className="text-xl">{m.icon}</span>
+                                        <span className="text-[11px] font-bold mt-1">{m.label}</span>
                                     </button>
-                                    <button
-                                        onClick={() => { setC2bTab('c2b'); fetchC2bTransactions(); }}
-                                        className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                            c2bTab === 'c2b'
-                                                ? 'bg-white text-emerald-800 shadow-sm'
-                                                : 'text-gray-500 hover:text-gray-700'
-                                        }`}
-                                    >
-                                        🏦 C2B Transactions
-                                    </button>
-                                </div>
+                                ))}
+                            </div>
 
-                                {/* STK Push Sub-tab */}
-                                {c2bTab === 'stk' && (
-                                    <div className="space-y-3">
-                                        <div>
-                                            <label className="text-xs font-bold text-gray-700 mb-1 block">Patient Phone (Safaricom M-Pesa)</label>
+                            {/* Cash Payment Mode */}
+                            {payMethod === 'cash' && (
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-700 mb-1 block">Cash Tendered by Patient</label>
+                                        <div className="relative">
+                                            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Ksh</span>
                                             <input
-                                                type="tel"
-                                                value={mpesaPhone}
-                                                onChange={(e) => setMpesaPhone(e.target.value)}
-                                                placeholder="07XX XXX XXX or 01XX XXX XXX"
-                                                className="w-full p-3 bg-gray-50 border-2 border-gray-200 focus:border-emerald-500 rounded-xl text-base font-semibold outline-none"
-                                                disabled={stkStatus === 'sending' || stkStatus === 'waiting'}
+                                                type="number"
+                                                value={amountPaid}
+                                                onChange={(e) => setAmountPaid(e.target.value)}
+                                                placeholder="Enter amount given..."
+                                                className="w-full pl-11 pr-3 py-3 bg-slate-50/80 border-2 border-slate-200 focus:border-emerald-500 focus:bg-white rounded-xl text-lg font-bold outline-none transition-all shadow-inner"
                                                 autoFocus
                                             />
                                         </div>
-
-                                        {stkStatus !== 'idle' && (
-                                            <div
-                                                className={`p-3 rounded-xl flex items-center gap-2.5 text-xs font-semibold ${
-                                                    stkStatus === 'sending'
-                                                        ? 'bg-amber-50 border border-amber-300 text-amber-800'
-                                                        : stkStatus === 'waiting'
-                                                        ? 'bg-blue-50 border border-blue-300 text-blue-800'
-                                                        : stkStatus === 'success'
-                                                        ? 'bg-emerald-50 border border-emerald-300 text-emerald-800'
-                                                        : 'bg-red-50 border border-red-300 text-red-800'
-                                                }`}
-                                            >
-                                                {(stkStatus === 'sending' || stkStatus === 'waiting') && (
-                                                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
-                                                )}
-                                                <span>{stkMsg}</span>
-                                            </div>
-                                        )}
-
-                                        {(stkStatus === 'idle' || stkStatus === 'failed') && (
-                                            <button
-                                                onClick={handleSTK}
-                                                className="w-full py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-xl font-bold text-sm transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
-                                            >
-                                                <span>📱</span> Send M-Pesa STK Push
-                                            </button>
-                                        )}
-
-                                        <div className="pt-2 border-t border-gray-200">
-                                            <p className="text-[10px] text-gray-400 text-center mb-1 font-medium">
-                                                - OR enter M-Pesa receipt code if already paid -
-                                            </p>
-                                            <input
-                                                type="text"
-                                                value={mpesaReceipt}
-                                                onChange={(e) => setMpesaReceipt(e.target.value.toUpperCase())}
-                                                placeholder="e.g. RLJ57XYZ99"
-                                                className="w-full p-2.5 bg-gray-50 border-2 border-gray-200 focus:border-emerald-500 rounded-xl text-xs font-mono font-bold uppercase outline-none"
-                                            />
-                                        </div>
                                     </div>
-                                )}
 
-                                {/* C2B Transactions Sub-tab */}
-                                {c2bTab === 'c2b' && (
-                                    <div className="space-y-2">
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={c2bSearchPhone}
-                                                onChange={(e) => setC2bSearchPhone(e.target.value)}
-                                                placeholder="Filter by phone or receipt..."
-                                                className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none focus:border-emerald-500"
-                                            />
+                                    {/* Quick Tender Buttons */}
+                                    <div className="grid grid-cols-6 gap-1.5">
+                                        {[100, 200, 500, 1000, 2000, 5000].map((amt) => (
                                             <button
-                                                onClick={fetchC2bTransactions}
-                                                disabled={c2bLoading}
-                                                className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold disabled:opacity-50 flex items-center gap-1"
+                                                key={amt}
+                                                onClick={() => setAmountPaid(amt.toString())}
+                                                className="py-1.5 bg-slate-100 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 border border-slate-200 rounded-lg text-gray-700 font-bold text-xs transition-all active:scale-95 shadow-xs"
                                             >
-                                                {c2bLoading ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '🔄'}
-                                                Refresh
-                                            </button>
-                                        </div>
-
-                                        {c2bLoading ? (
-                                            <div className="flex items-center justify-center py-6 text-gray-400 text-xs gap-2">
-                                                <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
-                                                Loading C2B transactions...
-                                            </div>
-                                        ) : c2bTransactions.length === 0 ? (
-                                            <div className="text-center py-6 text-gray-400 text-xs">
-                                                <div className="text-2xl mb-1">📭</div>
-                                                No unlinked C2B payments found
-                                            </div>
-                                        ) : (
-                                            <div className="max-h-52 overflow-y-auto space-y-1.5 rounded-xl">
-                                                {c2bTransactions
-                                                    .filter(t => {
-                                                        if (!c2bSearchPhone) return true;
-                                                        const q = c2bSearchPhone.toLowerCase();
-                                                        return (
-                                                            (t.phone || '').toLowerCase().includes(q) ||
-                                                            (t.mpesa_receipt || '').toLowerCase().includes(q) ||
-                                                            (t.customer_name || '').toLowerCase().includes(q)
-                                                        );
-                                                    })
-                                                    .map((txn) => {
-                                                        const amt = Number(txn.amount || 0);
-                                                        const isExact = amt === grandTotal;
-                                                        const isSufficient = amt >= grandTotal;
-                                                        return (
-                                                            <div
-                                                                key={txn.id}
-                                                                className={`p-2.5 rounded-xl border-2 transition-all ${
-                                                                    isExact
-                                                                        ? 'border-emerald-400 bg-emerald-50'
-                                                                        : isSufficient
-                                                                        ? 'border-blue-300 bg-blue-50'
-                                                                        : 'border-orange-200 bg-orange-50'
-                                                                }`}
-                                                            >
-                                                                <div className="flex items-start justify-between gap-2">
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                                                            <span className="font-mono font-bold text-xs text-gray-800">{txn.mpesa_receipt || '—'}</span>
-                                                                            {isExact && <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-full font-bold">EXACT</span>}
-                                                                            {!isExact && isSufficient && <span className="text-[9px] bg-blue-500 text-white px-1.5 py-0.5 rounded-full font-bold">SUFFICIENT</span>}
-                                                                            {!isSufficient && <span className="text-[9px] bg-orange-500 text-white px-1.5 py-0.5 rounded-full font-bold">SHORT</span>}
-                                                                        </div>
-                                                                        <p className="text-[10px] text-gray-800 font-semibold mt-0.5">{txn.customer_name || 'Unknown'}</p>
-                                                                        {txn.phone && (<p className="text-[10px] text-emerald-700 font-mono font-bold">📞 {maskC2bPhone(txn.phone)}</p>)}
-                                                                         <p className="text-[10px] text-blue-600">{txn.account_reference ? '🏷️ Ref: ' + txn.account_reference : ''}</p>
-                                                                         <p className="text-[10px] text-gray-400">{txn.transaction_time ? new Date(txn.transaction_time).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : ''}</p>
-                                                                    </div>
-                                                                    <div className="text-right flex-shrink-0">
-                                                                        <p className={`text-sm font-black ${ isExact ? 'text-emerald-700' : isSufficient ? 'text-blue-700' : 'text-orange-600' }`}>
-                                                                            Ksh {amt.toLocaleString()}
-                                                                        </p>
-                                                                        <button
-                                                                            onClick={() => linkC2bAndPay(txn)}
-                                                                            className="mt-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold transition-colors active:scale-95"
-                                                                        >
-                                                                            Link & Pay
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Card Mode */}
-                        {payMethod === 'card' && (
-                            <div className="space-y-3 mb-4">
-                                <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 font-medium">
-                                    Swipe or tap card on POS terminal, then enter authorization reference below.
-                                </div>
-                                <input
-                                    type="text"
-                                    value={mpesaReceipt}
-                                    onChange={(e) => setMpesaReceipt(e.target.value.toUpperCase())}
-                                    placeholder="Card Approval Reference / Auth Code"
-                                    className="w-full p-3 bg-gray-50 border-2 border-gray-200 focus:border-blue-500 rounded-xl text-xs font-mono font-bold outline-none"
-                                />
-                            </div>
-                        )}
-
-                        {/* Credit Mode */}
-                        {payMethod === 'credit' && (
-                            <div className="space-y-3 mb-4">
-                                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 font-medium">
-                                    Select an authorized credit patient account.
-                                </div>
-                                <input
-                                    type="text"
-                                    value={creditSearchPay}
-                                    onChange={(e) => setCreditSearchPay(e.target.value)}
-                                    placeholder="Search patient name or phone..."
-                                    className="w-full p-2.5 bg-gray-50 border-2 border-gray-200 rounded-xl text-xs outline-none focus:border-amber-500"
-                                />
-                                <div className="max-h-36 overflow-y-auto rounded-xl border border-gray-200 bg-white">
-                                    {creditCustomers
-                                        .filter(
-                                            (c) =>
-                                                !creditSearchPay ||
-                                                c.customer_name?.toLowerCase().includes(creditSearchPay.toLowerCase()) ||
-                                                c.phone?.includes(creditSearchPay)
-                                        )
-                                        .map((c) => (
-                                            <button
-                                                key={c.customer_id}
-                                                onClick={() => {
-                                                    setSelectedCustomer(c);
-                                                    setPayCustomerName(c.customer_name);
-                                                    setCreditSearchPay('');
-                                                }}
-                                                className={`w-full text-left px-3 py-2 border-b border-gray-100 last:border-0 text-xs transition-colors flex items-center justify-between ${
-                                                    selectedCustomer?.customer_id === c.customer_id
-                                                        ? 'bg-amber-50 font-bold border-l-4 border-l-amber-500'
-                                                        : 'hover:bg-gray-50'
-                                                }`}
-                                            >
-                                                <div>
-                                                    <p className="font-semibold text-gray-800">{c.customer_name}</p>
-                                                    <p className="text-[10px] text-gray-500">{c.phone}</p>
-                                                </div>
-                                                <span className="font-bold text-red-600">
-                                                    Ksh {(c.current_balance || 0).toLocaleString()}
-                                                </span>
+                                                {amt}
                                             </button>
                                         ))}
-                                </div>
-                            </div>
-                        )}
+                                    </div>
 
-                        {/* Optional Doctor / Prescriber Input */}
-                        <div className="pt-2 border-t border-gray-100 mb-4">
-                            <label className="text-[11px] font-bold text-gray-600 mb-1 block">
-                                🩺 Doctor / Prescriber Name (Optional)
-                            </label>
-                            <input
-                                type="text"
-                                value={doctorNameInput}
-                                onChange={(e) => setDoctorNameInput(e.target.value)}
-                                placeholder="e.g. Dr. Kamau (for prescription audit log)"
-                                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none focus:border-emerald-500"
-                            />
+                                    <button
+                                        onClick={() => setAmountPaid(grandTotal.toString())}
+                                        className="w-full py-2 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-300/80 rounded-xl text-emerald-800 font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-xs active:scale-98"
+                                    >
+                                        <span>⚡</span> Exact Amount (Ksh {grandTotal.toLocaleString()})
+                                    </button>
+
+                                    {/* Live Change Calculator */}
+                                    <div
+                                        className={`flex items-center justify-between p-3.5 rounded-xl border transition-all ${
+                                            Number(amountPaid) >= grandTotal
+                                                ? 'bg-gradient-to-r from-emerald-50 to-teal-50/70 border-emerald-300 text-emerald-900 shadow-xs'
+                                                : 'bg-gradient-to-r from-amber-50 to-orange-50/70 border-amber-300 text-amber-900 shadow-xs'
+                                        }`}
+                                    >
+                                        <span className="font-semibold text-xs flex items-center gap-1.5">
+                                            {Number(amountPaid) >= grandTotal ? (
+                                                <><span>💵</span> Change to Return:</>
+                                            ) : (
+                                                <><span>⚠️</span> Remaining Balance:</>
+                                            )}
+                                        </span>
+                                        <span className="text-xl font-black font-mono">
+                                            Ksh{' '}
+                                            {Number(amountPaid) >= grandTotal
+                                                ? change.toLocaleString()
+                                                : (grandTotal - (Number(amountPaid) || 0)).toLocaleString()}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* M-Pesa Mode — STK Push / C2B Sub-tabs */}
+                            {payMethod === 'mpesa' && (
+                                <div className="space-y-3">
+                                    {/* Sub-tab switcher */}
+                                    <div className="grid grid-cols-2 gap-1.5 bg-slate-100/90 p-1 rounded-xl border border-slate-200/60 shadow-inner">
+                                        <button
+                                            onClick={() => setC2bTab('stk')}
+                                            className={`py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                                                c2bTab === 'stk'
+                                                    ? 'bg-white text-emerald-800 shadow-sm border border-slate-200/50'
+                                                    : 'text-gray-500 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            <span>📱</span> STK Push
+                                        </button>
+                                        <button
+                                            onClick={() => { setC2bTab('c2b'); fetchC2bTransactions(); }}
+                                            className={`py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                                                c2bTab === 'c2b'
+                                                    ? 'bg-white text-emerald-800 shadow-sm border border-slate-200/50'
+                                                    : 'text-gray-500 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            <span>🏦</span> C2B Transactions
+                                        </button>
+                                    </div>
+
+                                    {/* STK Push Sub-tab */}
+                                    {c2bTab === 'stk' && (
+                                        <div className="space-y-3">
+                                            <div>
+                                                <label className="text-xs font-bold text-gray-700 mb-1 block">Patient Phone (Safaricom M-Pesa)</label>
+                                                <div className="relative">
+                                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-slate-400">📞</span>
+                                                    <input
+                                                        type="tel"
+                                                        value={mpesaPhone}
+                                                        onChange={(e) => setMpesaPhone(e.target.value)}
+                                                        placeholder="07XX XXX XXX or 01XX XXX XXX"
+                                                        className="w-full pl-10 pr-3 py-3 bg-slate-50 border-2 border-slate-200 focus:border-emerald-500 focus:bg-white rounded-xl text-base font-semibold outline-none transition-all"
+                                                        disabled={stkStatus === 'sending' || stkStatus === 'waiting'}
+                                                        autoFocus
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {stkStatus !== 'idle' && (
+                                                <div
+                                                    className={`p-3 rounded-xl flex items-center gap-2.5 text-xs font-semibold ${
+                                                        stkStatus === 'sending'
+                                                            ? 'bg-amber-50 border border-amber-300 text-amber-800'
+                                                            : stkStatus === 'waiting'
+                                                            ? 'bg-blue-50 border border-blue-300 text-blue-800'
+                                                            : stkStatus === 'success'
+                                                            ? 'bg-emerald-50 border border-emerald-300 text-emerald-800'
+                                                            : 'bg-red-50 border border-red-300 text-red-800'
+                                                    }`}
+                                                >
+                                                    {(stkStatus === 'sending' || stkStatus === 'waiting') && (
+                                                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin"></div>
+                                                    )}
+                                                    <span>{stkMsg}</span>
+                                                </div>
+                                            )}
+
+                                            {(stkStatus === 'idle' || stkStatus === 'failed') && (
+                                                <button
+                                                    onClick={handleSTK}
+                                                    className="w-full py-3 bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-bold text-sm transition-all shadow-md active:scale-95 flex items-center justify-center gap-2"
+                                                >
+                                                    <span>📱</span> Send M-Pesa STK Push
+                                                </button>
+                                            )}
+
+                                            <div className="pt-2 border-t border-slate-100">
+                                                <p className="text-[10px] text-gray-400 text-center mb-1 font-medium">
+                                                    - OR enter M-Pesa receipt code if already paid -
+                                                </p>
+                                                <input
+                                                    type="text"
+                                                    value={mpesaReceipt}
+                                                    onChange={(e) => setMpesaReceipt(e.target.value.toUpperCase())}
+                                                    placeholder="e.g. RLJ57XYZ99"
+                                                    className="w-full p-2.5 bg-slate-50 border-2 border-slate-200 focus:border-emerald-500 focus:bg-white rounded-xl text-xs font-mono font-bold uppercase outline-none transition-all"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* C2B Transactions Sub-tab */}
+                                    {c2bTab === 'c2b' && (
+                                        <div className="space-y-2">
+                                            <div className="flex gap-2">
+                                                <div className="relative flex-1">
+                                                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs">🔍</span>
+                                                    <input
+                                                        type="text"
+                                                        value={c2bSearchPhone}
+                                                        onChange={(e) => setC2bSearchPhone(e.target.value)}
+                                                        placeholder="Filter by phone or receipt..."
+                                                        className="w-full pl-7 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                                                    />
+                                                </div>
+                                                <button
+                                                    onClick={fetchC2bTransactions}
+                                                    disabled={c2bLoading}
+                                                    className="px-3 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold disabled:opacity-50 flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+                                                >
+                                                    {c2bLoading ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : '🔄'}
+                                                    Refresh
+                                                </button>
+                                            </div>
+
+                                            {c2bLoading ? (
+                                                <div className="flex items-center justify-center py-6 text-gray-400 text-xs gap-2">
+                                                    <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                                                    Loading C2B transactions...
+                                                </div>
+                                            ) : c2bTransactions.length === 0 ? (
+                                                <div className="text-center py-6 text-gray-400 text-xs">
+                                                    <div className="text-2xl mb-1">📭</div>
+                                                    No unlinked C2B payments found
+                                                </div>
+                                            ) : (
+                                                <div className="max-h-52 overflow-y-auto space-y-1.5 rounded-xl pr-0.5" style={{ scrollbarWidth: 'thin' }}>
+                                                    {c2bTransactions
+                                                        .filter(t => {
+                                                            if (!c2bSearchPhone) return true;
+                                                            const q = c2bSearchPhone.toLowerCase();
+                                                            return (
+                                                                (t.phone || '').toLowerCase().includes(q) ||
+                                                                (t.mpesa_receipt || '').toLowerCase().includes(q) ||
+                                                                (t.customer_name || '').toLowerCase().includes(q)
+                                                            );
+                                                        })
+                                                        .map((txn) => {
+                                                            const amt = Number(txn.amount || 0);
+                                                            const isExact = amt === grandTotal;
+                                                            const isSufficient = amt >= grandTotal;
+                                                            return (
+                                                                <div
+                                                                    key={txn.id}
+                                                                    className={`p-3 rounded-2xl border-2 transition-all shadow-xs hover:shadow-md ${
+                                                                        isExact
+                                                                            ? 'border-emerald-400 bg-gradient-to-r from-emerald-50/70 via-white to-emerald-50/30'
+                                                                            : isSufficient
+                                                                            ? 'border-blue-300 bg-gradient-to-r from-blue-50/70 via-white to-blue-50/30'
+                                                                            : 'border-orange-200 bg-gradient-to-r from-orange-50/70 via-white to-orange-50/30'
+                                                                    }`}
+                                                                >
+                                                                    <div className="flex items-start justify-between gap-2">
+                                                                        <div className="flex-1 min-w-0">
+                                                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                                                <span className="font-mono font-bold text-xs text-gray-800 bg-slate-100/90 px-1.5 py-0.5 rounded-md border border-slate-200/60">
+                                                                                    {txn.mpesa_receipt || '—'}
+                                                                                </span>
+                                                                                {isExact && <span className="text-[9px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold shadow-xs">EXACT</span>}
+                                                                                {!isExact && isSufficient && <span className="text-[9px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold shadow-xs">SUFFICIENT</span>}
+                                                                                {!isSufficient && <span className="text-[9px] bg-orange-500 text-white px-2 py-0.5 rounded-full font-bold shadow-xs">SHORT</span>}
+                                                                            </div>
+                                                                            <p className="text-[10px] text-gray-800 font-semibold mt-1">{txn.customer_name || 'Unknown'}</p>
+                                                                            {txn.phone && (<p className="text-[10px] text-emerald-700 font-mono font-bold">📞 {maskC2bPhone(txn.phone)}</p>)}
+                                                                            <p className="text-[10px] text-blue-600">{txn.account_reference ? '🏷️ Ref: ' + txn.account_reference : ''}</p>
+                                                                            <p className="text-[10px] text-gray-400">{txn.transaction_time ? new Date(txn.transaction_time).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : ''}</p>
+                                                                        </div>
+                                                                        <div className="text-right flex-shrink-0">
+                                                                            <p className={`text-sm font-black ${ isExact ? 'text-emerald-700' : isSufficient ? 'text-blue-700' : 'text-orange-600' }`}>
+                                                                                Ksh {amt.toLocaleString()}
+                                                                            </p>
+                                                                            <button
+                                                                                onClick={() => linkC2bAndPay(txn)}
+                                                                                className="mt-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-[10px] font-bold transition-all active:scale-95 shadow-xs hover:shadow"
+                                                                            >
+                                                                                Link & Pay
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Card Mode */}
+                            {payMethod === 'card' && (
+                                <div className="space-y-3">
+                                    <div className="p-3 bg-blue-50/90 border border-blue-200 rounded-xl text-xs text-blue-900 font-medium flex items-center gap-2">
+                                        <span>💳</span> Swipe or tap card on POS terminal, then enter authorization reference below.
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={mpesaReceipt}
+                                        onChange={(e) => setMpesaReceipt(e.target.value.toUpperCase())}
+                                        placeholder="Card Approval Reference / Auth Code"
+                                        className="w-full p-3 bg-slate-50 border-2 border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl text-xs font-mono font-bold outline-none transition-all"
+                                    />
+                                </div>
+                            )}
+
+                            {/* Credit Mode */}
+                            {payMethod === 'credit' && (
+                                <div className="space-y-3">
+                                    <div className="p-2.5 bg-amber-50/90 border border-amber-200 rounded-xl text-xs text-amber-900 font-medium">
+                                        Select an authorized credit patient account.
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={creditSearchPay}
+                                        onChange={(e) => setCreditSearchPay(e.target.value)}
+                                        placeholder="Search patient name or phone..."
+                                        className="w-full p-2.5 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs outline-none focus:border-amber-500 focus:bg-white transition-all"
+                                    />
+                                    <div className="max-h-36 overflow-y-auto rounded-xl border border-slate-200 bg-white" style={{ scrollbarWidth: 'thin' }}>
+                                        {creditCustomers
+                                            .filter(
+                                                (c) =>
+                                                    !creditSearchPay ||
+                                                    c.customer_name?.toLowerCase().includes(creditSearchPay.toLowerCase()) ||
+                                                    c.phone?.includes(creditSearchPay)
+                                            )
+                                            .map((c) => (
+                                                <button
+                                                    key={c.customer_id}
+                                                    onClick={() => {
+                                                        setSelectedCustomer(c);
+                                                        setPayCustomerName(c.customer_name);
+                                                        setCreditSearchPay('');
+                                                    }}
+                                                    className={`w-full text-left px-3 py-2 border-b border-gray-100 last:border-0 text-xs transition-colors flex items-center justify-between ${
+                                                        selectedCustomer?.customer_id === c.customer_id
+                                                            ? 'bg-amber-50 font-bold border-l-4 border-l-amber-500'
+                                                            : 'hover:bg-gray-50'
+                                                    }`}
+                                                >
+                                                    <div>
+                                                        <p className="font-semibold text-gray-800">{c.customer_name}</p>
+                                                        <p className="text-[10px] text-gray-500">{c.phone}</p>
+                                                    </div>
+                                                    <span className="font-bold text-red-600">
+                                                        Ksh {(c.current_balance || 0).toLocaleString()}
+                                                    </span>
+                                                </button>
+                                            ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Optional Doctor / Prescriber Input */}
+                            <div className="pt-2 border-t border-slate-100">
+                                <label className="text-[11px] font-bold text-gray-600 mb-1 block">
+                                    🩺 Doctor / Prescriber Name (Optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    value={doctorNameInput}
+                                    onChange={(e) => setDoctorNameInput(e.target.value)}
+                                    placeholder="e.g. Dr. Kamau (for prescription audit log)"
+                                    className="w-full p-2 bg-slate-50 border border-slate-200 focus:border-emerald-500 focus:bg-white rounded-lg text-xs outline-none transition-all"
+                                />
+                            </div>
                         </div>
 
-                        {/* Action Buttons */}
-                        <div className="flex gap-2.5">
+                        {/* Modal Action Buttons (Fixed Footer) */}
+                        <div className="px-6 py-4 border-t border-slate-100 flex-shrink-0 bg-slate-50/60 flex gap-2.5">
                             <button
                                 onClick={() => {
                                     setShowPayment(false);
                                     resetStk();
                                 }}
-                                className="flex-1 py-3 border border-gray-200 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-50 transition-colors"
+                                className="flex-1 py-3 border border-slate-200 text-gray-600 hover:text-gray-800 rounded-xl font-bold text-sm hover:bg-slate-100 transition-colors"
                             >
                                 Cancel [Esc]
                             </button>
@@ -2330,7 +2383,7 @@ export default function PharmacyPOS() {
                                     (payMethod === 'mpesa' && !mpesaReceipt && stkStatus !== 'success') ||
                                     (payMethod === 'credit' && !selectedCustomer)
                                         ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                                        : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700 active:scale-95'
+                                        : 'bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-700 text-white hover:from-emerald-700 hover:to-teal-800 active:scale-95 shadow-emerald-600/25 cursor-pointer'
                                 }`}
                             >
                                 <span>✅</span>
