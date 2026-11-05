@@ -77,6 +77,19 @@ export default function SalesMasterReportPage() {
     const [showDossierModal, setShowDossierModal] = useState(false);
     const [activeSale, setActiveSale] = useState<SaleRecord | null>(null);
 
+    const maskPhone = (phone: any): string => {
+        if (!phone) return '';
+        const str = String(phone).trim();
+        if (!str) return '';
+        if (str.length <= 15 && /^\+?\d+$/.test(str)) {
+            if (str.length >= 9) return str.slice(0, 5) + '****' + str.slice(-3);
+            return str;
+        }
+        const digits = str.replace(/\D/g, '');
+        const lastDigits = digits.length >= 3 ? digits.slice(-3) : str.slice(-3).toUpperCase();
+        return '2547****' + lastDigits;
+    };
+
     // Formatters
     const fmtDate = (d: string) => {
         if (!d) return '—';
@@ -1245,7 +1258,7 @@ ${sale.notes ? `<div>Notes: ${escapeXml(sale.notes)}</div>` : ''}
                                                             {s.customer_name || 'Walk-in Patient'}
                                                         </p>
                                                         {s.customer_phone && (
-                                                            <p className="text-[10px] text-gray-500 font-mono">{s.customer_phone}</p>
+                                                            <p className="text-[10px] text-gray-500 font-mono">{maskPhone(s.customer_phone)}</p>
                                                         )}
                                                     </div>
                                                 </div>
