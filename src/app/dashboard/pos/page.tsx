@@ -1353,16 +1353,16 @@ export default function PharmacyPOS() {
     return (
         <div className="flex-1 h-full flex flex-col bg-gray-50 select-none overflow-hidden">
             {/* ==================== 1. TOP STATUS BAR ==================== */}
-            <div className="px-4 py-2 flex items-center justify-between shrink-0" style={{background:"linear-gradient(135deg,#003318 0%,#005C28 40%,#00803A 75%,#00A848 100%)",borderRadius:"0 0 28px 28px",boxShadow:"0 6px 24px rgba(0,100,40,0.35),0 2px 8px rgba(0,0,0,0.15)"}}>
+            <div className="bg-white px-4 py-2 flex items-center justify-between shrink-0" style={{borderBottom:"1px solid #d1fae5"}}>
                 <div className="flex items-center gap-3">
-                    <span className="text-white font-extrabold text-sm flex items-center gap-1.5">
+                    <span className="text-emerald-700 font-extrabold text-sm flex items-center gap-1.5">
                         <span className="text-lg">💊</span> ALPHA PHARMACY POS
                     </span>
-                    <span className="text-emerald-300 opacity-50">|</span>
-                    <span className="text-white text-xs font-semibold bg-white/15 px-2 py-0.5 rounded-md">
+                    <span className="text-gray-300">|</span>
+                    <span className="text-gray-700 text-xs font-semibold bg-gray-100 px-2 py-0.5 rounded-md">
                         📍 {storeName}
                     </span>
-                    <span className="text-emerald-300 opacity-50">|</span>
+                    <span className="text-gray-300">|</span>
                     {/* Shift & Register Status Indicator */}
                     <span
                         className={`px-2.5 py-0.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm ${
@@ -1415,12 +1415,12 @@ export default function PharmacyPOS() {
                     </button>
 
                     {/* Live Clock */}
-                    <span className="text-xs font-mono font-bold text-white bg-white/15 border border-white/20 px-2 py-1 rounded-md hidden md:inline">
+                    <span className="text-xs font-mono font-bold text-gray-600 bg-gray-50 border border-gray-200 px-2 py-1 rounded-md hidden md:inline">
                         🕒 {currentTime}
                     </span>
 
                     {/* Receipt Badge */}
-                    <span className="px-3 py-1 bg-white/20 text-white border border-white/30 rounded-lg text-xs font-bold font-mono">
+                    <span className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold font-mono">
                         {receiptNo}
                     </span>
 
