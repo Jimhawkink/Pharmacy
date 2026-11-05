@@ -1092,10 +1092,10 @@ export default function PharmacyPOS() {
         try {
             const { data, error } = await c2bSupabase
                 .from('c2b_transactions')
-                .select('*')
+                .select('id, mpesa_receipt, phone, amount, account_reference, customer_name, transaction_time, is_linked')
                 .eq('is_linked', false)
-                .order('created_at', { ascending: false })
-                .limit(30);
+                .order('transaction_time', { ascending: false })
+                .limit(50);
             if (error) {
                 console.error('C2B fetch error:', error);
                 toast.error('Failed to load C2B payments');
@@ -2158,13 +2158,15 @@ export default function PharmacyPOS() {
                                                                 <div className="flex items-start justify-between gap-2">
                                                                     <div className="flex-1 min-w-0">
                                                                         <div className="flex items-center gap-1.5 flex-wrap">
-                                                                            <span className="font-mono font-bold text-xs text-gray-800">{txn.mpesa_receipt || txn.id}</span>
+                                                                            <span className="font-mono font-bold text-xs text-gray-800">{txn.mpesa_receipt || '—'}</span>
                                                                             {isExact && <span className="text-[9px] bg-emerald-500 text-white px-1.5 py-0.5 rounded-full font-bold">EXACT</span>}
                                                                             {!isExact && isSufficient && <span className="text-[9px] bg-blue-500 text-white px-1.5 py-0.5 rounded-full font-bold">SUFFICIENT</span>}
                                                                             {!isSufficient && <span className="text-[9px] bg-orange-500 text-white px-1.5 py-0.5 rounded-full font-bold">SHORT</span>}
                                                                         </div>
-                                                                        <p className="text-[10px] text-gray-600 mt-0.5">{txn.customer_name || 'Unknown'} • {txn.phone || ''}</p>
-                                                                        <p className="text-[10px] text-gray-400">{txn.created_at ? new Date(txn.created_at).toLocaleString() : ''}</p>
+                                                                        <p className="text-[10px] text-gray-800 font-semibold mt-0.5">{txn.customer_name || 'Unknown'}</p>
+                                                                        <p className="text-[10px] text-emerald-700 font-mono font-bold">{txn.phone ? '📞 ' + txn.phone : ''}</p>
+                                                                         <p className="text-[10px] text-blue-600">{txn.account_reference ? '🏷️ Ref: ' + txn.account_reference : ''}</p>
+                                                                         <p className="text-[10px] text-gray-400">{txn.transaction_time ? new Date(txn.transaction_time).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : ''}</p>
                                                                     </div>
                                                                     <div className="text-right flex-shrink-0">
                                                                         <p className={`text-sm font-black ${ isExact ? 'text-emerald-700' : isSufficient ? 'text-blue-700' : 'text-orange-600' }`}>
