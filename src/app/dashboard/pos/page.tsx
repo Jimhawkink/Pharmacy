@@ -1086,24 +1086,29 @@ export default function PharmacyPOS() {
         doneRef.current = false;
     };
 
-    // Fetch unlinked C2B transactions
+    // Fetch ALL recent C2B transactions (last 24hrs, linked or not)
     const fetchC2bTransactions = async () => {
         setC2bLoading(true);
         try {
+            const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
             const { data, error } = await c2bSupabase
                 .from('c2b_transactions')
                 .select('id, mpesa_receipt, phone, amount, account_reference, customer_name, transaction_time, is_linked')
-                .eq('is_linked', false)
+                .gte('transaction_time', since)
                 .order('transaction_time', { ascending: false })
-                .limit(50);
+                .limit(60);
             if (error) {
                 console.error('C2B fetch error:', error);
-                toast.error('Failed to load C2B payments');
+                toast.error(`Failed to load C2B: ${error.message}`);
             } else {
                 setC2bTransactions(data || []);
+                if (!data || data.length === 0) {
+                    toast.error('No C2B transactions found in last 24hrs — confirm payment reached shortcode 7887702');
+                }
             }
         } catch (err: any) {
             console.error('C2B error:', err);
+            toast.error(`C2B Error: ${err.message}`);
         } finally {
             setC2bLoading(false);
         }
@@ -2164,7 +2169,7 @@ export default function PharmacyPOS() {
                                                                             {!isSufficient && <span className="text-[9px] bg-orange-500 text-white px-1.5 py-0.5 rounded-full font-bold">SHORT</span>}
                                                                         </div>
                                                                         <p className="text-[10px] text-gray-800 font-semibold mt-0.5">{txn.customer_name || 'Unknown'}</p>
-                                                                        <p className="text-[10px] text-emerald-700 font-mono font-bold">{txn.phone ? '📞 ' + txn.phone : ''}</p>
+                                                                        {txn.phone && String(txn.phone).length <= 15 && (<p className="text-[10px] text-emerald-700 font-mono font-bold">📞 {txn.phone}</p>)}
                                                                          <p className="text-[10px] text-blue-600">{txn.account_reference ? '🏷️ Ref: ' + txn.account_reference : ''}</p>
                                                                          <p className="text-[10px] text-gray-400">{txn.transaction_time ? new Date(txn.transaction_time).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : ''}</p>
                                                                     </div>
