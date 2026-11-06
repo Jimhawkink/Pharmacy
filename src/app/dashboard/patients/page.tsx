@@ -437,83 +437,277 @@ export default function PatientsPage() {
 
   /* ───────── shared modal form fields ───────── */
   const renderPatientForm = () => (
-    <div className="p-4 space-y-3 overflow-y-auto max-h-[65vh]">
-      {/* Personal */}
-      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Personal Information</p>
-      <div className="grid grid-cols-2 gap-3">
-        <div><label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5 block">Full Name *</label><input className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" value={form.full_name || ''} onChange={e => setForm({ ...form, full_name: e.target.value })} /></div>
-        <div><label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5 block">ID Number</label><input className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" value={form.id_number || ''} onChange={e => setForm({ ...form, id_number: e.target.value })} /></div>
-        <div><label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5 block">Phone *</label><input className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" value={form.phone || ''} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
-        <div><label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5 block">Email</label><input type="email" className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" value={form.email || ''} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
-        <div><label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5 block">Date of Birth</label><input type="date" className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" value={form.date_of_birth || ''} onChange={e => setForm({ ...form, date_of_birth: e.target.value })} /></div>
-        <div><label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5 block">Gender</label>
-          <select className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" value={form.gender || ''} onChange={e => setForm({ ...form, gender: e.target.value })}>
-            {GENDERS.map(g => <option key={g}>{g}</option>)}
-          </select>
-        </div>
-        <div><label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5 block">Blood Type</label>
-          <select className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" value={form.blood_type || ''} onChange={e => setForm({ ...form, blood_type: e.target.value })}>
-            <option value="">Select</option>
-            {BLOOD_TYPES.map(b => <option key={b}>{b}</option>)}
-          </select>
-        </div>
-        <div><label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5 block">County</label>
-          <select className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" value={form.county || ''} onChange={e => setForm({ ...form, county: e.target.value })}>
-            <option value="">Select</option>
-            {KENYA_COUNTIES.map(c => <option key={c}>{c}</option>)}
-          </select>
+    <div className="p-5 space-y-4 overflow-y-auto max-h-[70vh]" style={{ scrollbarWidth: 'thin' }}>
+      
+      {/* 1. Identification & Demographics */}
+      <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+        <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+          <span>👤</span> Patient Identification & Demographics
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Patient Full Name *</label>
+            <input
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/50 outline-none transition-all shadow-2xs"
+              placeholder="e.g. John Kamau Doe"
+              value={form.full_name || ''}
+              onChange={e => setForm({ ...form, full_name: e.target.value })}
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">National ID / File No. *</label>
+            <input
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/50 outline-none transition-all shadow-2xs"
+              placeholder="e.g. 12345678 or File #001"
+              value={form.id_number || ''}
+              onChange={e => setForm({ ...form, id_number: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Phone Number (M-Pesa / SMS) *</label>
+            <input
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/50 outline-none transition-all shadow-2xs"
+              placeholder="07XX XXX XXX or 01XX XXX XXX"
+              value={form.phone || ''}
+              onChange={e => setForm({ ...form, phone: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Email Address</label>
+            <input
+              type="email"
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/50 outline-none transition-all shadow-2xs"
+              placeholder="patient@example.com"
+              value={form.email || ''}
+              onChange={e => setForm({ ...form, email: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Date of Birth</label>
+            <input
+              type="date"
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/50 outline-none transition-all shadow-2xs"
+              value={form.date_of_birth || ''}
+              onChange={e => setForm({ ...form, date_of_birth: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Gender</label>
+            <select
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/50 outline-none transition-all shadow-2xs"
+              value={form.gender || 'Male'}
+              onChange={e => setForm({ ...form, gender: e.target.value })}
+            >
+              {GENDERS.map(g => <option key={g} value={g}>{g}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">County</label>
+            <select
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/50 outline-none transition-all shadow-2xs"
+              value={form.county || 'Nairobi'}
+              onChange={e => setForm({ ...form, county: e.target.value })}
+            >
+              {KENYA_COUNTIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Physical Address / Estate</label>
+            <input
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200/50 outline-none transition-all shadow-2xs"
+              placeholder="e.g. Westlands / Estate"
+              value={form.address || ''}
+              onChange={e => setForm({ ...form, address: e.target.value })}
+            />
+          </div>
         </div>
       </div>
-      <div><label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5 block">Address</label><input className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" value={form.address || ''} onChange={e => setForm({ ...form, address: e.target.value })} /></div>
 
-      {/* Emergency */}
-      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider pt-2">Emergency Contact</p>
-      <div className="grid grid-cols-2 gap-3">
-        <div><label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5 block">Contact Name</label><input className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" value={form.emergency_contact_name || ''} onChange={e => setForm({ ...form, emergency_contact_name: e.target.value })} /></div>
-        <div><label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5 block">Contact Phone</label><input className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" value={form.emergency_contact_phone || ''} onChange={e => setForm({ ...form, emergency_contact_phone: e.target.value })} /></div>
+      {/* 2. Clinical, Allergies & Emergency */}
+      <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+        <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+          <span>🚨</span> Clinical Profile & Emergency Contact
+        </p>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Blood Type</label>
+            <select
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:border-emerald-500 outline-none shadow-2xs"
+              value={form.blood_type || ''}
+              onChange={e => setForm({ ...form, blood_type: e.target.value })}
+            >
+              <option value="">Unknown / Not Tested</option>
+              {BLOOD_TYPES.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Emergency Contact Name</label>
+            <input
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:border-emerald-500 outline-none shadow-2xs"
+              placeholder="Next of Kin Name"
+              value={form.emergency_contact_name || ''}
+              onChange={e => setForm({ ...form, emergency_contact_name: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Emergency Phone</label>
+            <input
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:border-emerald-500 outline-none shadow-2xs"
+              placeholder="07XX XXX XXX"
+              value={form.emergency_contact_phone || ''}
+              onChange={e => setForm({ ...form, emergency_contact_phone: e.target.value })}
+            />
+          </div>
+        </div>
+
+        {/* Allergies Tag Cloud */}
+        <div>
+          <label className="block text-xs font-bold text-gray-700 mb-1.5">Known Drug & Food Allergies</label>
+          <div className="flex flex-wrap gap-1.5 mb-2">
+            {COMMON_ALLERGIES.map(allergy => {
+              const active = (form.allergies || []).includes(allergy);
+              return (
+                <button
+                  type="button"
+                  key={allergy}
+                  onClick={() => {
+                    const arr = form.allergies || [];
+                    setForm({
+                      ...form,
+                      allergies: active ? arr.filter(a => a !== allergy) : [...arr, allergy],
+                    });
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 ${
+                    active
+                      ? 'bg-rose-600 text-white shadow-xs'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:border-rose-300'
+                  }`}
+                >
+                  <span>{active ? '⚠️' : '+'}</span>
+                  <span>{allergy}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Add other custom allergy..."
+              className="flex-1 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-rose-400"
+              value={allergyInput}
+              onChange={e => setAllergyInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAllergyTag(); } }}
+            />
+            <button
+              type="button"
+              onClick={addAllergyTag}
+              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+            >
+              Add Tag
+            </button>
+          </div>
+        </div>
+
+        {/* Chronic Conditions */}
+        <div>
+          <label className="block text-xs font-bold text-gray-700 mb-1.5">Chronic Care Management</label>
+          <div className="flex flex-wrap gap-1.5">
+            {CHRONIC_CONDITIONS.map(cond => {
+              const active = (form.chronic_conditions || []).includes(cond);
+              return (
+                <button
+                  type="button"
+                  key={cond}
+                  onClick={() => toggleChronic(cond)}
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1 ${
+                    active
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:border-amber-300'
+                  }`}
+                >
+                  <span>{active ? '💊' : '+'}</span>
+                  <span>{cond}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      {/* Insurance */}
-      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider pt-2">Insurance</p>
-      <div className="grid grid-cols-2 gap-3">
-        <div><label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5 block">Insurance Provider</label><input className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" placeholder="e.g. NHIF, Jubilee, AAR" value={form.insurance_provider || ''} onChange={e => setForm({ ...form, insurance_provider: e.target.value })} /></div>
-        <div><label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5 block">Member No</label><input className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" value={form.insurance_member_no || ''} onChange={e => setForm({ ...form, insurance_member_no: e.target.value })} /></div>
-      </div>
+      {/* 3. Insurance & DPA 2019 Consent */}
+      <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+        <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+          <span>🛡️</span> Insurance & Data Protection (Kenya DPA 2019)
+        </p>
+        
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Insurance Provider</label>
+            <input
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:border-emerald-500 outline-none shadow-2xs"
+              placeholder="e.g. NHIF / SHA, Jubilee, AAR, Britam"
+              value={form.insurance_provider || ''}
+              onChange={e => setForm({ ...form, insurance_provider: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Member / Policy No.</label>
+            <input
+              className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:border-emerald-500 outline-none shadow-2xs"
+              placeholder="e.g. POL-984210"
+              value={form.insurance_member_no || ''}
+              onChange={e => setForm({ ...form, insurance_member_no: e.target.value })}
+            />
+          </div>
+        </div>
 
-      {/* Allergies */}
-      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider pt-2">Allergies</p>
-      <div className="flex flex-wrap gap-1 mb-1">
-        {(form.allergies || []).map(a => (
-          <span key={a} className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded-full text-[10px] font-bold flex items-center gap-1">
-            {a} <button type="button" onClick={() => setForm({ ...form, allergies: (form.allergies || []).filter(x => x !== a) })} className="hover:text-rose-600">×</button>
+        {/* Consent Type & Status Matching The Screenshot */}
+        <div className="grid grid-cols-2 gap-3 pt-1">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Consent Status *</label>
+            <select
+              value={form.consent_given ? 'yes' : 'no'}
+              onChange={e => setForm({ ...form, consent_given: e.target.value === 'yes' })}
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs font-semibold outline-none focus:border-emerald-500 bg-white shadow-2xs"
+            >
+              <option value="yes">✅ Consent Granted</option>
+              <option value="no">⏳ Pending Consent</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Collection Method</label>
+            <input
+              value="In-pharmacy Dispensing / POS"
+              readOnly
+              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs font-semibold text-gray-500 bg-gray-100 outline-none"
+            />
+          </div>
+        </div>
+
+        {/* Legal Disclaimer Box */}
+        <div className="p-3 bg-emerald-50/90 border border-emerald-200/90 rounded-xl text-[11px] text-emerald-900 font-medium flex items-start gap-2.5 shadow-2xs">
+          <span className="text-sm">⚠️</span>
+          <span className="leading-relaxed">
+            By recording this patient, you confirm that the patient was informed of their rights under Kenya Data Protection Act 2019 and that consent was freely given for medical record retention and dispensing audits.
           </span>
-        ))}
-      </div>
-      <div className="flex gap-1">
-        <input className="flex-1 px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" placeholder="Type or select allergy..." value={allergyInput} onChange={e => setAllergyInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAllergyTag())} />
-        <button type="button" onClick={addAllergyTag} className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold shadow-xs text-xs">Add</button>
-      </div>
-      <div className="flex flex-wrap gap-1">
-        {COMMON_ALLERGIES.filter(a => !(form.allergies || []).includes(a)).map(a => (
-          <button type="button" key={a} onClick={() => setForm({ ...form, allergies: [...(form.allergies || []), a] })} className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-[10px] font-bold hover:bg-rose-50 hover:text-rose-700 transition-colors">+ {a}</button>
-        ))}
-      </div>
+        </div>
 
-      {/* Chronic Conditions */}
-      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider pt-2">Chronic Conditions</p>
-      <div className="flex flex-wrap gap-1.5">
-        {CHRONIC_CONDITIONS.map(c => (
-          <button type="button" key={c} onClick={() => toggleChronic(c)} className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-colors ${(form.chronic_conditions || []).includes(c) ? 'bg-amber-500 text-white shadow-xs' : 'bg-gray-100 text-gray-600 hover:bg-amber-50'}`}>{c}</button>
-        ))}
+        <div>
+          <label className="block text-xs font-bold text-gray-700 mb-1">Clinical Notes (Optional)</label>
+          <textarea
+            rows={2}
+            className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:border-emerald-500 outline-none shadow-2xs"
+            placeholder="Special dispensing instructions, doctor notes, or medical history..."
+            value={form.notes || ''}
+            onChange={e => setForm({ ...form, notes: e.target.value })}
+          />
+        </div>
       </div>
-
-      {/* Notes */}
-      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider pt-2">Notes</p>
-      <textarea rows={2} className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" value={form.notes || ''} onChange={e => setForm({ ...form, notes: e.target.value })} />
     </div>
   );
 
-  /* ───────── render ───────── */
+    /* ───────── render ───────── */
   if (loading) return (
     <div className="w-full max-w-full space-y-3.5 px-1 md:px-2 text-gray-900" style={{ fontFamily: "'Inter', system-ui, sans-serif" }}>
       <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-xs flex items-center gap-3">
@@ -610,7 +804,7 @@ export default function PatientsPage() {
         <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead><tr className="bg-gradient-to-r from-cyan-700 via-blue-700 to-indigo-800">
+              <thead><tr className="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900">
                 {['#','Full Name','ID Number','Phone','Gender','DOB/Age','County','Allergies','Chronic','Insurance','Consent','Actions'].map(h => (
                   <th key={h} className="px-2.5 py-2 text-left text-[10px] font-bold text-white uppercase tracking-wider">{h}</th>
                 ))}
@@ -638,7 +832,7 @@ export default function PatientsPage() {
                     </td>
                     <td className="px-2.5 py-1.5">
                       <div className="flex gap-1">
-                        <button onClick={() => { setSelectedPatient(p); setShowViewModal(true); }} className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-[10px] font-bold hover:bg-blue-200">View</button>
+                        <button onClick={() => { setSelectedPatient(p); setShowViewModal(true); }} className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded text-[10px] font-bold hover:bg-emerald-100 transition-colors">View</button>
                         <button onClick={() => { setForm(p); setShowEditModal(true); }} className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px] font-bold hover:bg-amber-200">Edit</button>
                         <button onClick={() => deletePatient(p.patient_id)} className="px-2 py-0.5 bg-rose-100 text-rose-800 rounded text-[10px] font-bold hover:bg-rose-200">Del</button>
                       </div>
@@ -660,7 +854,7 @@ export default function PatientsPage() {
         <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead><tr className="bg-gradient-to-r from-cyan-700 via-blue-700 to-indigo-800">
+              <thead><tr className="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900">
                 {['#','Patient Name','Phone','County','Chronic Conditions','Blood Type','Allergies','Insurance','Consent','Actions'].map(h => (
                   <th key={h} className="px-2.5 py-2 text-left text-[10px] font-bold text-white uppercase tracking-wider">{h}</th>
                 ))}
@@ -678,7 +872,7 @@ export default function PatientsPage() {
                     <td className="px-2.5 py-1.5"><div className="flex flex-wrap gap-0.5">{(p.allergies || []).map(a => <span key={a} className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800">{a}</span>)}</div></td>
                     <td className="px-2.5 py-1.5 text-xs font-semibold text-gray-700">{p.insurance_provider || '—'}</td>
                     <td className="px-2.5 py-1.5"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${p.consent_given ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{p.consent_given ? 'Given' : 'Pending'}</span></td>
-                    <td className="px-2.5 py-1.5"><button onClick={() => { setSelectedPatient(p); setShowViewModal(true); }} className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-[10px] font-bold hover:bg-blue-200">Profile</button></td>
+                    <td className="px-2.5 py-1.5"><button onClick={() => { setSelectedPatient(p); setShowViewModal(true); }} className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded text-[10px] font-bold hover:bg-emerald-100 transition-colors">Profile</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -693,7 +887,7 @@ export default function PatientsPage() {
         <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead><tr className="bg-gradient-to-r from-cyan-700 via-blue-700 to-indigo-800">
+              <thead><tr className="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900">
                 {['#','Patient','Phone','Insurance Provider','Member No','County','Chronic Conditions','Consent','Actions'].map(h => (
                   <th key={h} className="px-2.5 py-2 text-left text-[10px] font-bold text-white uppercase tracking-wider">{h}</th>
                 ))}
@@ -705,12 +899,12 @@ export default function PatientsPage() {
                     <td className="px-2.5 py-1.5 text-xs font-semibold text-gray-500">{i + 1}</td>
                     <td className="px-2.5 py-1.5 text-xs font-bold text-gray-900">{p.full_name}</td>
                     <td className="px-2.5 py-1.5 text-xs font-semibold text-gray-700">{p.phone}</td>
-                    <td className="px-2.5 py-1.5"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">{p.insurance_provider}</span></td>
+                    <td className="px-2.5 py-1.5"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200/70">{p.insurance_provider}</span></td>
                     <td className="px-2.5 py-1.5 text-xs font-semibold text-gray-700">{p.insurance_member_no || '—'}</td>
                     <td className="px-2.5 py-1.5 text-xs font-semibold text-gray-700">{p.county || '—'}</td>
                     <td className="px-2.5 py-1.5"><div className="flex flex-wrap gap-0.5">{(p.chronic_conditions || []).map(c => <span key={c} className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">{c}</span>)}</div></td>
                     <td className="px-2.5 py-1.5"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${p.consent_given ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{p.consent_given ? 'Given' : 'Pending'}</span></td>
-                    <td className="px-2.5 py-1.5"><button onClick={() => { setSelectedPatient(p); setShowViewModal(true); }} className="px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-[10px] font-bold hover:bg-blue-200">Profile</button></td>
+                    <td className="px-2.5 py-1.5"><button onClick={() => { setSelectedPatient(p); setShowViewModal(true); }} className="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded text-[10px] font-bold hover:bg-emerald-100 transition-colors">Profile</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -732,7 +926,7 @@ export default function PatientsPage() {
           </div>
           <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
             <table className="w-full">
-              <thead><tr className="bg-gradient-to-r from-cyan-700 via-blue-700 to-indigo-800">
+              <thead><tr className="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900">
                 {['Patient','Data Processing','Marketing','SMS','WhatsApp','Research','Insurance Sharing'].map(h => (
                   <th key={h} className="px-2.5 py-2 text-left text-[10px] font-bold text-white uppercase tracking-wider">{h}</th>
                 ))}
@@ -781,7 +975,7 @@ export default function PatientsPage() {
           </div>
           <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
             <table className="w-full">
-              <thead><tr className="bg-gradient-to-r from-cyan-700 via-blue-700 to-indigo-800">
+              <thead><tr className="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900">
                 {['Date','Patient','ID Number','Request Type','Details','Status','Action'].map(h => (
                   <th key={h} className="px-2.5 py-2 text-left text-[10px] font-bold text-white uppercase tracking-wider">{h}</th>
                 ))}
@@ -793,7 +987,7 @@ export default function PatientsPage() {
                     <td className="px-2.5 py-1.5 text-xs font-semibold text-gray-700">{r.created_at ? new Date(r.created_at).toLocaleDateString() : '—'}</td>
                     <td className="px-2.5 py-1.5 text-xs font-bold text-gray-900">{r.patient_name}</td>
                     <td className="px-2.5 py-1.5 text-xs font-semibold text-gray-700">{r.id_number}</td>
-                    <td className="px-2.5 py-1.5"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">{r.request_type}</span></td>
+                    <td className="px-2.5 py-1.5"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200/70">{r.request_type}</span></td>
                     <td className="px-2.5 py-1.5 text-xs font-semibold text-gray-700">{r.details}</td>
                     <td className="px-2.5 py-1.5"><span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">{r.status}</span></td>
                     <td className="px-2.5 py-1.5">
@@ -811,19 +1005,49 @@ export default function PatientsPage() {
 
       {/* ADD PATIENT MODAL */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">Register New Patient</h2>
-                <p className="text-[10px] text-gray-500">Fill in patient details • Required fields marked *</p>
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-5 animate-in fade-in duration-200" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-3xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.4)] border border-slate-100 max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            
+            {/* Header Matching Screenshot with Sidebar Green Theme */}
+            <div className="bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-700 px-6 py-4 rounded-t-3xl flex items-center justify-between shadow-xs flex-shrink-0 relative overflow-hidden">
+              <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none" />
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/20 text-white flex items-center justify-center text-lg shadow-sm">
+                  📋
+                </div>
+                <div>
+                  <h3 className="text-white font-black text-base tracking-tight leading-tight flex items-center gap-2">
+                    Register New Patient
+                  </h3>
+                  <p className="text-[10px] text-emerald-100 font-semibold tracking-wider">
+                    Alpha POS Patient Registry • Medical Demographics & DPA 2019 Consent
+                  </p>
+                </div>
               </div>
-              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-white/80 hover:text-white hover:bg-white/20 rounded-xl w-8 h-8 flex items-center justify-center text-lg font-bold transition-all relative z-10 cursor-pointer"
+              >
+                ✕
+              </button>
             </div>
+
             {renderPatientForm()}
-            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
-              <button onClick={() => setShowAddModal(false)} className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg font-bold shadow-xs text-xs">Cancel</button>
-              <button onClick={savePatient} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-xs text-xs transition-colors">Register Patient</button>
+
+            {/* Footer with Pill Actions Matching Screenshot */}
+            <div className="px-6 py-4 border-t border-slate-100 rounded-b-3xl bg-slate-50/70 flex justify-end gap-3 flex-shrink-0">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={savePatient}
+                className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/25 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>✓</span> Save Patient Record
+              </button>
             </div>
           </div>
         </div>
@@ -831,19 +1055,49 @@ export default function PatientsPage() {
 
       {/* EDIT PATIENT MODAL */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowEditModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">Edit Patient</h2>
-                <p className="text-[10px] text-gray-500">Update patient information</p>
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-5 animate-in fade-in duration-200" onClick={() => setShowEditModal(false)}>
+          <div className="bg-white rounded-3xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.4)] border border-slate-100 max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-700 px-6 py-4 rounded-t-3xl flex items-center justify-between shadow-xs flex-shrink-0 relative overflow-hidden">
+              <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none" />
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/20 text-white flex items-center justify-center text-lg shadow-sm">
+                  ✏️
+                </div>
+                <div>
+                  <h3 className="text-white font-black text-base tracking-tight leading-tight flex items-center gap-2">
+                    Edit Patient Record
+                  </h3>
+                  <p className="text-[10px] text-emerald-100 font-semibold tracking-wider">
+                    Update Demographics, Allergies & DPA 2019 Consent Status
+                  </p>
+                </div>
               </div>
-              <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-white/80 hover:text-white hover:bg-white/20 rounded-xl w-8 h-8 flex items-center justify-center text-lg font-bold transition-all relative z-10 cursor-pointer"
+              >
+                ✕
+              </button>
             </div>
+
             {renderPatientForm()}
-            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
-              <button onClick={() => setShowEditModal(false)} className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg font-bold shadow-xs text-xs">Cancel</button>
-              <button onClick={savePatient} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-xs text-xs transition-colors">Save Changes</button>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 rounded-b-3xl bg-slate-50/70 flex justify-end gap-3 flex-shrink-0">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={savePatient}
+                className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/25 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>✓</span> Save Changes
+              </button>
             </div>
           </div>
         </div>
@@ -851,21 +1105,21 @@ export default function PatientsPage() {
 
       {/* VIEW PATIENT PROFILE MODAL */}
       {showViewModal && selectedPatient && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowViewModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-5 animate-in fade-in duration-200" onClick={() => setShowViewModal(false)}>
+          <div className="bg-white rounded-3xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.4)] border border-slate-100 max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-700 px-6 py-4 rounded-t-3xl flex items-center justify-between shadow-xs flex-shrink-0">
               <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-br from-emerald-500 to-teal-600 w-12 h-12 rounded-xl flex items-center justify-center text-white text-lg font-bold">{selectedPatient.full_name.charAt(0)}</div>
+                <div className="bg-white/20 backdrop-blur-sm border border-white/20 w-11 h-11 rounded-2xl flex items-center justify-center text-white text-lg font-bold">{selectedPatient.full_name.charAt(0)}</div>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900">{selectedPatient.full_name}</h2>
-                  <p className="text-[10px] text-gray-500">ID: {selectedPatient.id_number || 'N/A'} • {selectedPatient.gender} • {selectedPatient.date_of_birth ? `${calcAge(selectedPatient.date_of_birth)} years` : 'DOB N/A'}</p>
+                  <h2 className="text-base font-black text-white">{selectedPatient.full_name}</h2>
+                  <p className="text-[10px] text-emerald-100 font-semibold">ID: {selectedPatient.id_number || 'N/A'} • {selectedPatient.gender} • {selectedPatient.date_of_birth ? `${calcAge(selectedPatient.date_of_birth)} years` : 'DOB N/A'}</p>
                 </div>
               </div>
-              <button onClick={() => setShowViewModal(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+              <button onClick={() => setShowViewModal(false)} className="text-white/80 hover:text-white hover:bg-white/20 rounded-xl w-8 h-8 flex items-center justify-center text-lg font-bold transition-all cursor-pointer">✕</button>
             </div>
-            <div className="p-4 space-y-4">
+            <div className="p-5 space-y-4 overflow-y-auto max-h-[70vh]" style={{ scrollbarWidth: 'thin' }}>
               {/* Personal Info */}
-              <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-xs">
+              <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80">
                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Personal Information</p>
                 <div className="grid grid-cols-3 gap-3">
                   <div><p className="text-[10px] text-gray-500">Phone</p><p className="text-xs font-bold text-gray-900">{selectedPatient.phone}</p></div>
@@ -878,7 +1132,7 @@ export default function PatientsPage() {
               </div>
 
               {/* Allergies */}
-              <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-xs">
+              <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80">
                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">⚠️ Allergies</p>
                 <div className="flex flex-wrap gap-1">
                   {(selectedPatient.allergies || []).length > 0
@@ -889,7 +1143,7 @@ export default function PatientsPage() {
               </div>
 
               {/* Chronic Conditions */}
-              <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-xs">
+              <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80">
                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">💊 Chronic Conditions</p>
                 <div className="flex flex-wrap gap-1">
                   {(selectedPatient.chronic_conditions || []).length > 0
@@ -901,12 +1155,12 @@ export default function PatientsPage() {
 
               {/* Emergency & Insurance */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-xs">
+                <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80">
                   <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">🚨 Emergency Contact</p>
                   <p className="text-xs font-bold text-gray-900">{selectedPatient.emergency_contact_name || '—'}</p>
                   <p className="text-xs text-gray-600">{selectedPatient.emergency_contact_phone || '—'}</p>
                 </div>
-                <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-xs">
+                <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80">
                   <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">🏥 Insurance</p>
                   <p className="text-xs font-bold text-gray-900">{selectedPatient.insurance_provider || 'Not insured'}</p>
                   <p className="text-xs text-gray-600">Member #: {selectedPatient.insurance_member_no || '—'}</p>
@@ -914,7 +1168,7 @@ export default function PatientsPage() {
               </div>
 
               {/* Consent Status */}
-              <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-xs">
+              <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80">
                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">✅ Consent & Privacy</p>
                 <div className="flex gap-3">
                   <div className="flex items-center gap-1.5">
@@ -930,12 +1184,12 @@ export default function PatientsPage() {
               </div>
 
               {/* Consent Records */}
-              <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-xs">
+              <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80">
                 <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">📋 Consent Records</p>
                 {consentRecords.filter(c => c.patient_id === selectedPatient.patient_id).length > 0 ? (
                   <div className="space-y-1">
                     {consentRecords.filter(c => c.patient_id === selectedPatient.patient_id).map(c => (
-                      <div key={c.consent_id} className="flex items-center justify-between py-1 border-b border-gray-50">
+                      <div key={c.consent_id} className="flex items-center justify-between py-1 border-b border-gray-100">
                         <span className="text-xs font-semibold text-gray-700">{c.consent_type}</span>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${c.granted ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>{c.granted ? 'Granted' : 'Revoked'}</span>
                       </div>
@@ -946,15 +1200,15 @@ export default function PatientsPage() {
 
               {/* Notes */}
               {selectedPatient.notes && (
-                <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-xs">
+                <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80">
                   <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">📝 Notes</p>
                   <p className="text-xs text-gray-700">{selectedPatient.notes}</p>
                 </div>
               )}
             </div>
-            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
-              <button onClick={() => { setForm(selectedPatient); setShowViewModal(false); setShowEditModal(true); }} className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg font-bold shadow-xs text-xs">Edit Patient</button>
-              <button onClick={() => setShowViewModal(false)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-xs text-xs transition-colors">Close</button>
+            <div className="px-6 py-4 border-t border-slate-100 rounded-b-3xl bg-slate-50/70 flex justify-end gap-3 flex-shrink-0">
+              <button onClick={() => { setForm(selectedPatient); setShowViewModal(false); setShowEditModal(true); }} className="px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-gray-700 hover:bg-slate-100 transition-colors cursor-pointer">Edit Patient</button>
+              <button onClick={() => setShowViewModal(false)} className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/25 active:scale-95 transition-all cursor-pointer">Close</button>
             </div>
           </div>
         </div>
@@ -962,38 +1216,52 @@ export default function PatientsPage() {
 
       {/* CONSENT MODAL */}
       {showConsentModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setShowConsentModal(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-bold text-gray-900">Record Consent</h2>
-              <p className="text-[10px] text-gray-500">DPA 2019 consent recording</p>
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-5 animate-in fade-in duration-200" onClick={() => setShowConsentModal(false)}>
+          <div className="bg-white rounded-3xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.4)] border border-slate-100 max-w-lg w-full flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-700 px-6 py-4 rounded-t-3xl flex items-center justify-between shadow-xs flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-sm border border-white/20 text-white flex items-center justify-center text-lg shadow-sm">
+                  📜
+                </div>
+                <div>
+                  <h3 className="text-white font-black text-base tracking-tight leading-tight">
+                    Record Patient Consent
+                  </h3>
+                  <p className="text-[10px] text-emerald-100 font-semibold tracking-wider">
+                    DPA 2019 Compliance • Free & Unambiguous Consent
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setShowConsentModal(false)} className="text-white/80 hover:text-white hover:bg-white/20 rounded-xl w-8 h-8 flex items-center justify-center text-lg font-bold transition-all cursor-pointer">✕</button>
             </div>
-            <div className="p-4 space-y-3">
+            
+            <div className="p-5 space-y-3.5 bg-slate-50/50">
               <div>
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5 block">Patient</label>
-                <select className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" value={consentForm.patient_id} onChange={e => setConsentForm({ ...consentForm, patient_id: e.target.value })}>
+                <label className="text-xs font-bold text-gray-700 mb-1 block">Patient *</label>
+                <select className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 focus:border-emerald-500 outline-none shadow-2xs" value={consentForm.patient_id} onChange={e => setConsentForm({ ...consentForm, patient_id: e.target.value })}>
                   <option value="">Select patient</option>
                   {patients.map(p => <option key={p.patient_id} value={p.patient_id}>{p.full_name} — {p.phone}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5 block">Consent Type</label>
-                <select className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" value={consentForm.consent_type} onChange={e => setConsentForm({ ...consentForm, consent_type: e.target.value })}>
+                <label className="text-xs font-bold text-gray-700 mb-1 block">Consent Type *</label>
+                <select className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 focus:border-emerald-500 outline-none shadow-2xs" value={consentForm.consent_type} onChange={e => setConsentForm({ ...consentForm, consent_type: e.target.value })}>
                   {CONSENT_TYPES.map(ct => <option key={ct}>{ct}</option>)}
                 </select>
               </div>
-              <div className="flex items-center gap-2">
-                <input type="checkbox" checked={consentForm.granted} onChange={e => setConsentForm({ ...consentForm, granted: e.target.checked })} className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
-                <label className="text-xs font-semibold text-gray-700">Patient grants consent</label>
+              <div className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl shadow-2xs">
+                <input type="checkbox" id="consent_checkbox" checked={consentForm.granted} onChange={e => setConsentForm({ ...consentForm, granted: e.target.checked })} className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
+                <label htmlFor="consent_checkbox" className="text-xs font-bold text-gray-800 cursor-pointer">Patient freely grants informed consent</label>
               </div>
               <div>
-                <label className="text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5 block">Consent Text / Notes</label>
-                <textarea rows={3} className="w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none" value={consentForm.consent_text} onChange={e => setConsentForm({ ...consentForm, consent_text: e.target.value })} />
+                <label className="text-xs font-bold text-gray-700 mb-1 block">Consent Text / Notes</label>
+                <textarea rows={3} placeholder="Notes on consent discussion, witness, or revocation..." className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-700 focus:border-emerald-500 outline-none shadow-2xs" value={consentForm.consent_text} onChange={e => setConsentForm({ ...consentForm, consent_text: e.target.value })} />
               </div>
             </div>
-            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
-              <button onClick={() => setShowConsentModal(false)} className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg font-bold shadow-xs text-xs">Cancel</button>
-              <button onClick={saveConsent} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-xs text-xs transition-colors">Record Consent</button>
+
+            <div className="px-6 py-4 border-t border-slate-100 rounded-b-3xl bg-slate-50/70 flex justify-end gap-3 flex-shrink-0">
+              <button onClick={() => setShowConsentModal(false)} className="px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-slate-100 transition-colors cursor-pointer">Cancel</button>
+              <button onClick={saveConsent} className="px-6 py-2.5 bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/25 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"><span>✓</span> Save Consent Record</button>
             </div>
           </div>
         </div>
