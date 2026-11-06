@@ -47,6 +47,7 @@ const fmtCurrency = (n: number) => `KSh ${n.toLocaleString('en-KE', { minimumFra
 
 export default function InsuranceClaimsPage() {
   const { activeOutlet } = useOutlet();
+  const outletId = typeof activeOutlet === "object" && activeOutlet !== null ? (activeOutlet.outlet_id || 1) : (Number(activeOutlet) || 1);
   const [tab, setTab] = useState<Tab>('All Claims');
   const [claims, setClaims] = useState<Claim[]>([]);
   const [providers, setProviders] = useState<Provider[]>([]);
@@ -90,11 +91,11 @@ export default function InsuranceClaimsPage() {
 
   /* ── data loading ─────────────────────────────────────────────── */
   const loadData = useCallback(async () => {
-    if (!activeOutlet) return;
+    const outletId = typeof activeOutlet === 'object' && activeOutlet !== null ? (activeOutlet.outlet_id || 1) : (Number(activeOutlet) || 1);
     setLoading(true);
     try {
       const [clRes, prRes, paRes] = await Promise.all([
-        supabase.from('pharmacy_insurance_claims').select('*, pharmacy_insurance_providers(*), pharmacy_patients(first_name, last_name, phone)').eq('outlet_id', activeOutlet).order('claim_date', { ascending: false }),
+        supabase.from('pharmacy_insurance_claims').select('*, pharmacy_insurance_providers(*), pharmacy_patients(first_name, last_name, phone)').eq('outlet_id', outletId).order('claim_date', { ascending: false }),
         supabase.from('pharmacy_insurance_providers').select('*').order('provider_name'),
         supabase.from('pharmacy_patients').select('patient_id, first_name, last_name, phone').limit(500),
       ]);
@@ -159,7 +160,7 @@ export default function InsuranceClaimsPage() {
     const seq = String(claims.length + 1).padStart(3, '0');
     const claim_no = `CLM-${dateStr}-${seq}`;
     const { error } = await supabase.from('pharmacy_insurance_claims').insert({
-      outlet_id: activeOutlet, claim_no, provider_id: claimForm.provider_id, patient_id: claimForm.patient_id,
+      outlet_id: outletId, claim_no, provider_id: claimForm.provider_id, patient_id: claimForm.patient_id,
       member_no: claimForm.member_no, sale_id: claimForm.sale_id || null,
       claim_date: now.toISOString().split('T')[0],
       claim_amount: parseFloat(claimForm.claim_amount) || 0,

@@ -68,6 +68,7 @@ const statusColors: Record<string, string> = {
 
 export default function PrescriptionsPage() {
   const { activeOutlet } = useOutlet();
+  const outletId = typeof activeOutlet === "object" && activeOutlet !== null ? (activeOutlet.outlet_id || 1) : (Number(activeOutlet) || 1);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [items, setItems] = useState<PrescriptionItem[]>([]);
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -106,14 +107,14 @@ export default function PrescriptionsPage() {
 
   /* ───────── load ───────── */
   const loadData = useCallback(async () => {
-    if (!activeOutlet) return;
+    const outletId = typeof activeOutlet === 'object' && activeOutlet !== null ? (activeOutlet.outlet_id || 1) : (Number(activeOutlet) || 1);
     setLoading(true);
     try {
-      const { data: rx } = await supabase.from('pharmacy_prescriptions').select('*, pharmacy_patients(full_name, phone, patient_id)').eq('outlet_id', activeOutlet).order('created_at', { ascending: false });
+      const { data: rx } = await supabase.from('pharmacy_prescriptions').select('*, pharmacy_patients(full_name, phone, patient_id)').eq('outlet_id', outletId).order('created_at', { ascending: false });
       setPrescriptions((rx as Prescription[]) || []);
       const { data: pi } = await supabase.from('pharmacy_prescription_items').select('*');
       setItems((pi as PrescriptionItem[]) || []);
-      const { data: pts } = await supabase.from('pharmacy_patients').select('patient_id, full_name, phone, id_number').eq('outlet_id', activeOutlet).order('full_name');
+      const { data: pts } = await supabase.from('pharmacy_patients').select('patient_id, full_name, phone, id_number').eq('outlet_id', outletId).order('full_name');
       setPatients((pts as Patient[]) || []);
     } catch { toast.error('Failed to load prescriptions'); }
     setLoading(false);
@@ -207,7 +208,7 @@ export default function PrescriptionsPage() {
       const expiryDate = new Date(rxForm.prescription_date);
       expiryDate.setMonth(expiryDate.getMonth() + 6);
       const { data: newRx, error } = await supabase.from('pharmacy_prescriptions').insert({
-        outlet_id: activeOutlet,
+        outlet_id: outletId,
         patient_id: rxForm.patient_id,
         prescription_no: rxNo,
         prescriber_name: rxForm.prescriber_name,
