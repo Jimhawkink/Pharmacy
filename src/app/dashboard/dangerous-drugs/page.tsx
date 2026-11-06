@@ -362,8 +362,8 @@ export default function DangerousDrugsPage() {
   };
 
   // ─── Input Helper ─────────────────────────────────────────────────
-  const inputCls = 'w-full px-2.5 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200 outline-none';
-  const labelCls = 'text-[10px] font-bold text-gray-600 uppercase tracking-wider mb-0.5';
+  const inputCls = 'w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:border-[#00C853] focus:ring-2 focus:ring-[#00E676]/25 outline-none transition-all shadow-2xs';
+  const labelCls = 'block text-xs font-bold text-gray-700 mb-1';
 
   // ─── Render ───────────────────────────────────────────────────────
   if (loading) {
@@ -386,7 +386,7 @@ export default function DangerousDrugsPage() {
       <div className="bg-white p-3.5 rounded-xl border border-gray-200 shadow-xs">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-br from-rose-500 to-red-700 w-10 h-10 rounded-xl flex items-center justify-center text-white">
+            <div className="bg-gradient-to-br from-[#023318] via-[#054522] to-[#00A848] border border-[#00E676]/40 shadow-[0_0_15px_rgba(0,230,118,0.3)] w-10 h-10 rounded-xl flex items-center justify-center text-white">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
             </div>
             <div>
@@ -498,7 +498,7 @@ export default function DangerousDrugsPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead><tr className="bg-gradient-to-r from-cyan-700 via-blue-700 to-indigo-800">
+              <thead><tr className="bg-gradient-to-r from-[#023318] via-[#054522] to-[#022a14]">
                 {['DDR #', 'Drug Name', 'Schedule', 'Generic Name', 'Strength', 'Form', 'Balance', 'Unit', 'Storage', 'Last Recon', 'Actions'].map(h => (
                   <th key={h} className="px-2.5 py-2 text-left text-[10px] font-bold text-white uppercase tracking-wider">{h}</th>
                 ))}
@@ -545,7 +545,7 @@ export default function DangerousDrugsPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead><tr className="bg-gradient-to-r from-cyan-700 via-blue-700 to-indigo-800">
+              <thead><tr className="bg-gradient-to-r from-[#023318] via-[#054522] to-[#022a14]">
                 {['Date', 'Type', 'Drug', 'Qty', 'Balance After', 'Patient / Supplier', 'Prescriber', 'Pharmacist', 'Counter-Signatory', 'Batch #'].map(h => (
                   <th key={h} className="px-2.5 py-2 text-left text-[10px] font-bold text-white uppercase tracking-wider">{h}</th>
                 ))}
@@ -585,7 +585,7 @@ export default function DangerousDrugsPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead><tr className="bg-gradient-to-r from-cyan-700 via-blue-700 to-indigo-800">
+              <thead><tr className="bg-gradient-to-r from-[#023318] via-[#054522] to-[#022a14]">
                 {['Date', 'Drug', 'Qty', 'Balance', 'Patient Name', 'Patient ID', 'Address', 'Phone', 'Prescriber', 'Reg No', 'Facility', 'Rx No', 'Pharmacist', 'Counter-Sign'].map(h => (
                   <th key={h} className="px-2.5 py-2 text-left text-[10px] font-bold text-white uppercase tracking-wider whitespace-nowrap">{h}</th>
                 ))}
@@ -719,7 +719,7 @@ export default function DangerousDrugsPage() {
           </div>
           <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
             <table className="w-full">
-              <thead><tr className="bg-gradient-to-r from-cyan-700 via-blue-700 to-indigo-800">
+              <thead><tr className="bg-gradient-to-r from-[#023318] via-[#054522] to-[#022a14]">
                 {['Drug Name', 'Schedule', 'System Balance', 'Last Reconciliation', 'Days Since', 'Status'].map(h => (
                   <th key={h} className="px-2.5 py-2 text-left text-[10px] font-bold text-white uppercase tracking-wider">{h}</th>
                 ))}
@@ -773,7 +773,7 @@ export default function DangerousDrugsPage() {
           </div>
           <div className="bg-white rounded-xl border border-gray-200 shadow-xs overflow-hidden">
             <table className="w-full">
-              <thead><tr className="bg-gradient-to-r from-cyan-700 via-blue-700 to-indigo-800">
+              <thead><tr className="bg-gradient-to-r from-[#023318] via-[#054522] to-[#022a14]">
                 {['Drug Name', 'Schedule', 'Opening Bal', 'Total Receipts', 'Total Dispensed', 'Total Disposed', 'Total Losses', 'Closing Balance'].map(h => (
                   <th key={h} className="px-2.5 py-2 text-left text-[10px] font-bold text-white uppercase tracking-wider">{h}</th>
                 ))}
@@ -805,279 +805,515 @@ export default function DangerousDrugsPage() {
       )}
 
       {/* ══════════════════════════════════════════════════════════
-          ADD / EDIT DRUG MODAL
+          ADD / EDIT DRUG MODAL (SUPER-PREMIUM DARK GREEN)
          ══════════════════════════════════════════════════════════ */}
       {(showAddDrug || showEditDrug) && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4 border-b border-gray-200">
-              <h3 className="text-lg font-bold text-gray-900">{showEditDrug ? 'Edit Controlled Drug' : 'Add Controlled Drug to DDR'}</h3>
-              <p className="text-xs text-gray-500 mt-0.5">PPB Dangerous Drugs Register entry</p>
+        <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-5 animate-in fade-in duration-200" onClick={() => { setShowAddDrug(false); setShowEditDrug(false); }}>
+          <div className="bg-white rounded-3xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.45)] border border-slate-100 max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            
+            {/* Header: Dark Green matching Sidebar Nav */}
+            <div className="bg-gradient-to-r from-[#023318] via-[#054522] to-[#022a14] border-b border-emerald-500/30 px-6 py-4.5 rounded-t-3xl flex items-center justify-between shadow-md flex-shrink-0 relative overflow-hidden">
+              <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-[#00E676]/15 rounded-full blur-2xl pointer-events-none" />
+              <div className="flex items-center gap-3.5 relative z-10">
+                <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md border border-[#00E676]/40 text-[#00E676] flex items-center justify-center text-lg shadow-[0_0_12px_rgba(0,230,118,0.25)]">
+                  {showEditDrug ? '✏️' : '💊'}
+                </div>
+                <div>
+                  <h3 className="text-white font-black text-base tracking-tight leading-tight flex items-center gap-2">
+                    {showEditDrug ? 'Edit Controlled Substance' : 'Register Controlled Substance'}
+                    <span className="px-2 py-0.5 rounded-md text-[9.5px] font-black uppercase tracking-wider bg-[#00E676]/20 border border-[#00E676]/40 text-[#00E676]">
+                      PPB DDR
+                    </span>
+                  </h3>
+                  <p className="text-[10px] text-emerald-200/90 font-semibold tracking-wide mt-0.5">
+                    Dangerous Drugs Act (Cap. 245) • Official Pharmacy & Poisons Board Register
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowAddDrug(false); setShowEditDrug(false); }}
+                className="text-white/70 hover:text-white hover:bg-white/10 rounded-xl w-8 h-8 flex items-center justify-center text-lg font-bold transition-all relative z-10 cursor-pointer"
+              >
+                ✕
+              </button>
             </div>
-            <div className="p-4 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className={labelCls}>Drug Name *</label><input className={inputCls} value={drugForm.drug_name || ''} onChange={e => setDrugForm({ ...drugForm, drug_name: e.target.value })} /></div>
-                <div><label className={labelCls}>Schedule *</label>
-                  <select className={inputCls} value={drugForm.drug_schedule || 'S1'} onChange={e => setDrugForm({ ...drugForm, drug_schedule: e.target.value })}>
-                    {['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'].map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
+
+            {/* Scrollable Form Body */}
+            <div className="p-5 space-y-4 overflow-y-auto max-h-[70vh]" style={{ scrollbarWidth: 'thin' }}>
+              
+              {/* Section 1: Specifications */}
+              <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+                <p className="text-[11px] font-bold text-[#023318] uppercase tracking-wider flex items-center gap-1.5">
+                  <span>💊</span> Controlled Substance Specifications
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>Drug Name *</label>
+                    <input className={inputCls} placeholder="e.g. Morphine Sulphate" value={drugForm.drug_name || ''} onChange={e => setDrugForm({ ...drugForm, drug_name: e.target.value })} autoFocus />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Schedule Classification *</label>
+                    <select className={inputCls} value={drugForm.drug_schedule || 'S1'} onChange={e => setDrugForm({ ...drugForm, drug_schedule: e.target.value })}>
+                      {['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'].map(s => <option key={s} value={s}>{s} — Schedule {s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Generic Name</label>
+                    <input className={inputCls} placeholder="e.g. Morphine" value={drugForm.generic_name || ''} onChange={e => setDrugForm({ ...drugForm, generic_name: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Strength</label>
+                    <input className={inputCls} value={drugForm.strength || ''} onChange={e => setDrugForm({ ...drugForm, strength: e.target.value })} placeholder="e.g. 10mg / 1ml" />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Dosage Form</label>
+                    <select className={inputCls} value={drugForm.dosage_form || 'Tablet'} onChange={e => setDrugForm({ ...drugForm, dosage_form: e.target.value })}>
+                      {['Tablet', 'Capsule', 'Injection', 'Syrup', 'Patch', 'Suppository', 'Powder', 'Solution', 'Other'].map(f => <option key={f}>{f}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Unit of Measure</label>
+                    <input className={inputCls} value={drugForm.unit || ''} onChange={e => setDrugForm({ ...drugForm, unit: e.target.value })} placeholder="e.g. Tablets, Ampoules, Vials" />
+                  </div>
                 </div>
-                <div><label className={labelCls}>Generic Name</label><input className={inputCls} value={drugForm.generic_name || ''} onChange={e => setDrugForm({ ...drugForm, generic_name: e.target.value })} /></div>
-                <div><label className={labelCls}>Strength</label><input className={inputCls} value={drugForm.strength || ''} onChange={e => setDrugForm({ ...drugForm, strength: e.target.value })} placeholder="e.g. 10mg" /></div>
-                <div><label className={labelCls}>Dosage Form</label>
-                  <select className={inputCls} value={drugForm.dosage_form || 'Tablet'} onChange={e => setDrugForm({ ...drugForm, dosage_form: e.target.value })}>
-                    {['Tablet', 'Capsule', 'Injection', 'Syrup', 'Patch', 'Suppository', 'Powder', 'Solution', 'Other'].map(f => <option key={f}>{f}</option>)}
-                  </select>
+              </div>
+
+              {/* Section 2: Balances & Safe Storage */}
+              <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+                <p className="text-[11px] font-bold text-[#023318] uppercase tracking-wider flex items-center gap-1.5">
+                  <span>🔒</span> Safe Storage & Inventory Ledger
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={labelCls}>Opening Balance</label>
+                    <input type="number" className={inputCls} value={drugForm.opening_balance || 0} onChange={e => setDrugForm({ ...drugForm, opening_balance: +e.target.value })} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Current Balance</label>
+                    <input type="number" className={inputCls} value={drugForm.current_balance || 0} onChange={e => setDrugForm({ ...drugForm, current_balance: +e.target.value })} />
+                  </div>
+                  <div className="col-span-2">
+                    <label className={labelCls}>Secure Storage Location *</label>
+                    <input className={inputCls} value={drugForm.storage_location || ''} onChange={e => setDrugForm({ ...drugForm, storage_location: e.target.value })} placeholder="e.g. Controlled Substance Safe A (Double Locked), Shelf 2" />
+                  </div>
                 </div>
-                <div><label className={labelCls}>Unit</label><input className={inputCls} value={drugForm.unit || ''} onChange={e => setDrugForm({ ...drugForm, unit: e.target.value })} placeholder="e.g. tablets, ampoules" /></div>
-                <div><label className={labelCls}>Opening Balance</label><input type="number" className={inputCls} value={drugForm.opening_balance || 0} onChange={e => setDrugForm({ ...drugForm, opening_balance: +e.target.value })} /></div>
-                <div><label className={labelCls}>Current Balance</label><input type="number" className={inputCls} value={drugForm.current_balance || 0} onChange={e => setDrugForm({ ...drugForm, current_balance: +e.target.value })} /></div>
-                <div className="col-span-2"><label className={labelCls}>Storage Location</label><input className={inputCls} value={drugForm.storage_location || ''} onChange={e => setDrugForm({ ...drugForm, storage_location: e.target.value })} placeholder="e.g. Controlled Cabinet A, Safe Room 1" /></div>
+              </div>
+
+              {/* Regulatory Notice Box */}
+              <div className="p-3.5 bg-emerald-50/90 border border-emerald-300/80 rounded-2xl text-[11px] text-[#023318] font-medium flex items-start gap-2.5 shadow-2xs">
+                <span className="text-sm">⚠️</span>
+                <span className="leading-relaxed">
+                  Notice: Under the Dangerous Drugs Act (Cap. 245) & PPB regulations, all Schedule 1–3 controlled substances must be stored in a double-locked metal safe or cabinet anchored to the wall/floor with key custody restricted to the designated Superintendent Pharmacist.
+                </span>
               </div>
             </div>
-            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
-              <button onClick={() => { setShowAddDrug(false); setShowEditDrug(false); }} className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg font-bold shadow-xs text-xs">Cancel</button>
-              <button onClick={() => saveDrug(showEditDrug)} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-xs text-xs transition-colors">{showEditDrug ? 'Update Drug' : 'Add to Register'}</button>
+
+            {/* Footer with Pill Action Buttons */}
+            <div className="px-6 py-4 border-t border-slate-100 rounded-b-3xl bg-slate-50/70 flex justify-end gap-3 flex-shrink-0">
+              <button
+                onClick={() => { setShowAddDrug(false); setShowEditDrug(false); }}
+                className="px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => saveDrug(showEditDrug)}
+                className="px-6 py-2.5 bg-gradient-to-r from-[#00E676] via-[#00C853] to-[#00A848] hover:from-[#00c853] hover:to-[#00963d] text-white rounded-xl text-xs font-black shadow-[0_4px_18px_rgba(0,230,118,0.45)] border border-emerald-300/40 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>✓</span> {showEditDrug ? 'Update Controlled Drug' : 'Add to Register'}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── View Drug Modal ────────────────────────────────────── */}
+      {/* ── View Drug Modal (Super-Premium Dark Green) ────────────────── */}
       {showViewDrug && selectedDrug && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900">{selectedDrug.drug_name}</h3>
-              <ScheduleBadge schedule={selectedDrug.drug_schedule} />
-            </div>
-            <div className="p-4 space-y-2">
-              {[
-                ['DDR ID', selectedDrug.ddr_id],
-                ['Generic Name', selectedDrug.generic_name],
-                ['Strength', selectedDrug.strength],
-                ['Dosage Form', selectedDrug.dosage_form],
-                ['Opening Balance', fmt(selectedDrug.opening_balance)],
-                ['Current Balance', fmt(selectedDrug.current_balance) + ' ' + selectedDrug.unit],
-                ['Storage Location', selectedDrug.storage_location],
-                ['Last Reconciliation', fmtDate(selectedDrug.last_reconciliation_date)],
-                ['Status', selectedDrug.active ? 'Active' : 'Inactive'],
-              ].map(([lbl, val]) => (
-                <div key={lbl} className="flex justify-between py-1 border-b border-gray-100">
-                  <span className="text-xs font-bold text-gray-500 uppercase">{lbl}</span>
-                  <span className="text-xs font-semibold text-gray-800">{val}</span>
+        <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-5 animate-in fade-in duration-200" onClick={() => setShowViewDrug(false)}>
+          <div className="bg-white rounded-3xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.45)] border border-slate-100 max-w-lg w-full max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            
+            <div className="bg-gradient-to-r from-[#023318] via-[#054522] to-[#022a14] border-b border-emerald-500/30 px-6 py-4.5 rounded-t-3xl flex items-center justify-between shadow-md flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md border border-[#00E676]/40 text-[#00E676] flex items-center justify-center text-lg shadow-[0_0_12px_rgba(0,230,118,0.25)]">
+                  💊
                 </div>
-              ))}
+                <div>
+                  <h3 className="text-white font-black text-base tracking-tight leading-tight">{selectedDrug.drug_name}</h3>
+                  <p className="text-[10px] text-emerald-200/90 font-semibold tracking-wide">DDR Controlled Substance Profile</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <ScheduleBadge schedule={selectedDrug.drug_schedule} />
+                <button onClick={() => setShowViewDrug(false)} className="text-white/70 hover:text-white hover:bg-white/10 rounded-xl w-8 h-8 flex items-center justify-center text-lg font-bold transition-all cursor-pointer">✕</button>
+              </div>
             </div>
-            <div className="p-4 border-t border-gray-200 flex justify-end">
-              <button onClick={() => setShowViewDrug(false)} className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg font-bold shadow-xs text-xs">Close</button>
+
+            <div className="p-5 space-y-3 overflow-y-auto max-h-[70vh]">
+              <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80 space-y-2.5">
+                {[
+                  ['DDR Register ID', selectedDrug.ddr_id],
+                  ['Generic Name', selectedDrug.generic_name || '—'],
+                  ['Strength', selectedDrug.strength || '—'],
+                  ['Dosage Form', selectedDrug.dosage_form],
+                  ['Opening Balance', fmt(selectedDrug.opening_balance) + ' ' + selectedDrug.unit],
+                  ['Current In Stock', fmt(selectedDrug.current_balance) + ' ' + selectedDrug.unit],
+                  ['Storage Location', selectedDrug.storage_location || '—'],
+                  ['Last Reconciliation', fmtDate(selectedDrug.last_reconciliation_date)],
+                  ['Register Status', selectedDrug.active ? 'Active Controlled Drug' : 'Deactivated'],
+                ].map(([lbl, val]) => (
+                  <div key={lbl} className="flex justify-between items-center py-1.5 border-b border-slate-200/60 last:border-0">
+                    <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{lbl}</span>
+                    <span className="text-xs font-bold text-gray-900">{val}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-slate-100 rounded-b-3xl bg-slate-50/70 flex justify-end flex-shrink-0">
+              <button onClick={() => setShowViewDrug(false)} className="px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-slate-100 transition-colors cursor-pointer">Close</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Delete Drug Modal ──────────────────────────────────── */}
+      {/* ── Delete Drug Modal (Super-Premium Dark Green) ────────────────── */}
       {showDeleteDrug && selectedDrug && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
-            <div className="p-4 border-b border-gray-200">
-              <h3 className="text-lg font-bold text-gray-900">Deactivate Controlled Drug</h3>
+        <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-5 animate-in fade-in duration-200" onClick={() => setShowDeleteDrug(false)}>
+          <div className="bg-white rounded-3xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.45)] border border-slate-100 max-w-md w-full flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            
+            <div className="bg-gradient-to-r from-[#023318] via-[#054522] to-[#022a14] border-b border-emerald-500/30 px-6 py-4.5 rounded-t-3xl flex items-center justify-between shadow-md flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-400/40 text-rose-300 flex items-center justify-center text-lg">
+                  ⚠️
+                </div>
+                <div>
+                  <h3 className="text-white font-black text-base tracking-tight">Deactivate Controlled Drug</h3>
+                  <p className="text-[10px] text-emerald-200/90 font-semibold">PPB Regulatory Audit Protection</p>
+                </div>
+              </div>
+              <button onClick={() => setShowDeleteDrug(false)} className="text-white/70 hover:text-white hover:bg-white/10 rounded-xl w-8 h-8 flex items-center justify-center text-lg font-bold transition-all cursor-pointer">✕</button>
             </div>
-            <div className="p-4">
-              <p className="text-sm text-gray-700">Are you sure you want to deactivate <span className="font-bold">{selectedDrug.drug_name}</span> from the DDR register?</p>
-              <p className="text-xs text-amber-600 mt-2 font-semibold">⚠️ This will not delete records — the drug will be marked as inactive per PPB requirements.</p>
+
+            <div className="p-5 space-y-3">
+              <p className="text-xs text-gray-700 leading-relaxed">
+                Are you sure you want to deactivate <span className="font-extrabold text-gray-900">{selectedDrug.drug_name}</span> ({selectedDrug.drug_schedule}) from the active DDR register?
+              </p>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 font-medium leading-relaxed">
+                ⚠️ Regulatory Note: In accordance with PPB guidelines, controlled drugs are deactivated rather than deleted to ensure complete audit trail preservation.
+              </div>
             </div>
-            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
-              <button onClick={() => setShowDeleteDrug(false)} className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg font-bold shadow-xs text-xs">Cancel</button>
-              <button onClick={deleteDrug} className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold shadow-xs text-xs">Deactivate</button>
+
+            <div className="px-6 py-4 border-t border-slate-100 rounded-b-3xl bg-slate-50/70 flex justify-end gap-3 flex-shrink-0">
+              <button onClick={() => setShowDeleteDrug(false)} className="px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-slate-100 transition-colors cursor-pointer">Cancel</button>
+              <button onClick={deleteDrug} className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer">Deactivate Drug</button>
             </div>
           </div>
         </div>
       )}
 
       {/* ══════════════════════════════════════════════════════════
-          RECORD TRANSACTION MODAL (MASSIVE)
+          RECORD TRANSACTION MODAL (SUPER-PREMIUM DARK GREEN)
          ══════════════════════════════════════════════════════════ */}
       {showRecordTx && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4 border-b border-gray-200">
-              <h3 className="text-lg font-bold text-gray-900">Record DDR Transaction</h3>
-              <p className="text-xs text-gray-500 mt-0.5">All fields required by PPB for controlled substance transactions</p>
+        <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-5 animate-in fade-in duration-200" onClick={() => setShowRecordTx(false)}>
+          <div className="bg-white rounded-3xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.5)] border border-slate-100 max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            
+            {/* Dark Green Executive Header */}
+            <div className="bg-gradient-to-r from-[#023318] via-[#054522] to-[#022a14] border-b border-emerald-500/30 px-6 py-4.5 rounded-t-3xl flex items-center justify-between shadow-md flex-shrink-0 relative overflow-hidden">
+              <div className="absolute -right-10 -bottom-10 w-36 h-36 bg-[#00E676]/15 rounded-full blur-2xl pointer-events-none" />
+              <div className="flex items-center gap-3.5 relative z-10">
+                <div className="w-11 h-11 rounded-2xl bg-white/10 backdrop-blur-md border border-[#00E676]/40 text-[#00E676] flex items-center justify-center text-xl shadow-[0_0_15px_rgba(0,230,118,0.25)]">
+                  ⚖️
+                </div>
+                <div>
+                  <h3 className="text-white font-black text-base tracking-tight leading-tight flex items-center gap-2.5">
+                    Record Dangerous Drug Transaction (DDR)
+                    <span className="px-2 py-0.5 rounded-md text-[9.5px] font-black uppercase tracking-wider bg-[#00E676]/20 border border-[#00E676]/40 text-[#00E676]">
+                      PPB AUDIT FORM
+                    </span>
+                  </h3>
+                  <p className="text-[10px] text-emerald-200/90 font-semibold tracking-wide mt-0.5">
+                    Official Controlled Substances Ledger Entry • Cap. 245 Legal Mandate
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRecordTx(false)}
+                className="text-white/70 hover:text-white hover:bg-white/10 rounded-xl w-8 h-8 flex items-center justify-center text-lg font-bold transition-all relative z-10 cursor-pointer"
+              >
+                ✕
+              </button>
             </div>
-            <div className="p-4 space-y-4">
-              {/* Transaction Basics */}
-              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                <h4 className="text-xs font-bold text-gray-800 mb-2 uppercase tracking-wider">Transaction Details</h4>
+
+            {/* Scrollable Form Body */}
+            <div className="p-5 space-y-4 overflow-y-auto max-h-[70vh]" style={{ scrollbarWidth: 'thin' }}>
+              
+              {/* 1. Transaction Basics */}
+              <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+                <p className="text-[11px] font-bold text-[#023318] uppercase tracking-wider flex items-center gap-1.5">
+                  <span>📦</span> Transaction Specifics
+                </p>
                 <div className="grid grid-cols-3 gap-3">
-                  <div><label className={labelCls}>Drug *</label>
+                  <div>
+                    <label className={labelCls}>Controlled Drug *</label>
                     <select className={inputCls} value={txForm.ddr_id || ''} onChange={e => setTxForm({ ...txForm, ddr_id: e.target.value })}>
-                      <option value="">Select Drug</option>
-                      {drugs.filter(d => d.active).map(d => <option key={d.ddr_id} value={d.ddr_id}>{d.drug_name} ({d.drug_schedule})</option>)}
+                      <option value="">Select Controlled Drug</option>
+                      {drugs.filter(d => d.active).map(d => (
+                        <option key={d.ddr_id} value={d.ddr_id}>
+                          {d.drug_name} ({d.drug_schedule}) — Stock: {d.current_balance} {d.unit}
+                        </option>
+                      ))}
                     </select>
                   </div>
-                  <div><label className={labelCls}>Type *</label>
+                  <div>
+                    <label className={labelCls}>Transaction Type *</label>
                     <select className={inputCls} value={txForm.transaction_type || 'Receipt'} onChange={e => setTxForm({ ...txForm, transaction_type: e.target.value })}>
-                      {['Receipt', 'Dispensing', 'Disposal', 'Loss', 'Theft', 'Adjustment'].map(t => <option key={t}>{t}</option>)}
+                      {['Receipt', 'Dispensing', 'Disposal', 'Loss', 'Theft', 'Adjustment'].map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
-                  <div><label className={labelCls}>Date *</label><input type="date" className={inputCls} value={txForm.transaction_date || ''} onChange={e => setTxForm({ ...txForm, transaction_date: e.target.value })} /></div>
-                  <div><label className={labelCls}>Quantity *</label><input type="number" className={inputCls} value={txForm.quantity || 0} onChange={e => setTxForm({ ...txForm, quantity: +e.target.value })} /></div>
-                  <div><label className={labelCls}>Batch Number</label><input className={inputCls} value={txForm.batch_number || ''} onChange={e => setTxForm({ ...txForm, batch_number: e.target.value })} /></div>
-                  <div><label className={labelCls}>Expiry Date</label><input type="date" className={inputCls} value={txForm.expiry_date || ''} onChange={e => setTxForm({ ...txForm, expiry_date: e.target.value })} /></div>
+                  <div>
+                    <label className={labelCls}>Transaction Date *</label>
+                    <input type="date" className={inputCls} value={txForm.transaction_date || ''} onChange={e => setTxForm({ ...txForm, transaction_date: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Quantity ({txForm.transaction_type === 'Receipt' ? 'Inward +' : 'Outward -'}) *</label>
+                    <input type="number" className={inputCls} value={txForm.quantity || 0} onChange={e => setTxForm({ ...txForm, quantity: +e.target.value })} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Manufacturer Batch Number</label>
+                    <input className={inputCls} placeholder="e.g. BTH-8942A" value={txForm.batch_number || ''} onChange={e => setTxForm({ ...txForm, batch_number: e.target.value })} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Batch Expiry Date</label>
+                    <input type="date" className={inputCls} value={txForm.expiry_date || ''} onChange={e => setTxForm({ ...txForm, expiry_date: e.target.value })} />
+                  </div>
                 </div>
               </div>
 
-              {/* Supplier Details (Receipt) */}
+              {/* 2. Supplier Details (Receipt) */}
               {txForm.transaction_type === 'Receipt' && (
-                <div className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-200">
-                  <h4 className="text-xs font-bold text-emerald-800 mb-2 uppercase tracking-wider">Supplier Details</h4>
+                <div className="bg-emerald-50/70 p-4 rounded-2xl border border-emerald-200/80 space-y-3">
+                  <p className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>🏢</span> Supplier & Invoicing Details (Receipt)
+                  </p>
                   <div className="grid grid-cols-3 gap-3">
-                    <div><label className={labelCls}>Supplier Name</label><input className={inputCls} value={txForm.supplier_name || ''} onChange={e => setTxForm({ ...txForm, supplier_name: e.target.value })} /></div>
-                    <div><label className={labelCls}>Supplier Address</label><input className={inputCls} value={txForm.supplier_address || ''} onChange={e => setTxForm({ ...txForm, supplier_address: e.target.value })} /></div>
-                    <div><label className={labelCls}>Invoice Number</label><input className={inputCls} value={txForm.invoice_number || ''} onChange={e => setTxForm({ ...txForm, invoice_number: e.target.value })} /></div>
+                    <div><label className={labelCls}>Supplier / Manufacturer Name</label><input className={inputCls} placeholder="e.g. Meds Kenya Ltd" value={txForm.supplier_name || ''} onChange={e => setTxForm({ ...txForm, supplier_name: e.target.value })} /></div>
+                    <div><label className={labelCls}>Supplier Physical Address</label><input className={inputCls} placeholder="e.g. Industrial Area, Nairobi" value={txForm.supplier_address || ''} onChange={e => setTxForm({ ...txForm, supplier_address: e.target.value })} /></div>
+                    <div><label className={labelCls}>Invoice / Delivery Note No.</label><input className={inputCls} placeholder="e.g. INV-2026-908" value={txForm.invoice_number || ''} onChange={e => setTxForm({ ...txForm, invoice_number: e.target.value })} /></div>
                   </div>
                 </div>
               )}
 
-              {/* Patient Details (Dispensing) */}
+              {/* 3. Patient Details (Dispensing) */}
               {txForm.transaction_type === 'Dispensing' && (
-                <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-200">
-                  <h4 className="text-xs font-bold text-blue-800 mb-2 uppercase tracking-wider">Patient Details</h4>
+                <div className="bg-emerald-50/70 p-4 rounded-2xl border border-emerald-200/80 space-y-3">
+                  <p className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>👤</span> Patient Identification (Required for Dispensing)
+                  </p>
                   <div className="grid grid-cols-2 gap-3">
-                    <div><label className={labelCls}>Patient Full Name *</label><input className={inputCls} value={txForm.patient_name || ''} onChange={e => setTxForm({ ...txForm, patient_name: e.target.value })} /></div>
-                    <div><label className={labelCls}>ID / Passport Number *</label><input className={inputCls} value={txForm.patient_id_number || ''} onChange={e => setTxForm({ ...txForm, patient_id_number: e.target.value })} /></div>
-                    <div><label className={labelCls}>Patient Address</label><input className={inputCls} value={txForm.patient_address || ''} onChange={e => setTxForm({ ...txForm, patient_address: e.target.value })} /></div>
-                    <div><label className={labelCls}>Patient Phone</label><input className={inputCls} value={txForm.patient_phone || ''} onChange={e => setTxForm({ ...txForm, patient_phone: e.target.value })} /></div>
+                    <div><label className={labelCls}>Patient Full Name *</label><input className={inputCls} placeholder="Patient Full Name" value={txForm.patient_name || ''} onChange={e => setTxForm({ ...txForm, patient_name: e.target.value })} /></div>
+                    <div><label className={labelCls}>National ID / Passport Number *</label><input className={inputCls} placeholder="National ID or Passport" value={txForm.patient_id_number || ''} onChange={e => setTxForm({ ...txForm, patient_id_number: e.target.value })} /></div>
+                    <div><label className={labelCls}>Patient Residential Address</label><input className={inputCls} placeholder="Estate / House No." value={txForm.patient_address || ''} onChange={e => setTxForm({ ...txForm, patient_address: e.target.value })} /></div>
+                    <div><label className={labelCls}>Patient Phone (SMS / Audit)</label><input className={inputCls} placeholder="07XX XXX XXX" value={txForm.patient_phone || ''} onChange={e => setTxForm({ ...txForm, patient_phone: e.target.value })} /></div>
                   </div>
                 </div>
               )}
 
-              {/* Prescriber Details (Dispensing) */}
+              {/* 4. Prescriber Details (Dispensing) */}
               {txForm.transaction_type === 'Dispensing' && (
-                <div className="bg-violet-50/50 p-3 rounded-xl border border-violet-200">
-                  <h4 className="text-xs font-bold text-violet-800 mb-2 uppercase tracking-wider">Prescriber Details</h4>
+                <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+                  <p className="text-[11px] font-bold text-[#023318] uppercase tracking-wider flex items-center gap-1.5">
+                    <span>🩺</span> Prescriber & Prescription Details (Doctor / Medical Officer)
+                  </p>
                   <div className="grid grid-cols-3 gap-3">
-                    <div><label className={labelCls}>Prescriber Name *</label><input className={inputCls} value={txForm.prescriber_name || ''} onChange={e => setTxForm({ ...txForm, prescriber_name: e.target.value })} /></div>
-                    <div><label className={labelCls}>Registration No *</label><input className={inputCls} value={txForm.prescriber_reg_no || ''} onChange={e => setTxForm({ ...txForm, prescriber_reg_no: e.target.value })} /></div>
-                    <div><label className={labelCls}>Facility</label><input className={inputCls} value={txForm.prescriber_facility || ''} onChange={e => setTxForm({ ...txForm, prescriber_facility: e.target.value })} /></div>
+                    <div><label className={labelCls}>Prescribing Doctor Name *</label><input className={inputCls} placeholder="Dr. Full Name" value={txForm.prescriber_name || ''} onChange={e => setTxForm({ ...txForm, prescriber_name: e.target.value })} /></div>
+                    <div><label className={labelCls}>KMPDC / Board Reg No. *</label><input className={inputCls} placeholder="e.g. A.12345" value={txForm.prescriber_reg_no || ''} onChange={e => setTxForm({ ...txForm, prescriber_reg_no: e.target.value })} /></div>
+                    <div><label className={labelCls}>Health Facility / Hospital</label><input className={inputCls} placeholder="e.g. Nairobi Hospital" value={txForm.prescriber_facility || ''} onChange={e => setTxForm({ ...txForm, prescriber_facility: e.target.value })} /></div>
                     <div><label className={labelCls}>Prescription Date</label><input type="date" className={inputCls} value={txForm.prescription_date || ''} onChange={e => setTxForm({ ...txForm, prescription_date: e.target.value })} /></div>
-                    <div><label className={labelCls}>Prescription No</label><input className={inputCls} value={txForm.prescription_no || ''} onChange={e => setTxForm({ ...txForm, prescription_no: e.target.value })} /></div>
+                    <div><label className={labelCls}>Prescription Serial No.</label><input className={inputCls} placeholder="e.g. RX-2026-0042" value={txForm.prescription_no || ''} onChange={e => setTxForm({ ...txForm, prescription_no: e.target.value })} /></div>
                   </div>
                 </div>
               )}
 
-              {/* Disposal Details */}
+              {/* 5. Disposal Details */}
               {txForm.transaction_type === 'Disposal' && (
-                <div className="bg-amber-50/50 p-3 rounded-xl border border-amber-200">
-                  <h4 className="text-xs font-bold text-amber-800 mb-2 uppercase tracking-wider">Disposal Details</h4>
+                <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200/80 space-y-3">
+                  <p className="text-[11px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>☣️</span> Witnessed Destruction & Disposal
+                  </p>
                   <div className="grid grid-cols-3 gap-3">
-                    <div><label className={labelCls}>Disposal Method *</label>
+                    <div>
+                      <label className={labelCls}>Disposal Method *</label>
                       <select className={inputCls} value={txForm.disposal_method || ''} onChange={e => setTxForm({ ...txForm, disposal_method: e.target.value })}>
                         <option value="">Select Method</option>
                         {['Incineration', 'Chemical Destruction', 'Witnessed Flushing', 'Return to Manufacturer', 'Other'].map(m => <option key={m}>{m}</option>)}
                       </select>
                     </div>
-                    <div><label className={labelCls}>Witness Name *</label><input className={inputCls} value={txForm.disposal_witness || ''} onChange={e => setTxForm({ ...txForm, disposal_witness: e.target.value })} /></div>
-                    <div><label className={labelCls}>PPB Reference</label><input className={inputCls} value={txForm.ppb_reference || ''} onChange={e => setTxForm({ ...txForm, ppb_reference: e.target.value })} /></div>
+                    <div><label className={labelCls}>Authorized Witness Name *</label><input className={inputCls} placeholder="Supervising Inspector Name" value={txForm.disposal_witness || ''} onChange={e => setTxForm({ ...txForm, disposal_witness: e.target.value })} /></div>
+                    <div><label className={labelCls}>PPB Destruction Reference</label><input className={inputCls} placeholder="PPB/DDR/DISP/..." value={txForm.ppb_reference || ''} onChange={e => setTxForm({ ...txForm, ppb_reference: e.target.value })} /></div>
                   </div>
                 </div>
               )}
 
-              {/* Loss/Theft Details */}
+              {/* 6. Loss/Theft Details */}
               {(txForm.transaction_type === 'Loss' || txForm.transaction_type === 'Theft') && (
-                <div className="bg-rose-50/50 p-3 rounded-xl border border-rose-200">
-                  <h4 className="text-xs font-bold text-rose-800 mb-2 uppercase tracking-wider">Loss / Theft Details</h4>
+                <div className="bg-rose-50/70 p-4 rounded-2xl border border-rose-200/80 space-y-3">
+                  <p className="text-[11px] font-bold text-rose-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>🚨</span> Loss / Theft Investigation & Police Report
+                  </p>
                   <div className="grid grid-cols-3 gap-3">
-                    <div><label className={labelCls}>Loss Type *</label>
+                    <div>
+                      <label className={labelCls}>Loss Nature *</label>
                       <select className={inputCls} value={txForm.loss_type || ''} onChange={e => setTxForm({ ...txForm, loss_type: e.target.value })}>
                         <option value="">Select Type</option>
                         {['Breakage', 'Spillage', 'Theft', 'Unexplained Shortage', 'Expired', 'Other'].map(l => <option key={l}>{l}</option>)}
                       </select>
                     </div>
-                    <div><label className={labelCls}>Police Report No</label><input className={inputCls} value={txForm.police_report_no || ''} onChange={e => setTxForm({ ...txForm, police_report_no: e.target.value })} /></div>
+                    <div><label className={labelCls}>Police OB / Incident Report No.</label><input className={inputCls} placeholder="e.g. OB 24/11/2026" value={txForm.police_report_no || ''} onChange={e => setTxForm({ ...txForm, police_report_no: e.target.value })} /></div>
                     <div><label className={labelCls}>PPB Notification Date</label><input type="date" className={inputCls} value={txForm.ppb_notification_date || ''} onChange={e => setTxForm({ ...txForm, ppb_notification_date: e.target.value })} /></div>
-                    <div><label className={labelCls}>PPB Reference</label><input className={inputCls} value={txForm.ppb_reference || ''} onChange={e => setTxForm({ ...txForm, ppb_reference: e.target.value })} /></div>
+                    <div className="col-span-3"><label className={labelCls}>PPB Investigation Case Reference</label><input className={inputCls} placeholder="PPB Case Ref" value={txForm.ppb_reference || ''} onChange={e => setTxForm({ ...txForm, ppb_reference: e.target.value })} /></div>
                   </div>
                 </div>
               )}
 
-              {/* Pharmacist & Counter-Signatory */}
-              <div className="bg-indigo-50/50 p-3 rounded-xl border border-indigo-200">
-                <h4 className="text-xs font-bold text-indigo-800 mb-2 uppercase tracking-wider">Pharmacist & Counter-Signatory (Dual Signature Required)</h4>
+              {/* 7. Dual Mandatory Signatories */}
+              <div className="bg-emerald-950/5 p-4 rounded-2xl border border-[#023318]/20 space-y-3">
+                <p className="text-[11px] font-bold text-[#023318] uppercase tracking-wider flex items-center gap-1.5">
+                  <span>⚖️</span> Dual Mandatory Signatories (Pharmacist & Witnessing Officer)
+                </p>
                 <div className="grid grid-cols-2 gap-3">
-                  <div><label className={labelCls}>Pharmacist Name *</label><input className={inputCls} value={txForm.pharmacist_name || ''} onChange={e => setTxForm({ ...txForm, pharmacist_name: e.target.value })} /></div>
-                  <div><label className={labelCls}>Pharmacist Reg No *</label><input className={inputCls} value={txForm.pharmacist_reg_no || ''} onChange={e => setTxForm({ ...txForm, pharmacist_reg_no: e.target.value })} /></div>
-                  <div><label className={labelCls}>Counter-Signatory Name *</label><input className={inputCls} value={txForm.counter_signatory || ''} onChange={e => setTxForm({ ...txForm, counter_signatory: e.target.value })} /></div>
-                  <div><label className={labelCls}>Counter-Sign Reg No *</label><input className={inputCls} value={txForm.counter_sign_reg_no || ''} onChange={e => setTxForm({ ...txForm, counter_sign_reg_no: e.target.value })} /></div>
+                  <div><label className={labelCls}>Dispensing / Receiving Pharmacist Name *</label><input className={inputCls} placeholder="Pharmacist Full Name" value={txForm.pharmacist_name || ''} onChange={e => setTxForm({ ...txForm, pharmacist_name: e.target.value })} /></div>
+                  <div><label className={labelCls}>Pharmacist PPB Reg No. *</label><input className={inputCls} placeholder="e.g. P.9842" value={txForm.pharmacist_reg_no || ''} onChange={e => setTxForm({ ...txForm, pharmacist_reg_no: e.target.value })} /></div>
+                  <div><label className={labelCls}>Counter-Signatory Witness Name *</label><input className={inputCls} placeholder="Witness Officer Name" value={txForm.counter_signatory || ''} onChange={e => setTxForm({ ...txForm, counter_signatory: e.target.value })} /></div>
+                  <div><label className={labelCls}>Counter-Sign Reg / Staff No. *</label><input className={inputCls} placeholder="e.g. STF-014 / Reg No" value={txForm.counter_sign_reg_no || ''} onChange={e => setTxForm({ ...txForm, counter_sign_reg_no: e.target.value })} /></div>
                 </div>
               </div>
 
-              {/* Notes */}
+              {/* 8. Ledger Notes */}
               <div>
-                <label className={labelCls}>Notes / Remarks</label>
-                <textarea className={inputCls + ' min-h-[60px]'} value={txForm.notes || ''} onChange={e => setTxForm({ ...txForm, notes: e.target.value })} placeholder="Additional notes..." />
+                <label className={labelCls}>Official Register Remarks / Notes</label>
+                <textarea className={inputCls + ' min-h-[60px]'} value={txForm.notes || ''} onChange={e => setTxForm({ ...txForm, notes: e.target.value })} placeholder="Enter any discrepancy notes, clinical indication, or inspection remarks..." />
               </div>
             </div>
-            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
-              <button onClick={() => setShowRecordTx(false)} className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg font-bold shadow-xs text-xs">Cancel</button>
-              <button onClick={saveTransaction} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-xs text-xs transition-colors">Record Transaction</button>
+
+            {/* Footer with Pill Action Buttons */}
+            <div className="px-6 py-4 border-t border-slate-100 rounded-b-3xl bg-slate-50/70 flex justify-end gap-3 flex-shrink-0">
+              <button
+                onClick={() => setShowRecordTx(false)}
+                className="px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveTransaction}
+                className="px-6 py-2.5 bg-gradient-to-r from-[#00E676] via-[#00C853] to-[#00A848] hover:from-[#00c853] hover:to-[#00963d] text-white rounded-xl text-xs font-black shadow-[0_4px_18px_rgba(0,230,118,0.45)] border border-emerald-300/40 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>✓</span> Sign & Record DDR Transaction
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* ══════════════════════════════════════════════════════════
-          RECONCILIATION MODAL
+          RECONCILIATION MODAL (SUPER-PREMIUM DARK GREEN)
          ══════════════════════════════════════════════════════════ */}
       {showRecon && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4 border-b border-gray-200">
-              <h3 className="text-lg font-bold text-gray-900">🔄 Stock Reconciliation</h3>
-              <p className="text-xs text-gray-500 mt-0.5">Enter physical count for each controlled substance</p>
+        <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-5 animate-in fade-in duration-200" onClick={() => setShowRecon(false)}>
+          <div className="bg-white rounded-3xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.5)] border border-slate-100 max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            
+            {/* Dark Green Header */}
+            <div className="bg-gradient-to-r from-[#023318] via-[#054522] to-[#022a14] border-b border-emerald-500/30 px-6 py-4.5 rounded-t-3xl flex items-center justify-between shadow-md flex-shrink-0 relative overflow-hidden">
+              <div className="absolute -right-8 -bottom-8 w-32 h-32 bg-[#00E676]/15 rounded-full blur-2xl pointer-events-none" />
+              <div className="flex items-center gap-3.5 relative z-10">
+                <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md border border-[#00E676]/40 text-[#00E676] flex items-center justify-center text-lg shadow-[0_0_12px_rgba(0,230,118,0.25)]">
+                  🔄
+                </div>
+                <div>
+                  <h3 className="text-white font-black text-base tracking-tight leading-tight flex items-center gap-2">
+                    Controlled Substances Stock Reconciliation
+                    <span className="px-2 py-0.5 rounded-md text-[9.5px] font-black uppercase tracking-wider bg-[#00E676]/20 border border-[#00E676]/40 text-[#00E676]">
+                      AUDIT CHECK
+                    </span>
+                  </h3>
+                  <p className="text-[10px] text-emerald-200/90 font-semibold tracking-wide mt-0.5">
+                    Enter physical count for each controlled drug • Variances are logged to PPB discrepancy history
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => setShowRecon(false)} className="text-white/70 hover:text-white hover:bg-white/10 rounded-xl w-8 h-8 flex items-center justify-center text-lg font-bold transition-all relative z-10 cursor-pointer">✕</button>
             </div>
-            <div className="p-4">
-              <table className="w-full">
-                <thead><tr className="bg-gradient-to-r from-cyan-700 via-blue-700 to-indigo-800">
-                  {['Drug Name', 'System Balance', 'Physical Count', 'Variance'].map(h => (
-                    <th key={h} className="px-2.5 py-2 text-left text-[10px] font-bold text-white uppercase tracking-wider">{h}</th>
-                  ))}
-                </tr></thead>
-                <tbody>
-                  {reconData.map((r, i) => {
-                    const variance = r.physical_count - r.system_balance;
-                    return (
-                      <tr key={r.ddr_id} className={`border-b border-gray-100 ${i % 2 ? 'bg-gray-50/30' : ''}`}>
-                        <td className="px-2.5 py-1.5 text-xs font-bold text-gray-900">{r.drug_name}</td>
-                        <td className="px-2.5 py-1.5 text-xs font-black text-gray-800">{fmt(r.system_balance)}</td>
-                        <td className="px-2.5 py-1.5"><input type="number" className={inputCls + ' w-24'} value={r.physical_count} onChange={e => {
-                          const updated = [...reconData]; updated[i].physical_count = +e.target.value; setReconData(updated);
-                        }} /></td>
-                        <td className={`px-2.5 py-1.5 text-xs font-black ${variance === 0 ? 'text-emerald-700' : variance > 0 ? 'text-blue-700' : 'text-rose-700'}`}>
-                          {variance > 0 ? '+' : ''}{variance}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+
+            {/* Reconciliation Table Body */}
+            <div className="p-5 overflow-y-auto max-h-[70vh]" style={{ scrollbarWidth: 'thin' }}>
+              <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-[#023318] via-[#054522] to-[#022a14]">
+                      {['Controlled Drug Name', 'System Balance', 'Physical Count Input', 'Variance Audit'].map(h => (
+                        <th key={h} className="px-3.5 py-2.5 text-left text-[11px] font-bold text-white uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reconData.map((r, i) => {
+                      const variance = r.physical_count - r.system_balance;
+                      return (
+                        <tr key={r.ddr_id} className={`border-b border-gray-100 transition-colors hover:bg-emerald-50/40 ${i % 2 ? 'bg-gray-50/40' : 'bg-white'}`}>
+                          <td className="px-3.5 py-2.5 text-xs font-bold text-gray-900">{r.drug_name}</td>
+                          <td className="px-3.5 py-2.5 text-xs font-black text-gray-800">{fmt(r.system_balance)}</td>
+                          <td className="px-3.5 py-2.5">
+                            <input
+                              type="number"
+                              className={inputCls + ' w-28 font-bold'}
+                              value={r.physical_count}
+                              onChange={e => {
+                                const updated = [...reconData];
+                                updated[i].physical_count = +e.target.value;
+                                setReconData(updated);
+                              }}
+                            />
+                          </td>
+                          <td className="px-3.5 py-2.5">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-black ${
+                              variance === 0
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : variance > 0
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-rose-100 text-rose-800'
+                            }`}>
+                              {variance === 0 ? '✓ Balanced (0)' : (variance > 0 ? `+${variance} Surplus` : `${variance} Deficit`)}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
-              <button onClick={() => setShowRecon(false)} className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg font-bold shadow-xs text-xs">Cancel</button>
-              <button onClick={async () => {
-                try {
-                  for (const r of reconData) {
-                    await supabase.from('pharmacy_ddr_register').update({
-                      current_balance: r.physical_count,
-                      last_reconciliation_date: new Date().toISOString().slice(0, 10),
-                    }).eq('ddr_id', r.ddr_id);
-                  }
-                  toast.success('Reconciliation completed — balances updated');
-                  setShowRecon(false);
-                  loadData();
-                } catch (err: any) { toast.error(err.message); }
-              }} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-xs text-xs transition-colors">✅ Submit Reconciliation</button>
+
+            {/* Footer with Pill Actions */}
+            <div className="px-6 py-4 border-t border-slate-100 rounded-b-3xl bg-slate-50/70 flex justify-end gap-3 flex-shrink-0">
+              <button onClick={() => setShowRecon(false)} className="px-5 py-2.5 border border-slate-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-slate-100 transition-colors cursor-pointer">Cancel</button>
+              <button
+                onClick={async () => {
+                  try {
+                    for (const r of reconData) {
+                      await supabase.from('pharmacy_ddr_register').update({
+                        current_balance: r.physical_count,
+                        last_reconciliation_date: new Date().toISOString().slice(0, 10),
+                      }).eq('ddr_id', r.ddr_id);
+                    }
+                    toast.success('Reconciliation completed — balances updated');
+                    setShowRecon(false);
+                    loadData();
+                  } catch (err: any) { toast.error(err.message); }
+                }}
+                className="px-6 py-2.5 bg-gradient-to-r from-[#00E676] via-[#00C853] to-[#00A848] hover:from-[#00c853] hover:to-[#00963d] text-white rounded-xl text-xs font-black shadow-[0_4px_18px_rgba(0,230,118,0.45)] border border-emerald-300/40 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>✅</span> Submit Audited Reconciliation
+              </button>
             </div>
           </div>
         </div>
