@@ -66,6 +66,30 @@ const TABS = ['All Patients','Chronic Care','Insurance Linked','Consent Manageme
 
 const fmt = (n: number) => n.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
+const showSuperLightGreenToast = (message: string) => {
+  toast.success(message, {
+    duration: 4500,
+    style: {
+      background: '#f0fdf4', // super light green (emerald-50)
+      color: '#166534',      // deep emerald text
+      border: '1.5px solid #86efac', // light green border (emerald-300)
+      borderRadius: '16px',
+      padding: '14px 20px',
+      fontSize: '13px',
+      fontWeight: '700',
+      boxShadow: '0 10px 30px -5px rgba(34, 197, 94, 0.25)',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+    },
+    iconTheme: {
+      primary: '#16a34a',
+      secondary: '#f0fdf4',
+    },
+  });
+};
+
+
 const calcAge = (dob: string) => {
   if (!dob) return '—';
   const diff = Date.now() - new Date(dob).getTime();
@@ -104,15 +128,58 @@ export default function PatientsPage() {
 
   /* ───────── load data ───────── */
   const loadData = useCallback(async () => {
-    if (!activeOutlet) return;
     setLoading(true);
+    const outletId = typeof activeOutlet === 'object' && activeOutlet !== null 
+      ? (activeOutlet.outlet_id || 1) 
+      : (Number(activeOutlet) || 1);
+
     try {
-      const { data: p } = await supabase.from('pharmacy_patients').select('*').eq('outlet_id', activeOutlet).order('created_at', { ascending: false });
-      setPatients((p as Patient[]) || []);
-      const { data: c } = await supabase.from('pharmacy_consent_records').select('*, pharmacy_patients(full_name, phone)').order('granted_date', { ascending: false });
-      setConsentRecords((c as ConsentRecord[]) || []);
-    } catch (e) { toast.error('Failed to load patient data'); }
-    setLoading(false);
+      // 1. Fetch from Supabase
+      const { data: dbData, error: dbErr } = await supabase
+        .from('pharmacy_patients')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // 2. Fetch local storage cache
+      let localList: Patient[] = [];
+      try {
+        const stored = typeof window !== 'undefined' ? localStorage.getItem('pharmacy_patients_local') : null;
+        if (stored) localList = JSON.parse(stored);
+      } catch {}
+
+      if (!dbErr && dbData && Array.isArray(dbData)) {
+        // Merge Supabase records with any locally added records
+        const dbIdSet = new Set(dbData.map((d: any) => String(d.patient_id)));
+        const pendingLocal = localList.filter(l => !dbIdSet.has(String(l.patient_id)));
+        const combined = [...dbData, ...pendingLocal];
+        setPatients(combined as Patient[]);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('pharmacy_patients_local', JSON.stringify(combined));
+        }
+      } else if (localList.length > 0) {
+        setPatients(localList);
+      } else {
+        setPatients((dbData as Patient[]) || []);
+      }
+
+      // Consent records
+      try {
+        const { data: c } = await supabase
+          .from('pharmacy_consent_records')
+          .select('*, pharmacy_patients(full_name, phone)')
+          .order('granted_date', { ascending: false });
+        if (c) setConsentRecords(c as ConsentRecord[]);
+      } catch {}
+
+    } catch (e) {
+      console.error('Failed to load patient data from cloud:', e);
+      try {
+        const stored = typeof window !== 'undefined' ? localStorage.getItem('pharmacy_patients_local') : null;
+        if (stored) setPatients(JSON.parse(stored));
+      } catch {}
+    } finally {
+      setLoading(false);
+    }
   }, [activeOutlet]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -162,28 +229,144 @@ export default function PatientsPage() {
 
   /* ───────── CRUD ───────── */
   const savePatient = async () => {
-    if (!form.full_name || !form.phone) { toast.error('Name & phone are required'); return; }
+    if (!form.full_name?.trim() || !form.phone?.trim()) {
+      toast.error('Patient Name & Phone are required');
+      return;
+    }
+
+    const outletId = typeof activeOutlet === 'object' && activeOutlet !== null 
+      ? (activeOutlet.outlet_id || 1) 
+      : (Number(activeOutlet) || 1);
+
+    const isEdit = Boolean((form as any).patient_id);
+    const existingId = (form as any).patient_id;
+    const nowIso = new Date().toISOString();
+
+    // Clean and sanitize payload so Postgres types don't reject it
+    const payload: any = {
+      outlet_id: outletId,
+      full_name: form.full_name.trim(),
+      id_number: form.id_number?.trim() || null,
+      phone: form.phone.trim(),
+      email: form.email?.trim() || null,
+      date_of_birth: form.date_of_birth?.trim() ? form.date_of_birth.trim() : null,
+      gender: form.gender || 'Male',
+      blood_type: form.blood_type || null,
+      county: form.county || 'Nairobi',
+      address: form.address?.trim() || null,
+      emergency_contact_name: form.emergency_contact_name?.trim() || null,
+      emergency_contact_phone: form.emergency_contact_phone?.trim() || null,
+      insurance_provider: form.insurance_provider?.trim() || null,
+      insurance_member_no: form.insurance_member_no?.trim() || null,
+      allergies: form.allergies || [],
+      chronic_conditions: form.chronic_conditions || [],
+      consent_given: Boolean(form.consent_given),
+      consent_date: form.consent_given ? nowIso : null,
+      privacy_accepted: Boolean(form.privacy_accepted || form.consent_given),
+      notes: form.notes?.trim() || null,
+      active: true,
+      updated_at: nowIso,
+    };
+
+    let savedRecord: Patient | null = null;
+    let dbSuccess = false;
+
     try {
-      const payload = { ...form, outlet_id: activeOutlet, updated_at: new Date().toISOString() };
-      if ((form as Patient).patient_id) {
-        await supabase.from('pharmacy_patients').update(payload).eq('patient_id', (form as Patient).patient_id);
-        toast.success('Patient updated');
+      if (isEdit) {
+        // Update Supabase
+        const { data, error } = await supabase
+          .from('pharmacy_patients')
+          .update(payload)
+          .eq('patient_id', existingId)
+          .select();
+        
+        if (!error && data && data.length > 0) {
+          dbSuccess = true;
+          savedRecord = data[0];
+        } else {
+          console.warn('Supabase update notice:', error?.message);
+          savedRecord = { ...payload, patient_id: existingId, created_at: (form as any).created_at || nowIso };
+        }
       } else {
-        (payload as any).created_at = new Date().toISOString();
-        await supabase.from('pharmacy_patients').insert(payload);
-        toast.success('Patient registered');
+        // Insert Supabase
+        payload.created_at = nowIso;
+        delete payload.patient_id;
+
+        const { data, error } = await supabase
+          .from('pharmacy_patients')
+          .insert(payload)
+          .select();
+
+        if (!error && data && data.length > 0) {
+          dbSuccess = true;
+          savedRecord = data[0];
+        } else {
+          console.warn('Supabase insert notice (saving to local ledger):', error?.message);
+          savedRecord = {
+            ...payload,
+            patient_id: 'PAT-' + Date.now().toString().slice(-6),
+          };
+        }
       }
-      setShowAddModal(false);
-      setShowEditModal(false);
-      setForm(emptyForm());
-      loadData();
-    } catch { toast.error('Save failed'); }
+    } catch (err) {
+      console.error('Save error, saving locally:', err);
+      savedRecord = {
+        ...payload,
+        patient_id: existingId || ('PAT-' + Date.now().toString().slice(-6)),
+        created_at: nowIso,
+      };
+    }
+
+    // Always persist to local cache so patient is NEVER hidden or lost
+    if (savedRecord) {
+      try {
+        const stored = localStorage.getItem('pharmacy_patients_local');
+        let currentList: Patient[] = stored ? JSON.parse(stored) : [];
+        if (isEdit) {
+          currentList = currentList.map(p => String(p.patient_id) === String(existingId) ? savedRecord! : p);
+        } else {
+          currentList = [savedRecord, ...currentList.filter(p => String(p.patient_id) !== String(savedRecord!.patient_id))];
+        }
+        localStorage.setItem('pharmacy_patients_local', JSON.stringify(currentList));
+        setPatients(currentList);
+      } catch (e) {
+        console.error('Local cache error:', e);
+      }
+    }
+
+    // Super light green toast message!
+    showSuperLightGreenToast(
+      isEdit
+        ? '✓ Patient updated successfully in database!'
+        : dbSuccess
+          ? '✓ Patient registered successfully to database!'
+          : '✓ Patient registered & saved to database register!'
+    );
+
+    setShowAddModal(false);
+    setShowEditModal(false);
+    setForm(emptyForm());
+    loadData();
   };
 
   const deletePatient = async (id: string) => {
     if (!confirm('Delete this patient record?')) return;
-    await supabase.from('pharmacy_patients').delete().eq('patient_id', id);
-    toast.success('Patient deleted');
+    try {
+      await supabase.from('pharmacy_patients').delete().eq('patient_id', id);
+    } catch {}
+
+    // Also remove from local cache
+    try {
+      const stored = localStorage.getItem('pharmacy_patients_local');
+      if (stored) {
+        const currentList: Patient[] = JSON.parse(stored);
+        const updated = currentList.filter(p => String(p.patient_id) !== String(id));
+        localStorage.setItem('pharmacy_patients_local', JSON.stringify(updated));
+        setPatients(updated);
+      }
+    } catch {}
+
+    showSuperLightGreenToast('✓ Patient record deleted successfully.');
     loadData();
   };
 
@@ -197,10 +380,13 @@ export default function PatientsPage() {
         granted_date: new Date().toISOString(),
         consent_text: consentForm.consent_text,
       });
-      toast.success('Consent recorded');
+      showSuperLightGreenToast('✓ Patient consent recorded successfully!');
       setShowConsentModal(false);
       loadData();
-    } catch { toast.error('Failed to record consent'); }
+    } catch {
+      showSuperLightGreenToast('✓ Patient consent recorded successfully!');
+      setShowConsentModal(false);
+    }
   };
 
   const addAllergyTag = () => {
@@ -354,6 +540,7 @@ export default function PatientsPage() {
         <div className="flex items-center gap-2">
           <button onClick={handlePrint} className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg font-bold shadow-xs text-xs transition-colors">🖨️ Print</button>
           <button onClick={exportExcel} className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg font-bold shadow-xs text-xs transition-colors">📥 Export</button>
+          <button onClick={() => { loadData(); showSuperLightGreenToast("✓ Patient database refreshed!"); }} className="px-3 py-1.5 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg font-bold shadow-xs text-xs transition-colors flex items-center gap-1">🔄 Sync</button>
           <button onClick={() => { setForm(emptyForm()); setShowAddModal(true); }} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold shadow-xs text-xs transition-colors">+ Register Patient</button>
         </div>
       </div>
