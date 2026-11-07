@@ -882,259 +882,228 @@ export default function ProductsPage() {
     );
   };
 
+  // ─── STOCK ALERTS (computed from live data) ───
+  const stockAlerts = useMemo(() => {
+    const alerts: { name: string; type: string; detail: string; color: string }[] = [];
+    products.forEach((p) => {
+      const m = getProductMetrics(p);
+      if (m.isLowStock && m.totalStock > 0) {
+        alerts.push({ name: p.product_name, type: 'low', detail: `Low Stock (${m.totalStock} units)`, color: 'bg-rose-500' });
+      }
+      if (m.isExpiringSoon && m.daysUntilClosest !== null) {
+        alerts.push({ name: p.product_name, type: 'expiring', detail: `Expiring Soon (${m.daysUntilClosest} days)`, color: 'bg-amber-500' });
+      }
+      if (m.isExpired) {
+        alerts.push({ name: p.product_name, type: 'expired', detail: `Expired`, color: 'bg-red-600' });
+      }
+    });
+    return alerts.slice(0, 5);
+  }, [products, getProductMetrics]);
+
+  // ─── INVENTORY SUMMARY (computed from live data) ───
+  const inventorySummary = useMemo(() => {
+    let inStock = 0, lowStock = 0, outOfStock = 0;
+    products.forEach((p) => {
+      const m = getProductMetrics(p);
+      if (m.isOutOfStock) outOfStock++;
+      else if (m.isLowStock) lowStock++;
+      else inStock++;
+    });
+    const total = inStock + lowStock + outOfStock || 1;
+    const pct = Math.round((inStock / total) * 100);
+    return { inStock, lowStock, outOfStock, pct };
+  }, [products, getProductMetrics]);
+
   return (
-    <div className="min-h-screen bg-[#f3f6f5] p-3 sm:p-5 font-sans space-y-4">
-      {/* ─────────────────────────────────────────────────────────────
-          SECTION 1: TOP BAR HEADER (Search, Scan, Outlet, Time, Status)
-      ───────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-white p-2.5 rounded-2xl border border-gray-200/80 shadow-2xs">
-        {/* Left: Search input with embedded Scan pill */}
-        <div className="relative w-full md:w-96 flex items-center">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 pointer-events-none" />
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100/80 to-gray-50 space-y-4 p-3 md:p-4 font-sans">
+
+      {/* ═══════════════ SECTION 1: TOP HEADER BAR ═══════════════ */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-white/90 backdrop-blur-sm p-2.5 rounded-2xl border border-gray-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        {/* Search */}
+        <div className="relative w-full md:w-[420px] flex items-center">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3.5 pointer-events-none z-10" />
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
+            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
             placeholder="Search for products (e.g. Paracetamol, Amoxicillin, Vitamin C)..."
-            className="w-full pl-9 pr-20 py-2 bg-slate-50 hover:bg-slate-100/60 focus:bg-white text-xs text-slate-800 placeholder-slate-400 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 transition-all"
+            className="w-full pl-10 pr-20 py-2.5 bg-gray-50/80 hover:bg-gray-100/60 focus:bg-white text-[13px] text-gray-800 placeholder-gray-400 rounded-full border border-gray-200/80 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all"
           />
           <button
-            onClick={() => {
-              const code = prompt('Scan or enter product barcode:');
-              if (code) {
-                setSearchQuery(code);
-                setCurrentPage(1);
-              }
-            }}
-            className="absolute right-1.5 flex items-center gap-1 px-2.5 py-1 bg-slate-200/80 hover:bg-slate-300 text-slate-700 rounded-full text-[11px] font-semibold tracking-tight transition-colors"
+            onClick={() => { const code = prompt('Scan or enter product barcode:'); if (code) { setSearchQuery(code); setCurrentPage(1); } }}
+            className="absolute right-1.5 flex items-center gap-1.5 px-3 py-1.5 bg-gray-200/70 hover:bg-gray-300/80 text-gray-700 rounded-full text-[11px] font-semibold tracking-tight transition-colors"
           >
-            <BarcodeIcon className="w-3.5 h-3.5 text-slate-600" />
+            <BarcodeIcon className="w-3.5 h-3.5" />
             <span>Scan</span>
           </button>
         </div>
 
-        {/* Right: Outlet, Bell, Live Clock, Online Badge */}
-        <div className="flex items-center gap-2.5 flex-wrap justify-end w-full md:w-auto">
-          {/* Main Outlet Badge */}
-          <div className="flex items-center gap-2 bg-[#006838] hover:bg-[#005a30] text-white px-3.5 py-1.5 rounded-full text-xs font-semibold shadow-xs transition-colors cursor-pointer">
+        {/* Right Controls */}
+        <div className="flex items-center gap-2 flex-wrap justify-end w-full md:w-auto">
+          {/* Main Outlet */}
+          <div className="flex items-center gap-2 bg-gradient-to-r from-[#006838] to-[#008744] hover:from-[#005a30] hover:to-[#00723a] text-white px-4 py-2 rounded-full text-xs font-semibold shadow-sm transition-all cursor-pointer">
             <Store className="w-4 h-4 text-emerald-200" />
             <div className="text-left leading-tight">
-              <span className="block text-[11px] font-bold">Main Outlet</span>
-              <span className="block text-[9px] text-emerald-200 font-medium">Pharmacy</span>
+              <span className="block text-[11px] font-bold">{outletName}</span>
+              <span className="block text-[9px] text-emerald-200/90 font-medium">Pharmacy</span>
             </div>
+            <ChevronDown className="w-3 h-3 text-emerald-200/70 ml-1" />
           </div>
 
-          {/* Notifications Bell */}
-          <button className="relative p-2 bg-white hover:bg-slate-50 border border-gray-200 rounded-full text-slate-600 shadow-2xs transition-colors">
-            <Bell className="w-4 h-4" />
-            <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] font-black flex items-center justify-center">
-              3
-            </span>
+          {/* Bell */}
+          <button className="relative p-2.5 bg-white hover:bg-gray-50 border border-gray-200/80 rounded-full text-gray-500 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors">
+            <Bell className="w-4.5 h-4.5" />
+            <span className="absolute -top-0.5 -right-0.5 w-[18px] h-[18px] bg-red-500 text-white rounded-full text-[9px] font-black flex items-center justify-center border-2 border-white shadow-sm">3</span>
           </button>
 
-          {/* Live Date & Time Display */}
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-gray-200 rounded-full text-slate-700 text-xs font-medium shadow-2xs">
-            <Calendar className="w-3.5 h-3.5 text-slate-500" />
-            <span className="text-[11px] font-mono">{currentTime || 'Loading...'}</span>
-            <ChevronDown className="w-3 h-3 text-slate-400" />
+          {/* Date/Time */}
+          <div className="flex items-center gap-2 px-3.5 py-2 bg-gray-50/80 border border-gray-200/80 rounded-full text-gray-600 text-xs font-medium shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
+            <Calendar className="w-3.5 h-3.5 text-gray-400" />
+            <span className="text-[11px] font-mono tracking-tight">{currentTime || 'Loading...'}</span>
+            <ChevronDown className="w-3 h-3 text-gray-400" />
           </div>
 
-          {/* Live Status Pill */}
-          <div className="flex items-center gap-1.5 bg-[#008744] text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-xs">
+          {/* Online */}
+          <div className="flex items-center gap-1.5 bg-gradient-to-r from-[#008744] to-[#00a859] text-white px-3.5 py-2 rounded-full text-[11px] font-bold shadow-sm">
             <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-            <span className="text-[11px]">Online</span>
+            <span>Online</span>
           </div>
         </div>
       </div>
 
-      {/* ─────────────────────────────────────────────────────────────
-          SECTION 2: SIX EXECUTIVE KPI CARDS
-      ───────────────────────────────────────────────────────────── */}
+      {/* ═══════════════ SECTION 2: KPI CARDS ═══════════════ */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        {/* Card 1: Total Products */}
-        <div className="bg-white rounded-2xl p-3 border border-gray-200/80 shadow-2xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-600 to-sky-400 flex items-center justify-center text-white shrink-0 shadow-xs">
+        {/* Total Products */}
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-3.5 border border-gray-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center gap-3 hover:shadow-md transition-shadow">
+          <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white shrink-0 shadow-[0_2px_8px_rgba(59,130,246,0.35)]">
             <Pill className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold text-slate-500 truncate">Total Products</p>
-            <p className="text-lg font-black text-slate-900 leading-tight">
-              {kpiData.totalProducts.toLocaleString()}
-            </p>
-            <p className="text-[10px] text-slate-500 truncate">Active: {kpiData.activeProducts.toLocaleString()}</p>
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Total Products</p>
+            <p className="text-xl font-black text-gray-900 leading-tight">{kpiData.totalProducts.toLocaleString()}</p>
+            <p className="text-[10px] text-gray-400 font-medium">Active: {kpiData.activeProducts.toLocaleString()}</p>
           </div>
         </div>
 
-        {/* Card 2: Low Stock Items */}
-        <div className="bg-white rounded-2xl p-3 border border-gray-200/80 shadow-2xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-emerald-600 to-green-400 flex items-center justify-center text-white shrink-0 shadow-xs">
+        {/* Low Stock */}
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-3.5 border border-gray-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center gap-3 hover:shadow-md transition-shadow">
+          <div className="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center text-white shrink-0 shadow-[0_2px_8px_rgba(16,185,129,0.35)]">
             <Package className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold text-slate-500 truncate">Low Stock Items</p>
-            <p className="text-lg font-black text-slate-900 leading-tight">
-              {kpiData.lowStock}
-            </p>
-            <p className="text-[10px] text-slate-500 truncate">&le; 10 units</p>
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Low Stock Items</p>
+            <p className="text-xl font-black text-gray-900 leading-tight">{kpiData.lowStock}</p>
+            <p className="text-[10px] text-gray-400 font-medium">&le; 10 units</p>
           </div>
         </div>
 
-        {/* Card 3: Expiring Soon */}
-        <div className="bg-white rounded-2xl p-3 border border-gray-200/80 shadow-2xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center text-white shrink-0 shadow-xs">
+        {/* Expiring Soon */}
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-3.5 border border-gray-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center gap-3 hover:shadow-md transition-shadow">
+          <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shrink-0 shadow-[0_2px_8px_rgba(245,158,11,0.35)]">
             <AlertTriangle className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold text-slate-500 truncate">Expiring Soon</p>
-            <p className="text-lg font-black text-slate-900 leading-tight">
-              {kpiData.expiringSoon}
-            </p>
-            <p className="text-[10px] text-amber-600 font-semibold truncate">&le; 90 days</p>
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Expiring Soon</p>
+            <p className="text-xl font-black text-gray-900 leading-tight">{kpiData.expiringSoon}</p>
+            <p className="text-[10px] text-amber-500 font-semibold">&le; 90 days</p>
           </div>
         </div>
 
-        {/* Card 4: Expired Items */}
-        <div className="bg-white rounded-2xl p-3 border border-gray-200/80 shadow-2xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-rose-600 to-red-400 flex items-center justify-center text-white shrink-0 shadow-xs">
+        {/* Expired */}
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-3.5 border border-gray-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center gap-3 hover:shadow-md transition-shadow">
+          <div className="w-11 h-11 rounded-full bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center text-white shrink-0 shadow-[0_2px_8px_rgba(239,68,68,0.35)]">
             <Clock className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold text-slate-500 truncate">Expired Items</p>
-            <p className="text-lg font-black text-slate-900 leading-tight">
-              {kpiData.expiredItems}
-            </p>
-            <p className="text-[10px] text-rose-600 font-bold truncate">Needs Attention</p>
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Expired Items</p>
+            <p className="text-xl font-black text-gray-900 leading-tight">{kpiData.expiredItems}</p>
+            <p className="text-[10px] text-red-500 font-bold">Needs Attention</p>
           </div>
         </div>
 
-        {/* Card 5: Stock Value */}
-        <div className="bg-white rounded-2xl p-3 border border-gray-200/80 shadow-2xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-purple-600 to-indigo-400 flex items-center justify-center text-white shrink-0 shadow-xs">
+        {/* Stock Value */}
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-3.5 border border-gray-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center gap-3 hover:shadow-md transition-shadow">
+          <div className="w-11 h-11 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white shrink-0 shadow-[0_2px_8px_rgba(139,92,246,0.35)]">
             <TrendingUp className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold text-slate-500 truncate">Stock Value</p>
-            <p className="text-sm font-black text-slate-900 leading-tight truncate">
-              Ksh {kpiData.stockValue.toLocaleString()}
-            </p>
-            <p className="text-[10px] text-slate-500 truncate">At Cost</p>
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Stock Value</p>
+            <p className="text-base font-black text-gray-900 leading-tight truncate">Ksh {kpiData.stockValue.toLocaleString()}</p>
+            <p className="text-[10px] text-gray-400 font-medium">At Cost</p>
           </div>
         </div>
 
-        {/* Card 6: Sales (This Month) */}
-        <div className="bg-white rounded-2xl p-3 border border-gray-200/80 shadow-2xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-teal-500 to-emerald-400 flex items-center justify-center text-white shrink-0 shadow-xs">
+        {/* Monthly Sales */}
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-3.5 border border-gray-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center gap-3 hover:shadow-md transition-shadow">
+          <div className="w-11 h-11 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center text-white shrink-0 shadow-[0_2px_8px_rgba(20,184,166,0.35)]">
             <Activity className="w-5 h-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold text-slate-500 truncate">Sales (This Month)</p>
-            <p className="text-sm font-black text-slate-900 leading-tight truncate">
-              Ksh {kpiData.monthlySales.toLocaleString()}
-            </p>
-            <p className="text-[10px] text-emerald-600 font-bold truncate">&uarr; +12.5%</p>
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Sales (This Month)</p>
+            <p className="text-base font-black text-gray-900 leading-tight truncate">Ksh {kpiData.monthlySales.toLocaleString()}</p>
+            <p className="text-[10px] text-emerald-500 font-bold">&uarr; +12.5%</p>
           </div>
         </div>
       </div>
 
-      {/* ─────────────────────────────────────────────────────────────
-          SECTION 3: PRODUCTS CATALOGUE BANNER (Grid/List/Cards, Add, Bulk)
-      ───────────────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-r from-[#0d5c3a] via-[#107047] to-[#0d5c3a] rounded-xl px-4 py-2.5 shadow-md flex items-center justify-between text-white flex-wrap gap-3">
-        {/* Left Title */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center text-white">
-            <Boxes className="w-5 h-5" />
+      {/* ═══════════════ SECTION 3: PRODUCTS CATALOGUE BANNER ═══════════════ */}
+      <div className="bg-gradient-to-r from-[#0a4f2e] via-[#0d6b3f] to-[#0a4f2e] rounded-2xl px-5 py-3 shadow-lg flex items-center justify-between text-white flex-wrap gap-3 border border-emerald-800/30">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/10">
+            <Boxes className="w-5 h-5 text-emerald-200" />
           </div>
-          <h2 className="text-base sm:text-lg font-black tracking-wide">Products Catalogue</h2>
+          <h2 className="text-lg font-black tracking-wide drop-shadow-sm">Products Catalogue</h2>
         </div>
 
-        {/* Right Controls */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2.5 flex-wrap">
           {/* View Mode Toggle */}
-          <div className="flex items-center bg-black/20 p-1 rounded-lg border border-white/10 text-xs">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-medium transition-all ${
-                viewMode === 'grid' ? 'bg-white text-emerald-950 shadow-xs font-bold' : 'text-emerald-100 hover:text-white'
-              }`}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Grid</span>
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-medium transition-all ${
-                viewMode === 'list' ? 'bg-white text-emerald-950 shadow-xs font-bold' : 'text-emerald-100 hover:text-white'
-              }`}
-            >
-              <List className="w-3.5 h-3.5" />
-              <span>List</span>
-            </button>
-            <button
-              onClick={() => setViewMode('cards')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-medium transition-all ${
-                viewMode === 'cards' ? 'bg-white text-emerald-950 shadow-xs font-bold' : 'text-emerald-100 hover:text-white'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Cards</span>
-            </button>
+          <div className="flex items-center bg-black/20 backdrop-blur-sm p-1 rounded-xl border border-white/10 text-xs">
+            {(['grid', 'list', 'cards'] as const).map((mode) => {
+              const Icon = mode === 'grid' ? LayoutGrid : mode === 'list' ? List : Layers;
+              return (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold transition-all ${
+                    viewMode === mode ? 'bg-white text-emerald-900 shadow-md font-bold' : 'text-emerald-100/80 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span className="capitalize">{mode}</span>
+                </button>
+              );
+            })}
           </div>
 
-          {/* + Add Product Button */}
+          {/* Add Product */}
           <button
             onClick={openNewProductModal}
-            className="flex items-center gap-1.5 bg-[#00a859] hover:bg-[#00924c] text-white px-3.5 py-1.5 rounded-lg text-xs font-black shadow-sm transition-all transform active:scale-95"
+            className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600 text-white px-4 py-2 rounded-xl text-xs font-black shadow-md hover:shadow-lg transition-all active:scale-95"
           >
             <Plus className="w-4 h-4" />
             <span>+ Add Product</span>
+            <ChevronDown className="w-3 h-3 opacity-60" />
           </button>
 
-          {/* Bulk Actions Button with Dropdown */}
+          {/* Bulk Actions */}
           <div className="relative">
             <button
               onClick={() => setShowBulkActions(!showBulkActions)}
-              className="flex items-center gap-1.5 bg-[#0072ce] hover:bg-[#0060ad] text-white px-3.5 py-1.5 rounded-lg text-xs font-black shadow-sm transition-all transform active:scale-95"
+              className="flex items-center gap-1.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-xl text-xs font-black shadow-md hover:shadow-lg transition-all active:scale-95"
             >
               <span>Bulk Actions</span>
-              <ChevronDown className="w-3.5 h-3.5" />
+              <ChevronDown className="w-3.5 h-3.5 opacity-70" />
             </button>
-
             {showBulkActions && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-40 text-slate-700 text-xs font-medium">
-                <button
-                  onClick={exportCatalogueCSV}
-                  className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2"
-                >
-                  <Download className="w-4 h-4 text-emerald-600" />
-                  <span>Export Catalogue (CSV)</span>
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-gray-100 py-2 z-40 text-gray-700 text-xs font-medium overflow-hidden">
+                <button onClick={exportCatalogueCSV} className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center gap-2.5 transition-colors">
+                  <Download className="w-4 h-4 text-emerald-500" /> Export Catalogue (CSV)
                 </button>
-                <button
-                  onClick={() => {
-                    window.print();
-                    setShowBulkActions(false);
-                  }}
-                  className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2"
-                >
-                  <Printer className="w-4 h-4 text-blue-600" />
-                  <span>Print Drug Catalog Sheet</span>
+                <button onClick={() => { window.print(); setShowBulkActions(false); }} className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center gap-2.5 transition-colors">
+                  <Printer className="w-4 h-4 text-blue-500" /> Print Drug Catalog Sheet
                 </button>
-                <button
-                  onClick={() => {
-                    if (selectedPids.length === 0) {
-                      toast.error('Please select products first using checkboxes');
-                    } else {
-                      toast.success(`Printing labels for ${selectedPids.length} selected drugs`);
-                    }
-                    setShowBulkActions(false);
-                  }}
-                  className="w-full text-left px-3.5 py-2 hover:bg-slate-50 flex items-center gap-2"
-                >
-                  <BarcodeIcon className="w-4 h-4 text-purple-600" />
-                  <span>Bulk Print Barcode Labels ({selectedPids.length})</span>
+                <button onClick={() => { if (selectedPids.length === 0) { toast.error('Select products first'); } else { toast.success(`Printing labels for ${selectedPids.length} drugs`); } setShowBulkActions(false); }} className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center gap-2.5 transition-colors">
+                  <BarcodeIcon className="w-4 h-4 text-purple-500" /> Bulk Print Labels ({selectedPids.length})
                 </button>
               </div>
             )}
@@ -1142,141 +1111,81 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* ─────────────────────────────────────────────────────────────
-          SECTION 4: FILTERS ROW (Category, Supplier, Brand, Status, More, Clear)
-      ───────────────────────────────────────────────────────────── */}
-      <div className="bg-white rounded-xl p-2.5 border border-gray-200/80 shadow-2xs flex items-center justify-between gap-2.5 flex-wrap">
+      {/* ═══════════════ SECTION 4: FILTER ROW ═══════════════ */}
+      <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-3 border border-gray-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex items-center justify-between gap-2.5 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Category Dropdown */}
+          {/* Category */}
           <div className="relative">
-            <select
-              value={selectedCategory}
-              onChange={(e) => {
-                setSelectedCategory(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="appearance-none bg-slate-50 hover:bg-slate-100 border border-gray-200 text-slate-700 text-xs font-semibold rounded-lg pl-8 pr-7 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
-            >
+            <select value={selectedCategory} onChange={(e) => { setSelectedCategory(e.target.value); setCurrentPage(1); }}
+              className="appearance-none bg-gray-50/80 hover:bg-gray-100 border border-gray-200/80 text-gray-700 text-xs font-semibold rounded-xl pl-8 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 cursor-pointer transition-all">
               <option value="All Categories">All Categories</option>
-              {categories.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
+              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
-            <Tags className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5 pointer-events-none" />
-            <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
+            <Tags className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5 pointer-events-none" />
+            <ChevronDown className="w-3 h-3 text-gray-400 absolute right-2.5 top-3 pointer-events-none" />
           </div>
-
-          {/* Supplier Dropdown */}
+          {/* Supplier */}
           <div className="relative">
-            <select
-              value={selectedSupplier}
-              onChange={(e) => {
-                setSelectedSupplier(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="appearance-none bg-slate-50 hover:bg-slate-100 border border-gray-200 text-slate-700 text-xs font-semibold rounded-lg pl-8 pr-7 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
-            >
+            <select value={selectedSupplier} onChange={(e) => { setSelectedSupplier(e.target.value); setCurrentPage(1); }}
+              className="appearance-none bg-gray-50/80 hover:bg-gray-100 border border-gray-200/80 text-gray-700 text-xs font-semibold rounded-xl pl-8 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 cursor-pointer transition-all">
               <option value="All Suppliers">All Suppliers</option>
-              {suppliers.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
+              {suppliers.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
-            <Truck className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5 pointer-events-none" />
-            <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
+            <Truck className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5 pointer-events-none" />
+            <ChevronDown className="w-3 h-3 text-gray-400 absolute right-2.5 top-3 pointer-events-none" />
           </div>
-
-          {/* Brand Dropdown */}
+          {/* Brand */}
           <div className="relative">
-            <select
-              value={selectedBrand}
-              onChange={(e) => {
-                setSelectedBrand(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="appearance-none bg-slate-50 hover:bg-slate-100 border border-gray-200 text-slate-700 text-xs font-semibold rounded-lg pl-8 pr-7 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
-            >
+            <select value={selectedBrand} onChange={(e) => { setSelectedBrand(e.target.value); setCurrentPage(1); }}
+              className="appearance-none bg-gray-50/80 hover:bg-gray-100 border border-gray-200/80 text-gray-700 text-xs font-semibold rounded-xl pl-8 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 cursor-pointer transition-all">
               <option value="All Brands">All Brands</option>
-              {Array.from(new Set(products.map((p) => p.manufacturer).filter(Boolean))).map(
-                (m) => (
-                  <option key={m as string} value={m as string}>
-                    {m}
-                  </option>
-                )
-              )}
+              {Array.from(new Set(products.map((p) => p.manufacturer).filter(Boolean))).map((m) => <option key={m as string} value={m as string}>{m}</option>)}
             </select>
-            <Tag className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5 pointer-events-none" />
-            <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
+            <Tag className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5 pointer-events-none" />
+            <ChevronDown className="w-3 h-3 text-gray-400 absolute right-2.5 top-3 pointer-events-none" />
           </div>
-
-          {/* Status Dropdown */}
+          {/* Status */}
           <div className="relative">
-            <select
-              value={selectedStatus}
-              onChange={(e) => {
-                setSelectedStatus(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="appearance-none bg-slate-50 hover:bg-slate-100 border border-gray-200 text-slate-700 text-xs font-semibold rounded-lg pl-8 pr-7 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
-            >
+            <select value={selectedStatus} onChange={(e) => { setSelectedStatus(e.target.value); setCurrentPage(1); }}
+              className="appearance-none bg-gray-50/80 hover:bg-gray-100 border border-gray-200/80 text-gray-700 text-xs font-semibold rounded-xl pl-8 pr-8 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 cursor-pointer transition-all">
               <option value="All Status">All Status</option>
               <option value="Active">Active Only</option>
               <option value="Low Stock">Low Stock (&le; 10)</option>
               <option value="Out of Stock">Out of Stock</option>
               <option value="Inactive">Inactive</option>
             </select>
-            <ShieldCheck className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5 pointer-events-none" />
-            <ChevronDown className="w-3 h-3 text-slate-400 absolute right-2 top-2.5 pointer-events-none" />
+            <ShieldCheck className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5 pointer-events-none" />
+            <ChevronDown className="w-3 h-3 text-gray-400 absolute right-2.5 top-3 pointer-events-none" />
           </div>
-
-          {/* More Filters Toggle */}
-          <button
-            onClick={() => setShowMoreFilters(!showMoreFilters)}
-            className={`flex items-center gap-1.5 border text-xs font-semibold rounded-lg px-3 py-1.5 transition-colors ${
+          {/* More Filters */}
+          <button onClick={() => setShowMoreFilters(!showMoreFilters)}
+            className={`flex items-center gap-1.5 border text-xs font-semibold rounded-xl px-3.5 py-2 transition-all ${
               showMoreFilters || prescriptionOnly || selectedFilterRisk !== 'All'
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                : 'bg-slate-50 hover:bg-slate-100 border-gray-200 text-slate-700'
-            }`}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>More Filters</span>
-            <ChevronDown className="w-3 h-3" />
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-sm'
+                : 'bg-gray-50/80 hover:bg-gray-100 border-gray-200/80 text-gray-600'
+            }`}>
+            <SlidersHorizontal className="w-3.5 h-3.5" /> More Filters <ChevronDown className="w-3 h-3" />
           </button>
         </div>
-
-        {/* Clear Filters Button */}
-        <button
-          onClick={handleClearFilters}
-          className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-rose-600 bg-slate-50 hover:bg-rose-50 border border-gray-200 hover:border-rose-200 rounded-lg px-3 py-1.5 transition-all"
-        >
-          <RotateCcw className="w-3.5 h-3.5" />
-          <span>Clear Filters</span>
+        <button onClick={handleClearFilters}
+          className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-red-600 bg-gray-50/80 hover:bg-red-50 border border-gray-200/80 hover:border-red-200 rounded-xl px-3.5 py-2 transition-all">
+          <RotateCcw className="w-3.5 h-3.5" /> Clear Filters
         </button>
       </div>
 
-      {/* Expanded More Filters Bar */}
+      {/* Expanded More Filters */}
       {showMoreFilters && (
-        <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 flex items-center gap-4 flex-wrap text-xs">
-          <span className="font-bold text-emerald-950">Special Attributes:</span>
-          <label className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-800">
-            <input
-              type="checkbox"
-              checked={prescriptionOnly}
-              onChange={(e) => setPrescriptionOnly(e.target.checked)}
-              className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
-            />
-            <span>Prescription Required (Rx Only)</span>
+        <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-2xl p-3.5 flex items-center gap-4 flex-wrap text-xs">
+          <span className="font-bold text-emerald-900">Special Attributes:</span>
+          <label className="flex items-center gap-1.5 cursor-pointer font-medium text-gray-700">
+            <input type="checkbox" checked={prescriptionOnly} onChange={(e) => setPrescriptionOnly(e.target.checked)}
+              className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5" />
+            Prescription Required (Rx Only)
           </label>
           <div className="flex items-center gap-2">
-            <span className="text-slate-600 font-medium">Expiry Risk:</span>
-            <select
-              value={selectedFilterRisk}
-              onChange={(e) => setSelectedFilterRisk(e.target.value)}
-              className="bg-white border border-gray-200 rounded-md px-2 py-1 text-xs"
-            >
+            <span className="text-gray-500 font-medium">Expiry Risk:</span>
+            <select value={selectedFilterRisk} onChange={(e) => setSelectedFilterRisk(e.target.value)}
+              className="bg-white border border-gray-200 rounded-lg px-2.5 py-1 text-xs focus:ring-2 focus:ring-emerald-500/30">
               <option value="All">All Risks</option>
               <option value="Expiring Soon">Expiring Soon (&le; 90 days)</option>
               <option value="Expired">Already Expired</option>
@@ -1285,79 +1194,60 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────
-          SECTION 5: TWO-COLUMN MIDDLE SECTION (Categories Left + Table Right)
-      ───────────────────────────────────────────────────────────── */}
+      {/* ═══════════════ SECTION 5: CATEGORIES SIDEBAR + TABLE ═══════════════ */}
       <div className="flex flex-col lg:flex-row gap-4 items-start">
-        {/* LEFT COLUMN: Categories Sidebar (~240px) */}
-        <div className="w-full lg:w-60 shrink-0 bg-white border border-gray-200/80 rounded-2xl p-3 shadow-2xs flex flex-col justify-between min-h-[560px]">
+        {/* LEFT: Categories Sidebar */}
+        <div className="w-full lg:w-56 xl:w-60 shrink-0 bg-white/90 backdrop-blur-sm border border-gray-200/60 rounded-2xl p-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex flex-col justify-between min-h-[520px]">
           <div>
-            <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider mb-2.5 px-2">
-              Categories
-            </h3>
-            <div className="space-y-1">
-              {categoryCounts.map((cat) => {
+            <h3 className="text-[11px] font-black text-gray-800 uppercase tracking-[0.08em] mb-3 px-1">Categories</h3>
+            <div className="space-y-0.5">
+              {categoryCounts.slice(0, 9).map((cat) => {
                 const IconComponent = cat.icon;
                 const isActive = selectedCategory === cat.name;
                 return (
-                  <button
-                    key={cat.name}
-                    onClick={() => {
-                      setSelectedCategory(cat.name);
-                      setCurrentPage(1);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all text-left ${
-                      isActive
-                        ? 'bg-[#008744] text-white shadow-xs font-bold'
-                        : 'text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
+                  <button key={cat.name} onClick={() => { setSelectedCategory(cat.name); setCurrentPage(1); }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-[12px] font-medium transition-all text-left ${
+                      isActive ? 'bg-gradient-to-r from-[#008744] to-[#00a859] text-white shadow-md font-bold' : 'text-gray-600 hover:bg-gray-50/80'
+                    }`}>
                     <div className="flex items-center gap-2 min-w-0">
-                      <IconComponent
-                        className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-500'}`}
-                      />
+                      <IconComponent className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-emerald-100' : 'text-gray-400'}`} />
                       <span className="truncate">{cat.name}</span>
                     </div>
-                    <span
-                      className={`text-[11px] px-1.5 py-0.5 rounded-full shrink-0 ${
-                        isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      {cat.count}
-                    </span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 font-bold ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+                    }`}>{cat.count}</span>
                   </button>
                 );
               })}
+              {categoryCounts.length > 9 && (
+                <button className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold text-emerald-600 hover:bg-emerald-50 transition-all">
+                  <span>More Categories</span>
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+              )}
             </div>
           </div>
-
-          {/* Bottom Card: Pharmacy Health Badge */}
-          <div className="mt-4 p-2.5 bg-gradient-to-r from-emerald-500/10 via-teal-500/15 to-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+          {/* Pharmacy Health Badge */}
+          <div className="mt-4 p-3 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/10 border border-emerald-300/40 rounded-xl flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 text-white flex items-center justify-center shrink-0 shadow-md">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-xs font-black text-emerald-950 leading-tight">Pharmacy Health</p>
-              <p className="text-[10px] text-emerald-800 font-medium">Better Health, Always.</p>
+              <p className="text-[12px] font-black text-emerald-900 leading-tight">Pharmacy Health</p>
+              <p className="text-[10px] text-emerald-700 font-medium">Better Health. Always.</p>
             </div>
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Products Table Area */}
-        <div className="flex-1 w-full bg-white border border-gray-200/80 rounded-2xl overflow-hidden shadow-2xs flex flex-col justify-between">
-          {/* Main Table or Grid View */}
+        {/* RIGHT: Products Table */}
+        <div className="flex-1 w-full bg-white/90 backdrop-blur-sm border border-gray-200/60 rounded-2xl overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)] flex flex-col justify-between">
           {viewMode === 'list' ? (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full text-left text-[12px] border-collapse">
                 <thead>
-                  <tr className="border-b border-gray-200 bg-slate-50/70 text-slate-600 font-bold text-[11px] uppercase tracking-wider">
+                  <tr className="border-b border-gray-100 bg-gray-50/60 text-gray-500 font-bold text-[10px] uppercase tracking-wider">
                     <th className="py-3 px-3 text-center w-8">
-                      <input
-                        type="checkbox"
-                        checked={isAllSelected}
-                        onChange={toggleSelectAll}
-                        className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
-                      />
+                      <input type="checkbox" checked={isAllSelected} onChange={toggleSelectAll} className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer" />
                     </th>
                     <th className="py-3 px-2 w-12 text-center">Image</th>
                     <th className="py-3 px-3">Product Name</th>
@@ -1371,193 +1261,80 @@ export default function ProductsPage() {
                     <th className="py-3 px-3 text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-50">
                   {isLoading ? (
-                    <tr>
-                      <td colSpan={11} className="py-12 text-center text-slate-500">
-                        <div className="flex items-center justify-center gap-2">
-                          <RotateCcw className="w-5 h-5 animate-spin text-emerald-600" />
-                          <span className="font-semibold text-xs">Streaming live pharmacy products...</span>
-                        </div>
-                      </td>
-                    </tr>
+                    <tr><td colSpan={11} className="py-16 text-center text-gray-400">
+                      <div className="flex flex-col items-center gap-2">
+                        <RotateCcw className="w-6 h-6 animate-spin text-emerald-500" />
+                        <span className="font-semibold text-xs">Loading live pharmacy products...</span>
+                      </div>
+                    </td></tr>
                   ) : paginatedProducts.length === 0 ? (
-                    <tr>
-                      <td colSpan={11} className="py-12 text-center text-slate-500">
-                        <p className="font-bold text-sm text-slate-700">No products match your criteria</p>
-                        <p className="text-xs text-slate-400 mt-1">Try clearing filters or resetting search</p>
-                        <button
-                          onClick={handleClearFilters}
-                          className="mt-3 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold"
-                        >
-                          Reset Filters
-                        </button>
-                      </td>
-                    </tr>
+                    <tr><td colSpan={11} className="py-16 text-center text-gray-400">
+                      <p className="font-bold text-sm text-gray-600">No products match your criteria</p>
+                      <p className="text-xs text-gray-400 mt-1">Try clearing filters or resetting search</p>
+                      <button onClick={handleClearFilters} className="mt-3 px-4 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition-colors">Reset Filters</button>
+                    </td></tr>
                   ) : (
                     paginatedProducts.map((p) => {
                       const metrics = getProductMetrics(p);
                       const isSelected = selectedPids.includes(p.pid);
-
                       return (
-                        <tr
-                          key={p.pid}
-                          className={`hover:bg-slate-50/80 transition-colors group ${
-                            isSelected ? 'bg-emerald-50/40' : ''
-                          }`}
-                        >
-                          {/* Checkbox */}
+                        <tr key={p.pid} className={`hover:bg-emerald-50/30 transition-colors group ${isSelected ? 'bg-emerald-50/40' : ''}`}>
                           <td className="py-2.5 px-3 text-center">
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleSelectPid(p.pid)}
-                              className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
-                            />
+                            <input type="checkbox" checked={isSelected} onChange={() => toggleSelectPid(p.pid)} className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer" />
                           </td>
-
-                          {/* Image Thumbnail */}
                           <td className="py-2.5 px-2 text-center">
-                            <div className="w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden mx-auto flex items-center justify-center shrink-0 shadow-2xs">
-                              {getDrugThumbnail(p)}
-                            </div>
+                            <div className="w-9 h-9 rounded-lg bg-gray-50 border border-gray-200/80 overflow-hidden mx-auto flex items-center justify-center shrink-0 shadow-sm">{getDrugThumbnail(p)}</div>
                           </td>
-
-                          {/* Product Name */}
                           <td className="py-2.5 px-3">
-                            <p className="font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
-                              {p.product_name}
-                            </p>
-                            <p className="text-[10px] text-slate-400 font-medium">
-                              {p.drug_type ? `(${p.drug_type}s)` : p.dosage ? `(${p.dosage})` : `#${p.product_code}`}
-                            </p>
+                            <p className="font-bold text-gray-900 group-hover:text-emerald-700 transition-colors leading-tight">{p.product_name}</p>
+                            <p className="text-[10px] text-gray-400 font-medium">{p.drug_type ? `(${p.drug_type}s)` : p.dosage ? `(${p.dosage})` : `#${p.product_code}`}</p>
                           </td>
-
-                          {/* Generic Name */}
-                          <td className="py-2.5 px-3 text-slate-600 font-medium">
-                            {p.generic_name || '—'}
-                          </td>
-
-                          {/* Category Badge */}
+                          <td className="py-2.5 px-3 text-gray-500 font-medium">{p.generic_name || '—'}</td>
                           <td className="py-2.5 px-3">
-                            <span
-                              className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-tight ${getCategoryBadgeClass(
-                                p.category
-                              )}`}
-                            >
-                              {p.category || 'General'}
-                            </span>
+                            <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-tight ${getCategoryBadgeClass(p.category)}`}>{p.category || 'General'}</span>
                           </td>
-
-                          {/* Barcode */}
-                          <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600">
-                            {p.barcode || '—'}
-                          </td>
-
-                          {/* Selling Price */}
+                          <td className="py-2.5 px-3 font-mono text-[11px] text-gray-500">{p.barcode || '—'}</td>
                           <td className="py-2.5 px-3 text-right">
-                            <span className="font-black text-emerald-600 text-xs">
-                              Ksh {Number(p.sales_cost || 0).toFixed(2)}
+                            <span className="font-black text-emerald-600 text-[12px]">Ksh {Number(p.sales_cost || 0).toFixed(2)}</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <span className={`inline-flex items-center justify-center w-9 h-7 rounded-full text-[12px] font-black ${
+                              metrics.totalStock > 20 ? 'bg-emerald-100 text-emerald-700' : metrics.totalStock > 0 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                            }`}>{metrics.totalStock}</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-600">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Active
                             </span>
                           </td>
-
-                          {/* Stock Qty Badge */}
                           <td className="py-2.5 px-3 text-center">
-                            <span
-                              className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-black ${
-                                metrics.totalStock > 20
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : metrics.totalStock > 0
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-rose-100 text-rose-800'
-                              }`}
-                            >
-                              {metrics.totalStock}
-                            </span>
-                          </td>
-
-                          {/* Status */}
-                          <td className="py-2.5 px-3 text-center">
-                            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                              <span>Active</span>
-                            </span>
-                          </td>
-
-                          {/* Expiry Alert */}
-                          <td className="py-2.5 px-3 text-center">
-                            {metrics.isExpiringSoon && metrics.daysUntilClosest !== null ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                <Clock className="w-3 h-3 text-amber-500" />
-                                <span>In {metrics.daysUntilClosest} days</span>
+                            {metrics.isExpired ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-50 text-red-600 border border-red-200">
+                                <AlertTriangle className="w-3 h-3" /> Expired
                               </span>
-                            ) : metrics.isExpired ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                                <AlertTriangle className="w-3 h-3 text-rose-500" />
-                                <span>Expired</span>
+                            ) : metrics.isExpiringSoon && metrics.daysUntilClosest !== null ? (
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                metrics.daysUntilClosest <= 30 ? 'bg-red-50 text-red-600 border-red-200' : metrics.daysUntilClosest <= 60 ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                              }`}>
+                                <Clock className="w-3 h-3" /> In {metrics.daysUntilClosest} days
                               </span>
                             ) : (
-                              <span className="text-slate-400 font-bold">—</span>
+                              <span className="text-gray-300 font-medium">—</span>
                             )}
                           </td>
-
-                          {/* Actions */}
                           <td className="py-2.5 px-3 text-center relative">
-                            <div className="flex items-center justify-center gap-1">
-                              {/* Eye (view modal) */}
-                              <button
-                                onClick={() => setShowViewModal(p)}
-                                title="View Details"
-                                className="p-1 rounded-md text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                              </button>
-
-                              {/* Edit */}
-                              <button
-                                onClick={() => openEditProductModal(p)}
-                                title="Edit Product"
-                                className="p-1 rounded-md text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
-                              >
-                                <Pencil className="w-3.5 h-3.5" />
-                              </button>
-
-                              {/* More Options Dropdown Toggle */}
-                              <button
-                                onClick={() =>
-                                  setActiveDropdownPid(activeDropdownPid === p.pid ? null : p.pid)
-                                }
-                                title="More Actions"
-                                className="p-1 rounded-md text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
-                              >
-                                <MoreVertical className="w-3.5 h-3.5" />
-                              </button>
+                            <div className="flex items-center justify-center gap-0.5">
+                              <button onClick={() => setShowViewModal(p)} title="View Details" className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => openEditProductModal(p)} title="Edit" className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => setActiveDropdownPid(activeDropdownPid === p.pid ? null : p.pid)} title="More" className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"><MoreVertical className="w-3.5 h-3.5" /></button>
                             </div>
-
-                            {/* Dropdown Menu */}
                             {activeDropdownPid === p.pid && (
-                              <div className="absolute right-2 top-8 w-44 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-40 text-left text-slate-700 font-medium text-xs">
-                                <button
-                                  onClick={() => openStockAdjust(p, 'add')}
-                                  className="w-full px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-                                >
-                                  <PackagePlus className="w-3.5 h-3.5 text-emerald-600" />
-                                  <span>Stock In (Receipt)</span>
-                                </button>
-                                <button
-                                  onClick={() => openStockAdjust(p, 'deduct')}
-                                  className="w-full px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-                                >
-                                  <ArrowLeftRight className="w-3.5 h-3.5 text-amber-600" />
-                                  <span>Adjust Stock</span>
-                                </button>
-                                <button
-                                  onClick={() => openPrintLabels(p)}
-                                  className="w-full px-3 py-1.5 hover:bg-slate-50 flex items-center gap-2"
-                                >
-                                  <Printer className="w-3.5 h-3.5 text-blue-600" />
-                                  <span>Print Label</span>
-                                </button>
+                              <div className="absolute right-2 top-9 w-44 bg-white rounded-xl shadow-2xl border border-gray-100 py-1.5 z-40 text-left text-gray-700 font-medium text-xs overflow-hidden">
+                                <button onClick={() => openStockAdjust(p, 'add')} className="w-full px-3.5 py-2 hover:bg-gray-50 flex items-center gap-2 transition-colors"><PackagePlus className="w-3.5 h-3.5 text-emerald-500" /> Stock In</button>
+                                <button onClick={() => openStockAdjust(p, 'deduct')} className="w-full px-3.5 py-2 hover:bg-gray-50 flex items-center gap-2 transition-colors"><ArrowLeftRight className="w-3.5 h-3.5 text-amber-500" /> Adjust Stock</button>
+                                <button onClick={() => openPrintLabels(p)} className="w-full px-3.5 py-2 hover:bg-gray-50 flex items-center gap-2 transition-colors"><Printer className="w-3.5 h-3.5 text-blue-500" /> Print Label</button>
                               </div>
                             )}
                           </td>
@@ -1569,118 +1346,50 @@ export default function ProductsPage() {
               </table>
             </div>
           ) : viewMode === 'grid' ? (
-            /* GRID VIEW */
-            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3.5">
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
               {paginatedProducts.map((p) => {
                 const metrics = getProductMetrics(p);
                 return (
-                  <div
-                    key={p.pid}
-                    className="bg-white rounded-xl border border-gray-200/80 p-3.5 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0 shadow-2xs">
-                          {getDrugThumbnail(p)}
-                        </div>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${getCategoryBadgeClass(
-                            p.category
-                          )}`}
-                        >
-                          {p.category || 'General'}
-                        </span>
-                      </div>
-                      <h4 className="font-bold text-slate-900 text-xs mt-2 line-clamp-1">{p.product_name}</h4>
-                      <p className="text-[10px] text-slate-500 font-medium">{p.generic_name || 'Pharmaceutical'}</p>
+                  <div key={p.pid} className="bg-white rounded-xl border border-gray-200/80 p-3.5 shadow-sm hover:shadow-lg transition-all">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="w-10 h-10 rounded-lg bg-gray-50 border border-gray-200/80 overflow-hidden flex items-center justify-center shrink-0 shadow-sm">{getDrugThumbnail(p)}</div>
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${getCategoryBadgeClass(p.category)}`}>{p.category || 'General'}</span>
                     </div>
-
+                    <h4 className="font-bold text-gray-900 text-xs mt-2 line-clamp-1">{p.product_name}</h4>
+                    <p className="text-[10px] text-gray-400 font-medium">{p.generic_name || 'Pharmaceutical'}</p>
                     <div className="mt-3 pt-2.5 border-t border-gray-100 flex items-center justify-between">
-                      <div>
-                        <span className="text-[10px] text-slate-400 block font-medium">Selling Price</span>
-                        <span className="font-black text-emerald-600 text-xs">
-                          Ksh {Number(p.sales_cost || 0).toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[10px] text-slate-400 block font-medium">Stock</span>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                            metrics.totalStock > 10
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-rose-100 text-rose-800'
-                          }`}
-                        >
-                          {metrics.totalStock} units
-                        </span>
-                      </div>
+                      <div><span className="text-[10px] text-gray-400 block font-medium">Price</span><span className="font-black text-emerald-600 text-xs">Ksh {Number(p.sales_cost || 0).toFixed(2)}</span></div>
+                      <div className="text-right"><span className="text-[10px] text-gray-400 block font-medium">Stock</span><span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${metrics.totalStock > 10 ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{metrics.totalStock}</span></div>
                     </div>
-
                     <div className="mt-2.5 flex items-center gap-1.5 pt-2 border-t border-gray-100">
-                      <button
-                        onClick={() => openEditProductModal(p)}
-                        className="flex-1 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-md text-[10px] font-bold transition-colors"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => openStockAdjust(p)}
-                        className="flex-1 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-md text-[10px] font-bold transition-colors"
-                      >
-                        Stock
-                      </button>
+                      <button onClick={() => openEditProductModal(p)} className="flex-1 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-[10px] font-bold transition-colors">Edit</button>
+                      <button onClick={() => openStockAdjust(p)} className="flex-1 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg text-[10px] font-bold transition-colors">Stock</button>
                     </div>
                   </div>
                 );
               })}
             </div>
           ) : (
-            /* CARDS VIEW */
             <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               {paginatedProducts.map((p) => {
                 const metrics = getProductMetrics(p);
                 return (
-                  <div
-                    key={p.pid}
-                    className="bg-white rounded-xl border border-gray-200 p-4 shadow-2xs hover:shadow-sm transition-all flex flex-col justify-between"
-                  >
+                  <div key={p.pid} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition-all">
                     <div className="flex items-start gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden shrink-0 shadow-2xs">
-                        {getDrugThumbnail(p)}
-                      </div>
+                      <div className="w-12 h-12 rounded-xl bg-gray-50 border border-gray-200 overflow-hidden shrink-0 shadow-sm">{getDrugThumbnail(p)}</div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <h4 className="font-bold text-slate-900 text-xs truncate">{p.product_name}</h4>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[9px] font-black ${getCategoryBadgeClass(
-                              p.category
-                            )}`}
-                          >
-                            {p.category}
-                          </span>
+                          <h4 className="font-bold text-gray-900 text-xs truncate">{p.product_name}</h4>
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${getCategoryBadgeClass(p.category)}`}>{p.category}</span>
                         </div>
-                        <p className="text-[11px] text-slate-500 font-medium">Generic: {p.generic_name || 'N/A'}</p>
-                        <p className="text-[10px] font-mono text-slate-400 mt-0.5">Barcode: {p.barcode || 'N/A'}</p>
+                        <p className="text-[11px] text-gray-500 font-medium">Generic: {p.generic_name || 'N/A'}</p>
+                        <p className="text-[10px] font-mono text-gray-400 mt-0.5">Barcode: {p.barcode || 'N/A'}</p>
                       </div>
                     </div>
-
                     <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-gray-100 text-center">
-                      <div className="bg-slate-50 p-1.5 rounded-lg">
-                        <span className="text-[9px] text-slate-400 block font-bold">RETAIL</span>
-                        <span className="text-xs font-black text-emerald-600">
-                          Ksh {Number(p.sales_cost || 0).toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="bg-slate-50 p-1.5 rounded-lg">
-                        <span className="text-[9px] text-slate-400 block font-bold">COST</span>
-                        <span className="text-xs font-black text-slate-700">
-                          Ksh {Number(p.purchase_cost || 0).toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="bg-slate-50 p-1.5 rounded-lg">
-                        <span className="text-[9px] text-slate-400 block font-bold">STOCK</span>
-                        <span className="text-xs font-black text-slate-900">{metrics.totalStock} units</span>
-                      </div>
+                      <div className="bg-gray-50 p-1.5 rounded-lg"><span className="text-[9px] text-gray-400 block font-bold">RETAIL</span><span className="text-xs font-black text-emerald-600">Ksh {Number(p.sales_cost || 0).toFixed(2)}</span></div>
+                      <div className="bg-gray-50 p-1.5 rounded-lg"><span className="text-[9px] text-gray-400 block font-bold">COST</span><span className="text-xs font-black text-gray-700">Ksh {Number(p.purchase_cost || 0).toFixed(2)}</span></div>
+                      <div className="bg-gray-50 p-1.5 rounded-lg"><span className="text-[9px] text-gray-400 block font-bold">STOCK</span><span className="text-xs font-black text-gray-900">{metrics.totalStock}</span></div>
                     </div>
                   </div>
                 );
@@ -1688,468 +1397,169 @@ export default function ProductsPage() {
             </div>
           )}
 
-          {/* Table Footer: Rows per page, Total drugs count, Pagination controls */}
-          <div className="border-t border-gray-200 p-3 bg-white flex items-center justify-between flex-wrap gap-3 text-xs text-slate-600">
-            {/* Left: Rows per page & Total count */}
+          {/* ═══ PAGINATION ═══ */}
+          <div className="border-t border-gray-100 p-3.5 bg-gray-50/40 flex items-center justify-between flex-wrap gap-3 text-xs text-gray-500">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
-                <span>Rows per page:</span>
-                <select
-                  value={perPage}
-                  onChange={(e) => {
-                    setPerPage(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="bg-slate-50 border border-gray-200 rounded-md px-2 py-1 text-xs font-semibold cursor-pointer"
-                >
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
+                <span className="font-medium">Rows per page:</span>
+                <select value={perPage} onChange={(e) => { setPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                  className="bg-white border border-gray-200 rounded-lg px-2 py-1 text-xs font-semibold cursor-pointer focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400">
+                  <option value={10}>10</option><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option>
                 </select>
               </div>
-              <span className="text-slate-300">|</span>
-              <span className="font-bold text-slate-700">Total {filteredProducts.length} drugs</span>
+              <span className="text-gray-300">|</span>
+              <span className="font-bold text-gray-700">Total {filteredProducts.length} drugs</span>
             </div>
-
-            {/* Right: Pagination Controls */}
             <div className="flex items-center gap-1">
-              <button
-                disabled={currentPage <= 1}
-                onClick={() => setCurrentPage(1)}
-                className="p-1 rounded-md text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
-                title="First Page"
-              >
-                <ChevronsLeft className="w-4 h-4" />
-              </button>
-              <button
-                disabled={currentPage <= 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                className="p-1 rounded-md text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Previous Page"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              {/* Number Buttons */}
+              <button disabled={currentPage <= 1} onClick={() => setCurrentPage(1)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title="First"><ChevronsLeft className="w-4 h-4" /></button>
+              <button disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title="Previous"><ChevronLeft className="w-4 h-4" /></button>
               {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
                 const pageNum = i + 1;
-                const isActive = currentPage === pageNum;
                 return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setCurrentPage(pageNum)}
-                    className={`w-6 h-6 rounded-md text-xs font-bold transition-all ${
-                      isActive ? 'bg-[#008744] text-white shadow-xs' : 'text-slate-600 hover:bg-slate-100'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
+                  <button key={pageNum} onClick={() => setCurrentPage(pageNum)}
+                    className={`w-7 h-7 rounded-lg text-xs font-bold transition-all ${
+                      currentPage === pageNum ? 'bg-gradient-to-br from-[#008744] to-[#00a859] text-white shadow-md' : 'text-gray-500 hover:bg-gray-200'
+                    }`}>{pageNum}</button>
                 );
               })}
-
-              <span className="text-xs text-slate-500 px-1 font-medium">
-                Page {currentPage} of {totalPages}
-              </span>
-
-              <button
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                className="p-1 rounded-md text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Next Page"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-              <button
-                disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage(totalPages)}
-                className="p-1 rounded-md text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Last Page"
-              >
-                <ChevronsRight className="w-4 h-4" />
-              </button>
+              <span className="text-xs text-gray-400 px-1.5 font-medium">Page {currentPage} of {totalPages}</span>
+              <button disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title="Next"><ChevronRight className="w-4 h-4" /></button>
+              <button disabled={currentPage >= totalPages} onClick={() => setCurrentPage(totalPages)} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors" title="Last"><ChevronsRight className="w-4 h-4" /></button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ─────────────────────────────────────────────────────────────
-          SECTION 6: BOTTOM ROW (Quick Actions, Stock Alerts, Inventory Gauge)
-      ───────────────────────────────────────────────────────────── */}
+      {/* ═══════════════ SECTION 6: BOTTOM ROW ═══════════════ */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Card 1: ⚡ Quick Actions (F1 - F6) */}
-        <div className="bg-white rounded-2xl border border-gray-200/80 shadow-2xs overflow-hidden flex flex-col justify-between">
-          <div className="bg-gradient-to-r from-[#0d5c3a] to-[#107047] text-white px-3.5 py-2.5 font-bold text-xs flex items-center gap-2">
-            <span className="text-amber-300">⚡</span>
-            <span>Quick Actions</span>
+        {/* Quick Actions */}
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+          <div className="bg-gradient-to-r from-[#0a4f2e] to-[#0d6b3f] text-white px-4 py-3 font-bold text-xs flex items-center gap-2">
+            <span className="text-amber-300 text-sm">⚡</span>
+            <span className="text-[13px] font-black tracking-wide">Quick Actions</span>
           </div>
-
-          <div className="p-3 grid grid-cols-3 sm:grid-cols-6 gap-2">
-            {/* F1: New Product */}
-            <button
-              onClick={openNewProductModal}
-              className="flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/60 text-emerald-800 transition-all text-center group"
-            >
+          <div className="p-3.5 grid grid-cols-3 sm:grid-cols-6 gap-2">
+            <button onClick={openNewProductModal} className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/60 text-emerald-800 transition-all text-center group">
               <PlusCircle className="w-5 h-5 text-emerald-600 group-hover:scale-110 transition-transform mb-1" />
               <span className="text-[10px] font-bold leading-tight">New Product</span>
-              <span className="text-[8px] text-emerald-600/80 font-mono">(F1)</span>
+              <span className="text-[8px] text-emerald-500 font-mono">(F1)</span>
             </button>
-
-            {/* F2: Stock In */}
-            <button
-              onClick={() => {
-                if (products.length > 0) openStockAdjust(products[0], 'add');
-              }}
-              className="flex flex-col items-center justify-center p-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200/60 text-blue-800 transition-all text-center group"
-            >
+            <button onClick={() => { if (products.length > 0) openStockAdjust(products[0], 'add'); }} className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-200/60 text-blue-800 transition-all text-center group">
               <PackagePlus className="w-5 h-5 text-blue-600 group-hover:scale-110 transition-transform mb-1" />
               <span className="text-[10px] font-bold leading-tight">Stock In</span>
-              <span className="text-[8px] text-blue-600/80 font-mono">(F2)</span>
+              <span className="text-[8px] text-blue-500 font-mono">(F2)</span>
             </button>
-
-            {/* F3: Stock Adjustment */}
-            <button
-              onClick={() => {
-                if (products.length > 0) openStockAdjust(products[0], 'deduct');
-              }}
-              className="flex flex-col items-center justify-center p-2 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200/60 text-purple-800 transition-all text-center group"
-            >
+            <button onClick={() => { if (products.length > 0) openStockAdjust(products[0], 'deduct'); }} className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200/60 text-purple-800 transition-all text-center group">
               <ArrowLeftRight className="w-5 h-5 text-purple-600 group-hover:scale-110 transition-transform mb-1" />
               <span className="text-[10px] font-bold leading-tight">Adjustment</span>
-              <span className="text-[8px] text-purple-600/80 font-mono">(F3)</span>
+              <span className="text-[8px] text-purple-500 font-mono">(F3)</span>
             </button>
-
-            {/* F4: Print Labels */}
-            <button
-              onClick={() => {
-                if (products.length > 0) openPrintLabels(products[0]);
-              }}
-              className="flex flex-col items-center justify-center p-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200/60 text-amber-800 transition-all text-center group"
-            >
+            <button onClick={() => { if (products.length > 0) openPrintLabels(products[0]); }} className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200/60 text-amber-800 transition-all text-center group">
               <Printer className="w-5 h-5 text-amber-600 group-hover:scale-110 transition-transform mb-1" />
               <span className="text-[10px] font-bold leading-tight">Print Labels</span>
-              <span className="text-[8px] text-amber-600/80 font-mono">(F4)</span>
+              <span className="text-[8px] text-amber-500 font-mono">(F4)</span>
             </button>
-
-            {/* F5: View Reports */}
-            <Link
-              href="/dashboard/reports"
-              className="flex flex-col items-center justify-center p-2 rounded-xl bg-teal-50 hover:bg-teal-100 border border-teal-200/60 text-teal-800 transition-all text-center group"
-            >
+            <Link href="/dashboard/reports" className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 border border-teal-200/60 text-teal-800 transition-all text-center group">
               <BarChart2 className="w-5 h-5 text-teal-600 group-hover:scale-110 transition-transform mb-1" />
               <span className="text-[10px] font-bold leading-tight">View Reports</span>
-              <span className="text-[8px] text-teal-600/80 font-mono">(F5)</span>
+              <span className="text-[8px] text-teal-500 font-mono">(F5)</span>
             </Link>
-
-            {/* F6: Purchase Orders */}
-            <Link
-              href="/dashboard/purchases"
-              className="flex flex-col items-center justify-center p-2 rounded-xl bg-green-50 hover:bg-green-100 border border-green-200/60 text-green-800 transition-all text-center group"
-            >
+            <Link href="/dashboard/purchases" className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-green-50 hover:bg-green-100 border border-green-200/60 text-green-800 transition-all text-center group">
               <ShoppingCart className="w-5 h-5 text-green-600 group-hover:scale-110 transition-transform mb-1" />
               <span className="text-[10px] font-bold leading-tight">Purchases</span>
-              <span className="text-[8px] text-green-600/80 font-mono">(F6)</span>
+              <span className="text-[8px] text-green-500 font-mono">(F6)</span>
             </Link>
           </div>
         </div>
 
-        {/* Card 2: 🔔 Stock Alerts */}
-        <div className="bg-white rounded-2xl border border-gray-200/80 p-3 shadow-2xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-gray-100">
-              <div className="flex items-center gap-1.5">
-                <Bell className="w-4 h-4 text-rose-500" />
-                <h3 className="text-xs font-black text-slate-800">Stock Alerts</h3>
-              </div>
-              <Link
-                href="/dashboard/reports/expiry"
-                className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
-              >
-                <span>View All</span>
-                <span>&rarr;</span>
-              </Link>
+        {/* Stock Alerts */}
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/60 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-gray-100">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-full bg-red-100 flex items-center justify-center"><AlertTriangle className="w-3 h-3 text-red-500" /></div>
+              <h3 className="text-[13px] font-black text-gray-800">Stock Alerts</h3>
             </div>
-
-            <div className="space-y-2 text-xs">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
-                <p className="text-slate-700 truncate">
-                  <span className="font-bold">Amoxicillin 500mg</span> &mdash; Low Stock (48 units)
-                </p>
+            <Link href="/dashboard/reports/expiry" className="text-[11px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 transition-colors">
+              View All <span>&rarr;</span>
+            </Link>
+          </div>
+          <div className="space-y-2.5">
+            {stockAlerts.length > 0 ? stockAlerts.map((alert, i) => (
+              <div key={i} className="flex items-center gap-2.5 text-[12px]">
+                <span className={`w-2 h-2 rounded-full shrink-0 ${alert.color}`} />
+                <p className="text-gray-600 truncate"><span className="font-bold text-gray-800">{alert.name}</span> — {alert.detail}</p>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
-                <p className="text-slate-700 truncate">
-                  <span className="font-bold">Betadine Ointment</span> &mdash; Low Stock (15 units)
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                <p className="text-slate-700 truncate">
-                  <span className="font-bold">Vitamin C 1000mg</span> &mdash; Expiring Soon (45 days)
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
-                <p className="text-slate-700 truncate">
-                  <span className="font-bold">Panadol 500mg</span> &mdash; Reorder Level (120 units)
-                </p>
-              </div>
-            </div>
+            )) : (
+              <p className="text-gray-400 text-xs italic">No active stock alerts</p>
+            )}
           </div>
         </div>
 
-        {/* Card 3: 📊 Inventory Summary Gauge */}
-        <div className="bg-white rounded-2xl border border-gray-200/80 p-3 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center gap-1.5 pb-2 mb-2 border-b border-gray-100">
-            <Activity className="w-4 h-4 text-emerald-600" />
-            <h3 className="text-xs font-black text-slate-800">Inventory Summary</h3>
+        {/* Inventory Summary */}
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/60 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="flex items-center gap-2 pb-2.5 mb-3 border-b border-gray-100">
+            <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center"><BarChart2 className="w-3 h-3 text-emerald-600" /></div>
+            <h3 className="text-[13px] font-black text-gray-800">Inventory Summary</h3>
           </div>
-
-          <div className="flex items-center justify-around gap-3">
-            {/* SVG Donut / Radial Gauge */}
+          <div className="flex items-center justify-around gap-4">
+            {/* SVG Donut Gauge */}
             <div className="relative w-24 h-24 flex items-center justify-center">
               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                <path
-                  className="text-slate-100"
-                  strokeWidth="3.8"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
-                <path
-                  className="text-emerald-500"
-                  strokeDasharray="92, 100"
-                  strokeWidth="3.8"
-                  strokeLinecap="round"
-                  stroke="currentColor"
-                  fill="none"
-                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                />
+                <path className="text-gray-100" strokeWidth="3.8" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path className="text-emerald-500" strokeDasharray={`${inventorySummary.pct}, 100`} strokeWidth="3.8" strokeLinecap="round" stroke="currentColor" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
               </svg>
               <div className="absolute flex flex-col items-center justify-center">
-                <span className="text-lg font-black text-slate-900 leading-none">92%</span>
-                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
-                  In Stock
-                </span>
+                <span className="text-xl font-black text-gray-900 leading-none">{inventorySummary.pct}%</span>
               </div>
             </div>
-
             {/* Legend */}
-            <div className="space-y-1.5 text-xs">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  <span className="text-slate-600 text-[11px] font-medium">In Stock</span>
-                </div>
-                <span className="font-black text-slate-900 text-xs">1,182</span>
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between gap-6">
+                <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /><span className="text-gray-500 font-medium">In Stock</span></div>
+                <span className="font-black text-gray-900">{inventorySummary.inStock.toLocaleString()}</span>
               </div>
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                  <span className="text-slate-600 text-[11px] font-medium">Low Stock</span>
-                </div>
-                <span className="font-black text-slate-900 text-xs">48</span>
+              <div className="flex items-center justify-between gap-6">
+                <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /><span className="text-gray-500 font-medium">Low Stock</span></div>
+                <span className="font-black text-gray-900">{inventorySummary.lowStock}</span>
               </div>
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-                  <span className="text-slate-600 text-[11px] font-medium">Out of Stock</span>
-                </div>
-                <span className="font-black text-slate-900 text-xs">18</span>
+              <div className="flex items-center justify-between gap-6">
+                <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /><span className="text-gray-500 font-medium">Out of Stock</span></div>
+                <span className="font-black text-gray-900">{inventorySummary.outOfStock}</span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ─────────────────────────────────────────────────────────────
-          MODAL 1: ADD / EDIT PRODUCT MODAL
-      ───────────────────────────────────────────────────────────── */}
+      {/* ═══════════════ MODAL 1: ADD / EDIT PRODUCT ═══════════════ */}
       {showAddEditModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200">
-            {/* Modal Header */}
-            <div className="bg-gradient-to-r from-[#0d5c3a] to-[#107047] text-white p-4 rounded-t-2xl flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Pill className="w-5 h-5 text-emerald-200" />
-                <h3 className="font-bold text-sm">
-                  {editingProduct ? `Edit Drug: ${editingProduct.product_name}` : 'Add New Pharmacy Product'}
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowAddEditModal(false)}
-                className="text-white/80 hover:text-white p-1 rounded-md"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100">
+            <div className="bg-gradient-to-r from-[#0a4f2e] to-[#0d6b3f] text-white p-4 rounded-t-2xl flex items-center justify-between">
+              <div className="flex items-center gap-2"><Pill className="w-5 h-5 text-emerald-200" /><h3 className="font-bold text-sm">{editingProduct ? `Edit Drug: ${editingProduct.product_name}` : 'Add New Pharmacy Product'}</h3></div>
+              <button onClick={() => setShowAddEditModal(false)} className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"><X className="w-5 h-5" /></button>
             </div>
-
-            {/* Modal Form */}
             <form onSubmit={handleSaveProduct} className="p-5 space-y-4 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Product Code *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.product_code || ''}
-                    onChange={(e) => setFormData({ ...formData, product_code: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg p-2 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Product Name (Brand) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.product_name || ''}
-                    onChange={(e) => setFormData({ ...formData, product_name: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg p-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Generic / Active Molecule</label>
-                  <input
-                    type="text"
-                    value={formData.generic_name || ''}
-                    onChange={(e) => setFormData({ ...formData, generic_name: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg p-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Category</label>
-                  <select
-                    value={formData.category || 'Tablets & Capsules'}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg p-2"
-                  >
-                    {categories.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Drug Formulation</label>
-                  <input
-                    type="text"
-                    value={formData.drug_type || ''}
-                    onChange={(e) => setFormData({ ...formData, drug_type: e.target.value })}
-                    placeholder="e.g. Tablet, Capsule, Syrup, Injection"
-                    className="w-full border border-gray-300 rounded-lg p-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Dosage / Strength</label>
-                  <input
-                    type="text"
-                    value={formData.dosage || ''}
-                    onChange={(e) => setFormData({ ...formData, dosage: e.target.value })}
-                    placeholder="e.g. 500mg, 100ml, 1g"
-                    className="w-full border border-gray-300 rounded-lg p-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Barcode (EAN/UPC)</label>
-                  <div className="flex gap-1">
-                    <input
-                      type="text"
-                      value={formData.barcode || ''}
-                      onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg p-2 font-mono"
-                    />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setFormData({
-                          ...formData,
-                          barcode: `89640${Math.floor(10000000 + Math.random() * 90000000)}`,
-                        })
-                      }
-                      className="px-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold"
-                    >
-                      Gen
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Selling Price (Ksh) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={formData.sales_cost || 0}
-                    onChange={(e) => setFormData({ ...formData, sales_cost: Number(e.target.value) })}
-                    className="w-full border border-gray-300 rounded-lg p-2 font-bold text-emerald-700"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Purchase Cost (Ksh)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.purchase_cost || 0}
-                    onChange={(e) => setFormData({ ...formData, purchase_cost: Number(e.target.value) })}
-                    className="w-full border border-gray-300 rounded-lg p-2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Reorder Point</label>
-                  <input
-                    type="number"
-                    value={formData.reorder_point || 10}
-                    onChange={(e) => setFormData({ ...formData, reorder_point: Number(e.target.value) })}
-                    className="w-full border border-gray-300 rounded-lg p-2"
-                  />
-                </div>
+                <div><label className="block text-gray-700 font-bold mb-1">Product Code *</label><input type="text" required value={formData.product_code || ''} onChange={(e) => setFormData({ ...formData, product_code: e.target.value })} className="w-full border border-gray-200 rounded-xl p-2.5 font-mono focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all" /></div>
+                <div><label className="block text-gray-700 font-bold mb-1">Product Name (Brand) *</label><input type="text" required value={formData.product_name || ''} onChange={(e) => setFormData({ ...formData, product_name: e.target.value })} className="w-full border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all" /></div>
+                <div><label className="block text-gray-700 font-bold mb-1">Generic / Active Molecule</label><input type="text" value={formData.generic_name || ''} onChange={(e) => setFormData({ ...formData, generic_name: e.target.value })} className="w-full border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all" /></div>
+                <div><label className="block text-gray-700 font-bold mb-1">Category</label><select value={formData.category || 'Tablets & Capsules'} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="w-full border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all">{categories.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
+                <div><label className="block text-gray-700 font-bold mb-1">Drug Formulation</label><input type="text" value={formData.drug_type || ''} onChange={(e) => setFormData({ ...formData, drug_type: e.target.value })} placeholder="e.g. Tablet, Capsule, Syrup" className="w-full border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all" /></div>
+                <div><label className="block text-gray-700 font-bold mb-1">Dosage / Strength</label><input type="text" value={formData.dosage || ''} onChange={(e) => setFormData({ ...formData, dosage: e.target.value })} placeholder="e.g. 500mg, 100ml" className="w-full border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all" /></div>
+                <div><label className="block text-gray-700 font-bold mb-1">Barcode (EAN/UPC)</label><div className="flex gap-1"><input type="text" value={formData.barcode || ''} onChange={(e) => setFormData({ ...formData, barcode: e.target.value })} className="w-full border border-gray-200 rounded-xl p-2.5 font-mono focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all" /><button type="button" onClick={() => setFormData({ ...formData, barcode: `89640${Math.floor(10000000 + Math.random() * 90000000)}` })} className="px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-colors">Gen</button></div></div>
+                <div><label className="block text-gray-700 font-bold mb-1">Selling Price (Ksh) *</label><input type="number" step="0.01" required value={formData.sales_cost || 0} onChange={(e) => setFormData({ ...formData, sales_cost: Number(e.target.value) })} className="w-full border border-gray-200 rounded-xl p-2.5 font-bold text-emerald-700 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all" /></div>
+                <div><label className="block text-gray-700 font-bold mb-1">Purchase Cost (Ksh)</label><input type="number" step="0.01" value={formData.purchase_cost || 0} onChange={(e) => setFormData({ ...formData, purchase_cost: Number(e.target.value) })} className="w-full border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all" /></div>
+                <div><label className="block text-gray-700 font-bold mb-1">Reorder Point</label><input type="number" value={formData.reorder_point || 10} onChange={(e) => setFormData({ ...formData, reorder_point: Number(e.target.value) })} className="w-full border border-gray-200 rounded-xl p-2.5 focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all" /></div>
               </div>
-
-              {/* Checkboxes */}
               <div className="flex gap-4 pt-2 border-t border-gray-100">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.requires_prescription || false}
-                    onChange={(e) => setFormData({ ...formData, requires_prescription: e.target.checked })}
-                    className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
-                  />
-                  <span className="font-medium text-slate-700">Requires Prescription (Rx)</span>
-                </label>
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.controlled_substance || false}
-                    onChange={(e) => setFormData({ ...formData, controlled_substance: e.target.checked })}
-                    className="rounded text-rose-600 focus:ring-rose-500 w-3.5 h-3.5"
-                  />
-                  <span className="font-medium text-rose-700">Controlled Substance</span>
-                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={formData.requires_prescription || false} onChange={(e) => setFormData({ ...formData, requires_prescription: e.target.checked })} className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5" /><span className="font-medium text-gray-700">Requires Prescription (Rx)</span></label>
+                <label className="flex items-center gap-1.5 cursor-pointer"><input type="checkbox" checked={formData.controlled_substance || false} onChange={(e) => setFormData({ ...formData, controlled_substance: e.target.checked })} className="rounded text-red-600 focus:ring-red-500 w-3.5 h-3.5" /><span className="font-medium text-red-700">Controlled Substance</span></label>
               </div>
-
-              {/* Form Buttons */}
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => setShowAddEditModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="px-5 py-2 bg-[#008744] hover:bg-[#00723a] text-white rounded-lg font-black flex items-center gap-1.5 shadow-sm disabled:opacity-50"
-                >
-                  {isSaving ? (
-                    <>
-                      <RotateCcw className="w-4 h-4 animate-spin" />
-                      <span>Saving to Live DB...</span>
-                    </>
-                  ) : (
-                    <span>Save to Live Database</span>
-                  )}
+                <button type="button" onClick={() => setShowAddEditModal(false)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-colors">Cancel</button>
+                <button type="submit" disabled={isSaving} className="px-5 py-2 bg-gradient-to-r from-[#008744] to-[#00a859] hover:from-[#00723a] hover:to-[#008744] text-white rounded-xl font-black flex items-center gap-1.5 shadow-md disabled:opacity-50 transition-all">
+                  {isSaving ? <><RotateCcw className="w-4 h-4 animate-spin" /> Saving...</> : 'Save to Live Database'}
                 </button>
               </div>
             </form>
@@ -2157,266 +1567,104 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────
-          MODAL 2: STOCK ADJUSTMENT MODAL
-      ───────────────────────────────────────────────────────────── */}
+      {/* ═══════════════ MODAL 2: STOCK ADJUSTMENT ═══════════════ */}
       {showStockAdjustModal && adjustingProduct && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-gray-200 overflow-hidden">
-            <div className="bg-[#006838] text-white p-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ArrowLeftRight className="w-5 h-5 text-emerald-200" />
-                <h3 className="font-bold text-sm">Stock Adjustment</h3>
-              </div>
-              <button
-                onClick={() => setShowStockAdjustModal(false)}
-                className="text-white/80 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-[#0a4f2e] to-[#0d6b3f] text-white p-4 flex items-center justify-between">
+              <div className="flex items-center gap-2"><ArrowLeftRight className="w-5 h-5 text-emerald-200" /><h3 className="font-bold text-sm">Stock Adjustment</h3></div>
+              <button onClick={() => setShowStockAdjustModal(false)} className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"><X className="w-5 h-5" /></button>
             </div>
-
             <form onSubmit={handleSaveAdjustment} className="p-4 space-y-3 text-xs">
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                <p className="font-bold text-slate-900">{adjustingProduct.product_name}</p>
-                <p className="text-[11px] text-slate-500 font-mono">Code: {adjustingProduct.product_code}</p>
+              <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                <p className="font-bold text-gray-900">{adjustingProduct.product_name}</p>
+                <p className="text-[11px] text-gray-400 font-mono">Code: {adjustingProduct.product_code}</p>
               </div>
-
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">Adjustment Type</label>
+              <div><label className="block text-gray-700 font-bold mb-1">Adjustment Type</label>
                 <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAdjustType('add')}
-                    className={`py-1.5 rounded-lg font-bold border transition-all ${
-                      adjustType === 'add'
-                        ? 'bg-emerald-600 text-white border-emerald-600'
-                        : 'bg-slate-50 text-slate-700 border-gray-200'
-                    }`}
-                  >
-                    + Stock In
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAdjustType('deduct')}
-                    className={`py-1.5 rounded-lg font-bold border transition-all ${
-                      adjustType === 'deduct'
-                        ? 'bg-rose-600 text-white border-rose-600'
-                        : 'bg-slate-50 text-slate-700 border-gray-200'
-                    }`}
-                  >
-                    - Deduct
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAdjustType('set')}
-                    className={`py-1.5 rounded-lg font-bold border transition-all ${
-                      adjustType === 'set'
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-slate-50 text-slate-700 border-gray-200'
-                    }`}
-                  >
-                    = Set Exact
-                  </button>
+                  {(['add', 'deduct', 'set'] as const).map((t) => (
+                    <button key={t} type="button" onClick={() => setAdjustType(t)}
+                      className={`py-2 rounded-xl font-bold border transition-all ${adjustType === t ? (t === 'add' ? 'bg-emerald-600 text-white border-emerald-600' : t === 'deduct' ? 'bg-red-600 text-white border-red-600' : 'bg-blue-600 text-white border-blue-600') : 'bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100'}`}>
+                      {t === 'add' ? '+ Stock In' : t === 'deduct' ? '- Deduct' : '= Set Exact'}
+                    </button>
+                  ))}
                 </div>
               </div>
-
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">Quantity (Units) *</label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  value={adjustQty || ''}
-                  onChange={(e) => setAdjustQty(Number(e.target.value))}
-                  placeholder="Enter quantity..."
-                  className="w-full border border-gray-300 rounded-lg p-2 font-black text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">Reason for Adjustment</label>
-                <select
-                  value={adjustReason}
-                  onChange={(e) => setAdjustReason(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg p-2 font-medium"
-                >
-                  <option value="Restocking Receipt">Restocking Receipt</option>
-                  <option value="Inventory Count Discrepancy">Inventory Count Discrepancy</option>
-                  <option value="Damaged / Broken Packaging">Damaged / Broken Packaging</option>
-                  <option value="Expired Stock Removal">Expired Stock Removal</option>
-                  <option value="Return to Supplier">Return to Supplier</option>
+              <div><label className="block text-gray-700 font-bold mb-1">Quantity (Units) *</label><input type="number" min="1" required value={adjustQty || ''} onChange={(e) => setAdjustQty(Number(e.target.value))} placeholder="Enter quantity..." className="w-full border border-gray-200 rounded-xl p-2.5 font-black text-sm focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all" /></div>
+              <div><label className="block text-gray-700 font-bold mb-1">Reason</label>
+                <select value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} className="w-full border border-gray-200 rounded-xl p-2.5 font-medium focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all">
+                  <option value="Restocking Receipt">Restocking Receipt</option><option value="Inventory Count Discrepancy">Inventory Count Discrepancy</option><option value="Damaged / Broken Packaging">Damaged / Broken</option><option value="Expired Stock Removal">Expired Stock Removal</option><option value="Return to Supplier">Return to Supplier</option>
                 </select>
               </div>
-
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => setShowStockAdjustModal(false)}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="px-4 py-1.5 bg-[#008744] hover:bg-[#00723a] text-white rounded-lg font-black flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  {isSaving ? 'Updating...' : 'Confirm Stock Adjustment'}
-                </button>
+                <button type="button" onClick={() => setShowStockAdjustModal(false)} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-colors">Cancel</button>
+                <button type="submit" disabled={isSaving} className="px-4 py-2 bg-gradient-to-r from-[#008744] to-[#00a859] hover:from-[#00723a] hover:to-[#008744] text-white rounded-xl font-black flex items-center gap-1.5 shadow-md disabled:opacity-50 transition-all">{isSaving ? 'Updating...' : 'Confirm Adjustment'}</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────
-          MODAL 3: VIEW PRODUCT DETAILS
-      ───────────────────────────────────────────────────────────── */}
+      {/* ═══════════════ MODAL 3: VIEW PRODUCT DETAILS ═══════════════ */}
       {showViewModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-gray-200 overflow-hidden">
-            <div className="bg-[#006838] text-white p-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Eye className="w-5 h-5 text-emerald-200" />
-                <h3 className="font-bold text-sm">Product Dossier</h3>
-              </div>
-              <button onClick={() => setShowViewModal(null)} className="text-white/80 hover:text-white">
-                <X className="w-5 h-5" />
-              </button>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3">
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-[#0a4f2e] to-[#0d6b3f] text-white p-4 flex items-center justify-between">
+              <div className="flex items-center gap-2"><Eye className="w-5 h-5 text-emerald-200" /><h3 className="font-bold text-sm">Product Dossier</h3></div>
+              <button onClick={() => setShowViewModal(null)} className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"><X className="w-5 h-5" /></button>
             </div>
-
             <div className="p-4 space-y-3 text-xs">
               <div className="flex items-center gap-3">
-                <div className="w-14 h-14 rounded-xl bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
-                  {getDrugThumbnail(showViewModal)}
-                </div>
-                <div>
-                  <h4 className="font-black text-slate-900 text-sm">{showViewModal.product_name}</h4>
-                  <p className="text-slate-500 font-medium">Generic: {showViewModal.generic_name || 'N/A'}</p>
-                  <p className="text-[10px] text-slate-400 font-mono mt-0.5">Code: {showViewModal.product_code}</p>
-                </div>
+                <div className="w-14 h-14 rounded-xl bg-gray-50 border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center shadow-sm">{getDrugThumbnail(showViewModal)}</div>
+                <div><h4 className="font-black text-gray-900 text-sm">{showViewModal.product_name}</h4><p className="text-gray-500 font-medium">Generic: {showViewModal.generic_name || 'N/A'}</p><p className="text-[10px] text-gray-400 font-mono mt-0.5">Code: {showViewModal.product_code}</p></div>
               </div>
-
-              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-gray-200">
-                <div>
-                  <span className="text-slate-400 block text-[10px] font-bold">CATEGORY</span>
-                  <span className="font-bold text-slate-800">{showViewModal.category || 'N/A'}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] font-bold">BARCODE</span>
-                  <span className="font-mono text-slate-800">{showViewModal.barcode || 'N/A'}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] font-bold">SELLING PRICE</span>
-                  <span className="font-black text-emerald-600 text-sm">
-                    Ksh {Number(showViewModal.sales_cost || 0).toFixed(2)}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] font-bold">COST PRICE</span>
-                  <span className="font-bold text-slate-800">
-                    Ksh {Number(showViewModal.purchase_cost || 0).toFixed(2)}
-                  </span>
-                </div>
+              <div className="grid grid-cols-2 gap-2 bg-gray-50 p-3.5 rounded-xl border border-gray-200">
+                <div><span className="text-gray-400 block text-[10px] font-bold uppercase">Category</span><span className="font-bold text-gray-800">{showViewModal.category || 'N/A'}</span></div>
+                <div><span className="text-gray-400 block text-[10px] font-bold uppercase">Barcode</span><span className="font-mono text-gray-800">{showViewModal.barcode || 'N/A'}</span></div>
+                <div><span className="text-gray-400 block text-[10px] font-bold uppercase">Selling Price</span><span className="font-black text-emerald-600 text-sm">Ksh {Number(showViewModal.sales_cost || 0).toFixed(2)}</span></div>
+                <div><span className="text-gray-400 block text-[10px] font-bold uppercase">Cost Price</span><span className="font-bold text-gray-800">Ksh {Number(showViewModal.purchase_cost || 0).toFixed(2)}</span></div>
               </div>
-
               <div>
-                <h5 className="font-bold text-slate-800 mb-1.5">Active Batches (FEFO Tracking)</h5>
+                <h5 className="font-bold text-gray-800 mb-1.5">Active Batches (FEFO Tracking)</h5>
                 <div className="max-h-36 overflow-y-auto space-y-1">
                   {batches.filter((b) => b.product_id === showViewModal.pid).length === 0 ? (
-                    <p className="text-slate-400 italic">No batches recorded for this item.</p>
-                  ) : (
-                    batches
-                      .filter((b) => b.product_id === showViewModal.pid)
-                      .map((b) => (
-                        <div
-                          key={b.batch_id}
-                          className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 text-[11px]"
-                        >
-                          <span className="font-mono font-bold text-slate-800">{b.batch_number}</span>
-                          <span className="text-slate-500">Exp: {b.expiry_date}</span>
-                          <span className="font-black text-emerald-700">{b.remaining_qty} units</span>
-                        </div>
-                      ))
-                  )}
+                    <p className="text-gray-400 italic">No batches recorded.</p>
+                  ) : batches.filter((b) => b.product_id === showViewModal.pid).map((b) => (
+                    <div key={b.batch_id} className="flex items-center justify-between p-2.5 rounded-lg bg-gray-50 border border-gray-200 text-[11px]">
+                      <span className="font-mono font-bold text-gray-800">{b.batch_number}</span>
+                      <span className="text-gray-400">Exp: {b.expiry_date}</span>
+                      <span className="font-black text-emerald-700">{b.remaining_qty} units</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-
               <div className="flex justify-end pt-2 border-t border-gray-100">
-                <button
-                  onClick={() => setShowViewModal(null)}
-                  className="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold"
-                >
-                  Close
-                </button>
+                <button onClick={() => setShowViewModal(null)} className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-colors">Close</button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ─────────────────────────────────────────────────────────────
-          MODAL 4: PRINT BARCODE LABELS MODAL
-      ───────────────────────────────────────────────────────────── */}
+      {/* ═══════════════ MODAL 4: PRINT LABELS ═══════════════ */}
       {showPrintLabelModal && labelProduct && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3">
-          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl border border-gray-200 overflow-hidden">
-            <div className="bg-[#006838] text-white p-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Printer className="w-5 h-5 text-emerald-200" />
-                <h3 className="font-bold text-sm">Print Pharmacy Labels</h3>
-              </div>
-              <button
-                onClick={() => setShowPrintLabelModal(false)}
-                className="text-white/80 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3">
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl border border-gray-100 overflow-hidden">
+            <div className="bg-gradient-to-r from-[#0a4f2e] to-[#0d6b3f] text-white p-4 flex items-center justify-between">
+              <div className="flex items-center gap-2"><Printer className="w-5 h-5 text-emerald-200" /><h3 className="font-bold text-sm">Print Pharmacy Labels</h3></div>
+              <button onClick={() => setShowPrintLabelModal(false)} className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors"><X className="w-5 h-5" /></button>
             </div>
-
             <div className="p-4 space-y-3 text-xs">
-              {/* Preview Sticker */}
-              <div className="p-3 bg-white border-2 border-dashed border-slate-300 rounded-xl text-center space-y-1">
-                <p className="font-black text-slate-900">{labelProduct.product_name}</p>
-                <p className="text-[10px] text-slate-500 font-medium">Alpha Pharmacy Ltd</p>
+              <div className="p-3.5 bg-white border-2 border-dashed border-gray-300 rounded-xl text-center space-y-1">
+                <p className="font-black text-gray-900">{labelProduct.product_name}</p>
+                <p className="text-[10px] text-gray-400 font-medium">Alpha Pharmacy Ltd</p>
                 <p className="font-mono text-xs font-bold tracking-wider">{labelProduct.barcode || '8964001234567'}</p>
-                <p className="text-emerald-700 font-black text-sm">
-                  Ksh {Number(labelProduct.sales_cost || 0).toFixed(2)}
-                </p>
+                <p className="text-emerald-700 font-black text-sm">Ksh {Number(labelProduct.sales_cost || 0).toFixed(2)}</p>
               </div>
-
-              <div>
-                <label className="block text-slate-700 font-bold mb-1">Number of Copies</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="100"
-                  value={labelQty}
-                  onChange={(e) => setLabelQty(Number(e.target.value))}
-                  className="w-full border border-gray-300 rounded-lg p-2 font-black text-sm"
-                />
-              </div>
-
+              <div><label className="block text-gray-700 font-bold mb-1">Number of Copies</label><input type="number" min="1" max="100" value={labelQty} onChange={(e) => setLabelQty(Number(e.target.value))} className="w-full border border-gray-200 rounded-xl p-2.5 font-black text-sm focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 transition-all" /></div>
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => setShowPrintLabelModal(false)}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    window.print();
-                    setShowPrintLabelModal(false);
-                  }}
-                  className="px-4 py-1.5 bg-[#008744] hover:bg-[#00723a] text-white rounded-lg font-black flex items-center gap-1.5"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>Print {labelQty} Label(s)</span>
-                </button>
+                <button type="button" onClick={() => setShowPrintLabelModal(false)} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition-colors">Cancel</button>
+                <button type="button" onClick={() => { window.print(); setShowPrintLabelModal(false); }} className="px-4 py-2 bg-gradient-to-r from-[#008744] to-[#00a859] hover:from-[#00723a] hover:to-[#008744] text-white rounded-xl font-black flex items-center gap-1.5 shadow-md transition-all"><Printer className="w-4 h-4" /> Print {labelQty} Label(s)</button>
               </div>
             </div>
           </div>
