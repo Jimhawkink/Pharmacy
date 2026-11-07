@@ -165,30 +165,25 @@ export default function StockTakePage() {
   // ─── 1. Main Data Loader ──────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true);
+
+    // Clear stale cached stock-take items so product names re-join fresh from DB
+    Object.keys(localStorage).forEach(k => {
+      if (k.startsWith('pharmacy_stock_take_items_')) localStorage.removeItem(k);
+    });
+
     try {
-      // 1. Fetch products from pharmacy_products (fallback to products)
+      // 1. Fetch products from pharmacy_products
+      //    NOTE: always trust what Supabase returns (even empty means "no products yet")
+      //    Do NOT fall back to a 'products' table that doesn't exist.
       let prodsList: PharmacyProduct[] = [];
-      try {
-        const { data: pData } = await supabase.from('pharmacy_products').select('*').order('product_name');
-        if (pData && pData.length > 0) {
-          prodsList = pData as PharmacyProduct[];
-        } else {
-          const { data: pOld } = await supabase.from('products').select('*').order('product_name');
-          if (pOld) {
-            prodsList = pOld.map(p => ({
-              pid: p.pid,
-              product_code: p.product_code,
-              product_name: p.product_name,
-              category: p.category,
-              purchase_cost: p.purchase_cost,
-              sales_cost: p.sales_cost,
-              barcode: p.barcode,
-              active: p.active,
-            }));
-          }
-        }
-      } catch (e) {
-        console.warn('Could not fetch pharmacy_products, trying products:', e);
+      const { data: pData, error: pErr } = await supabase
+        .from('pharmacy_products')
+        .select('pid, product_code, product_name, generic_name, category, purchase_cost, sales_cost, barcode, drug_type, active')
+        .order('product_name');
+      if (!pErr && pData) {
+        prodsList = pData as PharmacyProduct[];
+      } else {
+        console.warn('pharmacy_products fetch error:', pErr?.message);
       }
       setProducts(prodsList);
 
@@ -196,38 +191,71 @@ export default function StockTakePage() {
       const prodMap = new Map<number, PharmacyProduct>();
       prodsList.forEach(p => prodMap.set(p.pid, p));
 
-      // 2. Fetch batches from pharmacy_batches
+      // 2. Fetch batches using a Supabase join to get product_name directly
+      //    This is reliable even when prodMap is empty due to RLS timing
       let rawBatches: any[] = [];
-      try {
-        const { data: bData } = await supabase
+      const { data: bData, error: bErr } = await supabase
+        .from('pharmacy_batches')
+        .select(`
+          batch_id, product_id, batch_number, expiry_date,
+          quantity, remaining_qty, purchase_cost, selling_price,
+          supplier_id, supplier_name, status, outlet_id, created_at,
+          pharmacy_products ( pid, product_name, generic_name, category, purchase_cost, drug_type )
+        `)
+        .eq('outlet_id', oid)
+        .order('expiry_date', { ascending: true });
+
+      if (!bErr && bData) {
+        rawBatches = bData;
+      } else {
+        // Fallback: fetch batches without join (uses prodMap)
+        console.warn('Batch join failed, using prodMap fallback:', bErr?.message);
+        const { data: bSimple } = await supabase
           .from('pharmacy_batches')
           .select('*')
           .eq('outlet_id', oid)
           .order('expiry_date', { ascending: true });
-        if (bData) rawBatches = bData;
-      } catch (e) {
-        console.warn('Could not fetch pharmacy_batches:', e);
+        if (bSimple) rawBatches = bSimple;
       }
 
-      // Join product information to batches
+      // Join product information to batches (use joined data first, then prodMap)
       const enrichedBatches: BatchItem[] = rawBatches.map(b => {
-        const p = prodMap.get(b.product_id);
+        // Try joined relation first (from select with pharmacy_products(*))
+        const joined = b.pharmacy_products as any;
+        const p = joined || prodMap.get(b.product_id);
+        const name = p?.product_name || prodMap.get(b.product_id)?.product_name || b.supplier_name || `Batch #${b.batch_id}`;
         const cost = b.purchase_cost || p?.purchase_cost || 0;
         return {
-          ...b,
-          product_name: p?.product_name || `Medicine #${b.product_id}`,
-          generic_name: p?.generic_name || '',
-          category: p?.category || 'General',
-          cost_price: cost,
+          batch_id: b.batch_id,
+          product_id: b.product_id,
+          batch_number: b.batch_number,
+          expiry_date: b.expiry_date,
+          quantity: b.quantity,
+          remaining_qty: b.remaining_qty,
           purchase_cost: cost,
+          selling_price: b.selling_price,
+          supplier_id: b.supplier_id,
+          supplier_name: b.supplier_name,
+          status: b.status,
+          outlet_id: b.outlet_id,
+          created_at: b.created_at,
+          product_name: name,
+          generic_name: p?.generic_name || prodMap.get(b.product_id)?.generic_name || '',
+          category: p?.category || prodMap.get(b.product_id)?.category || 'General',
+          cost_price: cost,
         };
       });
       setAllBatches(enrichedBatches);
 
-      // 3. Fetch suppliers
+      // 3. Fetch suppliers (use pharmacy_suppliers, fallback to suppliers)
       try {
-        const { data: sData } = await supabase.from('suppliers').select('*');
-        if (sData) setSuppliers(sData as Supplier[]);
+        const { data: sData, error: sErr } = await supabase.from('pharmacy_suppliers').select('supplier_id, supplier_name, phone, email, contact_person, current_balance');
+        if (!sErr && sData) {
+          setSuppliers(sData.map(s => ({ ...s, id: s.supplier_id, name: s.supplier_name, balance: s.current_balance })) as Supplier[]);
+        } else {
+          const { data: sOld } = await supabase.from('suppliers').select('*');
+          if (sOld) setSuppliers(sOld as Supplier[]);
+        }
       } catch (e) {
         console.warn('Could not fetch suppliers:', e);
       }
@@ -338,7 +366,7 @@ export default function StockTakePage() {
     try {
       let items: StockTakeItem[] = [];
 
-      // 1. Try Supabase
+      // 1. Try Supabase pharmacy_stock_take_items
       try {
         const { data, error } = await supabase
           .from('pharmacy_stock_take_items')
@@ -346,32 +374,31 @@ export default function StockTakePage() {
           .eq('stock_take_id', stId)
           .order('product_name', { ascending: true });
         if (!error && data && data.length > 0) {
-          items = data as StockTakeItem[];
+          // Re-enrich product names from currentBatches in case DB items have stale names
+          const batchMap = new Map<number, BatchItem>();
+          currentBatches.forEach(b => { if (b.batch_id) batchMap.set(b.batch_id, b); });
+          items = (data as StockTakeItem[]).map(item => {
+            const b = item.batch_id ? batchMap.get(item.batch_id) : undefined;
+            return {
+              ...item,
+              product_name: b?.product_name || item.product_name,
+              generic_name: b?.generic_name || item.generic_name,
+              category: b?.category || item.category,
+            };
+          });
         }
       } catch (e) {
-        console.warn('pharmacy_stock_take_items query error, fallback to local:', e);
+        console.warn('pharmacy_stock_take_items query error, using batches directly:', e);
       }
 
-      // 2. Fallback to localStorage
-      if (items.length === 0) {
-        const localRaw = localStorage.getItem(`pharmacy_stock_take_items_${stId}`);
-        if (localRaw) {
-          try {
-            items = JSON.parse(localRaw);
-          } catch (e) {
-            console.error('Failed to parse local stock take items:', e);
-          }
-        }
-      }
-
-      // 3. If items are still empty, build them directly from currentBatches
+      // 2. Build from currentBatches (localStorage cache cleared on load, so this is always fresh)
       if (items.length === 0 && currentBatches.length > 0) {
         items = currentBatches.map((b, idx) => ({
           item_id: idx + 1,
           stock_take_id: stId,
           batch_id: b.batch_id,
           product_id: b.product_id,
-          product_name: b.product_name || `Medicine #${b.product_id}`,
+          product_name: b.product_name || b.batch_number || `Batch #${b.batch_id}`,
           generic_name: b.generic_name,
           category: b.category,
           batch_number: b.batch_number || 'LOT-AUTO',
@@ -384,7 +411,6 @@ export default function StockTakePage() {
           reason: 'Correct',
           status: 'Verified',
         }));
-        localStorage.setItem(`pharmacy_stock_take_items_${stId}`, JSON.stringify(items));
       }
 
       setStockTakeItems(items);
