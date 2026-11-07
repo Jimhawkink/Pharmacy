@@ -481,7 +481,6 @@ export default function PurchaseEntryPage() {
                 created_by: staffName,
                 outlet_id: outletId,
                 created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
             };
 
             // 1. Insert Master Purchase Record (pharmacy_purchases only)
