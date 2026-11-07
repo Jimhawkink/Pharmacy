@@ -554,7 +554,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           )}
 
           {/* ── Main Workspace ── */}
-          <main className={`flex-1 ${isCashier ? 'ml-0' : sidebarOpen ? 'ml-[224px]' : 'ml-[68px]'} transition-all duration-300 flex flex-col ${pathname === '/dashboard/pos' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
+          <main className={`flex-1 ${isCashier ? 'ml-0' : sidebarOpen ? 'ml-[224px]' : 'ml-[68px]'} transition-all duration-300 flex flex-col ${pathname === '/dashboard/pos' ? 'h-screen overflow-hidden' : 'min-h-screen'} min-w-0 max-w-full overflow-x-hidden`}>
             {/* Top header - Exactly matching reference */}
             <header className="h-16 bg-white/95 backdrop-blur-sm border-b border-gray-100 flex items-center justify-between px-6 sticky top-0 z-40 shrink-0 shadow-xs">
               {/* Left Greeting & Sidebar Toggle */}
@@ -638,7 +638,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </header>
 
             {/* Content Area */}
-            <div className={`flex-1 flex flex-col ${pathname === '/dashboard/pos' ? 'p-0 overflow-hidden' : 'p-4'}`}>
+            <div className={`flex-1 flex flex-col min-w-0 max-w-full overflow-x-hidden ${pathname === '/dashboard/pos' ? 'p-0 overflow-hidden' : 'p-3 md:p-4'}`}>
               {children}
             </div>
 

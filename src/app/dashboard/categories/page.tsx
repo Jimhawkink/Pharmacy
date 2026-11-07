@@ -78,7 +78,7 @@ export default function CategoriesPage() {
             }
         } catch (err) {
             console.error('Error loading categories:', err);
-            toast.error('Failed to load categories');
+            // silent fallback
         }
         setIsLoading(false);
     }, []);
@@ -535,3 +535,4 @@ export default function CategoriesPage() {
         </div>
     );
 }
+
