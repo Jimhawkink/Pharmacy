@@ -2386,26 +2386,27 @@ export default function ProductsPage() {
                 <div className="glass-card border border-white/80 overflow-hidden shadow-lg shadow-slate-200/40">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="bg-slate-100/70 border-b border-slate-200 text-slate-600 text-[11px] font-black uppercase tracking-wider backdrop-blur-md">
-                                    <th className="py-3 px-3.5 w-10 text-center">
+                            <thead className="bg-slate-900 border-b-2 border-emerald-500 text-white font-black uppercase text-[11px] tracking-wider shadow-md">
+                                <tr>
+                                    <th className="py-3 px-2 w-8 text-center text-white font-black">#</th>
+                                    <th className="py-3 px-2 w-8 text-center text-white font-black">
                                         <input
                                             type="checkbox"
                                             checked={selectedPids.size === paginatedProducts.length && paginatedProducts.length > 0}
                                             onChange={toggleSelectAll}
-                                            className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+                                            className="w-4 h-4 rounded accent-emerald-500 cursor-pointer"
                                         />
                                     </th>
-                                    <th className="py-3 px-3.5">Drug / Pharmaceutical</th>
-                                    <th className="py-3 px-3.5 hidden md:table-cell">Category</th>
-                                    <th className="py-3 px-3.5 hidden lg:table-cell">Form / Strength</th>
-                                    <th className="py-3 px-3.5 text-right">Cost Price</th>
-                                    <th className="py-3 px-3.5 text-right">Retail Sell</th>
-                                    <th className="py-3 px-3.5 text-center">Margin</th>
-                                    <th className="py-3 px-3.5 text-center">Current Stock</th>
-                                    <th className="py-3 px-3.5 text-center">Batches / Shelf</th>
-                                    <th className="py-3 px-3.5 text-center">Reg. Status</th>
-                                    <th className="py-3 px-3.5 text-center w-28">Actions</th>
+                                    <th className="py-3 px-3.5 text-left text-white font-black whitespace-nowrap">Drug / Pharmaceutical</th>
+                                    <th className="py-3 px-3.5 text-left text-white font-black hidden md:table-cell whitespace-nowrap">Category</th>
+                                    <th className="py-3 px-3.5 text-left text-white font-black hidden lg:table-cell whitespace-nowrap">Form / Strength</th>
+                                    <th className="py-3 px-3.5 text-right text-white font-black whitespace-nowrap">Cost Price</th>
+                                    <th className="py-3 px-3.5 text-right text-white font-black whitespace-nowrap">Retail Sell</th>
+                                    <th className="py-3 px-3.5 text-center text-white font-black whitespace-nowrap">Margin</th>
+                                    <th className="py-3 px-3.5 text-center text-white font-black whitespace-nowrap">Current Stock</th>
+                                    <th className="py-3 px-3.5 text-center text-white font-black whitespace-nowrap">Batches / Shelf</th>
+                                    <th className="py-3 px-3.5 text-center text-white font-black whitespace-nowrap">Reg. Status</th>
+                                    <th className="py-3 px-3.5 text-center w-28 text-white font-black whitespace-nowrap">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-xs">
@@ -2421,17 +2422,44 @@ export default function ProductsPage() {
                                         <>
                                             <tr
                                                 key={p.pid}
-                                                className={`transition-colors hover:bg-blue-50/30 ${
-                                                    isSelected ? 'bg-blue-50/50' : idx % 2 === 0 ? 'bg-white/60' : 'bg-slate-50/30'
+                                                className={`transition-colors hover:bg-emerald-50/40 cursor-pointer ${
+                                                    isSelected ? 'bg-emerald-50/60' : isExpanded ? 'bg-emerald-50/30' : idx % 2 === 0 ? 'bg-white/60' : 'bg-slate-50/30'
                                                 }`}
+                                                onClick={() => {
+                                                    const s = new Set(expandedRows);
+                                                    if (s.has(p.pid)) s.delete(p.pid);
+                                                    else s.add(p.pid);
+                                                    setExpandedRows(s);
+                                                }}
                                             >
+                                                {/* Expandable Chevron Toggle Button */}
+                                                <td className="py-3 px-2 text-center" onClick={(e) => e.stopPropagation()}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const s = new Set(expandedRows);
+                                                            if (s.has(p.pid)) s.delete(p.pid);
+                                                            else s.add(p.pid);
+                                                            setExpandedRows(s);
+                                                        }}
+                                                        className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold transition-all ${
+                                                            isExpanded
+                                                                ? 'bg-emerald-600 text-white rotate-90 shadow-xs'
+                                                                : 'bg-slate-100 text-slate-700 hover:bg-emerald-100 hover:text-emerald-800'
+                                                        }`}
+                                                        title={isExpanded ? 'Collapse Batches' : 'Expand Batches'}
+                                                    >
+                                                        ▶
+                                                    </button>
+                                                </td>
+
                                                 {/* Checkbox */}
-                                                <td className="py-3 px-3.5 text-center">
+                                                <td className="py-3 px-2 text-center" onClick={(e) => e.stopPropagation()}>
                                                     <input
                                                         type="checkbox"
                                                         checked={isSelected}
                                                         onChange={() => toggleSelectPid(p.pid)}
-                                                        className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+                                                        className="w-4 h-4 rounded accent-emerald-600 cursor-pointer"
                                                     />
                                                 </td>
 
@@ -2624,63 +2652,116 @@ export default function ProductsPage() {
                                                 </td>
                                             </tr>
 
-                                            {/* Expandable Batches Sub-Table */}
-                                            {isExpanded && pBatches.length > 0 && (
-                                                <tr key={`batches-${p.pid}`} className="bg-slate-50/60">
-                                                    <td colSpan={11} className="py-3 px-6">
-                                                        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-                                                            <div className="bg-slate-100 px-4 py-2 border-b border-slate-200 text-xs font-bold text-slate-700 flex items-center justify-between">
-                                                                <span className="flex items-center gap-2">
-                                                                    <FiBox size={14} className="text-blue-600" />
-                                                                    Batch Registry for {p.product_name}
-                                                                </span>
-                                                                <span className="text-[11px] text-slate-500 font-normal">
-                                                                    Dispensed in FIFO / FEFO sequence
-                                                                </span>
+                                            {/* Expandable Batches Sub-Table (100% High-Contrast & Detailed) */}
+                                            {isExpanded && (
+                                                <tr key={`batches-${p.pid}`} className="bg-emerald-50/20">
+                                                    <td colSpan={12} className="py-3 px-4 sm:px-6">
+                                                        <div className="bg-white rounded-2xl border-2 border-emerald-300 overflow-hidden shadow-md">
+                                                            <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-4 py-2.5 text-xs font-bold text-white flex flex-wrap items-center justify-between gap-2 border-b border-emerald-500">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
+                                                                        📦
+                                                                    </div>
+                                                                    <span className="font-black text-white text-xs">
+                                                                        FEFO Batch Register for <span className="text-emerald-400">{p.product_name}</span> ({pBatches.length} batch{pBatches.length === 1 ? '' : 'es'})
+                                                                    </span>
+                                                                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500 text-slate-950">
+                                                                        Pack: {p.pieces_per_package || 1} pcs/{p.purchase_unit || 'Box'}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[11px] text-slate-300 font-medium">
+                                                                        Total Physical Stock: <strong className="text-emerald-300 font-black">{stk} {p.sales_unit || 'Pcs'}</strong>
+                                                                    </span>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            openEditModal(p);
+                                                                        }}
+                                                                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs"
+                                                                    >
+                                                                        <span>+</span> Manage Batches
+                                                                    </button>
+                                                                </div>
                                                             </div>
-                                                            <table className="w-full text-xs">
-                                                                <thead>
-                                                                    <tr className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100 text-[10px] uppercase">
-                                                                        <th className="py-2 px-3">Batch Number</th>
-                                                                        <th className="py-2 px-3 text-center">Expiry Date</th>
-                                                                        <th className="py-2 px-3 text-center">Remaining Days</th>
-                                                                        <th className="py-2 px-3 text-right">Qty in Batch</th>
-                                                                        <th className="py-2 px-3 text-right">Unit Buy</th>
-                                                                        <th className="py-2 px-3 text-right">Unit Sell</th>
-                                                                        <th className="py-2 px-3">Supplier / Invoice</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody className="divide-y divide-slate-100">
-                                                                    {pBatches.map(b => {
-                                                                        const d = getDaysUntilExpiry(b.expiry_date);
-                                                                        return (
-                                                                            <tr key={b.batch_id} className="hover:bg-slate-50">
-                                                                                <td className="py-2 px-3 font-mono font-bold text-slate-800">
-                                                                                    {b.batch_number}
-                                                                                </td>
-                                                                                <td className="py-2 px-3 text-center text-slate-600">
-                                                                                    {b.expiry_date ? new Date(b.expiry_date).toLocaleDateString('en-GB') : '-'}
-                                                                                </td>
-                                                                                <td className="py-2 px-3 text-center">
-                                                                                    {getExpiryBadge(d)}
-                                                                                </td>
-                                                                                <td className="py-2 px-3 text-right font-bold text-slate-800">
-                                                                                    {b.remaining_qty ?? b.quantity}
-                                                                                </td>
-                                                                                <td className="py-2 px-3 text-right text-slate-600">
-                                                                                    KES {(b.purchase_cost || p.purchase_cost || 0).toLocaleString()}
-                                                                                </td>
-                                                                                <td className="py-2 px-3 text-right font-black text-slate-900">
-                                                                                    KES {(b.selling_price || p.sales_cost || 0).toLocaleString()}
-                                                                                </td>
-                                                                                <td className="py-2 px-3 text-slate-500">
-                                                                                    {b.supplier_name || '-'} {b.purchase_invoice ? `(${b.purchase_invoice})` : ''}
-                                                                                </td>
+
+                                                            {pBatches.length === 0 ? (
+                                                                <div className="p-6 text-center text-slate-500 space-y-2">
+                                                                    <p className="font-bold text-slate-700 text-xs">No active batches registered for {p.product_name} yet.</p>
+                                                                    <p className="text-[11px] text-slate-400">Batches are automatically tracked when you receive shipments via Purchases &amp; GRN.</p>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            openEditModal(p);
+                                                                        }}
+                                                                        className="mt-1 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5"
+                                                                    >
+                                                                        <span>➕</span> Manage / Add Batches
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="overflow-x-auto w-full">
+                                                                    <table className="w-full text-xs">
+                                                                        <thead className="bg-slate-900 border-b-2 border-emerald-500 text-white font-black uppercase text-[10px] tracking-wider">
+                                                                            <tr>
+                                                                                <th className="py-2.5 px-3 text-left text-white font-black">#</th>
+                                                                                <th className="py-2.5 px-3 text-left text-white font-black">Batch / Lot #</th>
+                                                                                <th className="py-2.5 px-3 text-center text-white font-black">Expiry Date</th>
+                                                                                <th className="py-2.5 px-3 text-center text-white font-black">Lifespan / Status</th>
+                                                                                <th className="py-2.5 px-3 text-right text-white font-black">Remaining Stock</th>
+                                                                                <th className="py-2.5 px-3 text-right text-white font-black">Unit Buy Cost</th>
+                                                                                <th className="py-2.5 px-3 text-right text-white font-black">Retail Sell Price</th>
+                                                                                <th className="py-2.5 px-3 text-left text-white font-black">Supplier / GRN Invoice</th>
                                                                             </tr>
-                                                                        );
-                                                                    })}
-                                                                </tbody>
-                                                            </table>
+                                                                        </thead>
+                                                                        <tbody className="divide-y divide-slate-100 text-slate-900 font-medium">
+                                                                            {pBatches.map((b, bIdx) => {
+                                                                                const d = getDaysUntilExpiry(b.expiry_date);
+                                                                                const ppp = p.pieces_per_package || 1;
+                                                                                const rem = Number(b.remaining_qty ?? b.quantity ?? 0);
+                                                                                const bBreakdown = calculateStockBreakdown(rem, ppp, p.purchase_unit, p.sales_unit);
+
+                                                                                return (
+                                                                                    <tr key={b.batch_id || bIdx} className="hover:bg-emerald-50/40 transition">
+                                                                                        <td className="py-2.5 px-3 text-slate-400 font-bold">{bIdx + 1}</td>
+                                                                                        <td className="py-2.5 px-3">
+                                                                                            <span className="px-2 py-0.5 rounded font-mono font-bold text-xs bg-indigo-50 text-indigo-800 border border-indigo-200">
+                                                                                                {b.batch_number}
+                                                                                            </span>
+                                                                                        </td>
+                                                                                        <td className="py-2.5 px-3 text-center font-mono font-semibold text-slate-700">
+                                                                                            {b.expiry_date ? new Date(b.expiry_date).toLocaleDateString('en-GB') : '-'}
+                                                                                        </td>
+                                                                                        <td className="py-2.5 px-3 text-center">
+                                                                                            {getExpiryBadge(d)}
+                                                                                        </td>
+                                                                                        <td className="py-2.5 px-3 text-right font-black text-slate-950">
+                                                                                            <span className="text-emerald-950 font-black">
+                                                                                                {bBreakdown.boxes > 0 ? `${bBreakdown.boxes} Box + ${bBreakdown.loosePieces} Pcs` : `${rem} ${p.sales_unit || 'Pcs'}`}
+                                                                                            </span>
+                                                                                            <span className="text-[10px] text-slate-400 block font-normal">
+                                                                                                ({rem} total / {b.quantity || rem})
+                                                                                            </span>
+                                                                                        </td>
+                                                                                        <td className="py-2.5 px-3 text-right font-mono text-slate-600">
+                                                                                            KES {(b.purchase_cost || p.purchase_cost || 0).toLocaleString()}
+                                                                                        </td>
+                                                                                        <td className="py-2.5 px-3 text-right font-mono font-black text-emerald-800">
+                                                                                            KES {(b.selling_price || p.sales_cost || 0).toLocaleString()}
+                                                                                        </td>
+                                                                                        <td className="py-2.5 px-3 text-slate-600">
+                                                                                            <p className="font-bold text-slate-800">{b.supplier_name || 'Generic Distributor'}</p>
+                                                                                            <span className="text-[10px] font-mono text-slate-400">
+                                                                                                Invoice: {b.purchase_invoice || '—'}
+                                                                                            </span>
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                );
+                                                                            })}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -3267,7 +3348,7 @@ export default function ProductsPage() {
                                     {modalBatches.length > 0 && (
                                         <div className="border border-slate-200 rounded-xl overflow-hidden text-xs">
                                             <table className="w-full">
-                                                <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase">
+                                                <thead className="bg-slate-900 border-b-2 border-emerald-500 text-white font-black uppercase text-[10px] tracking-wider">
                                                     <tr>
                                                         <th className="py-2 px-2.5 text-left">Batch #</th>
                                                         <th className="py-2 px-2.5 text-center">Expiry</th>
@@ -3684,7 +3765,7 @@ export default function ProductsPage() {
                                     {/* Data Grid Preview Table */}
                                     <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-xs max-h-[38vh] overflow-y-auto">
                                         <table className="w-full text-xs text-left">
-                                            <thead className="bg-slate-50 text-[10px] text-slate-500 uppercase sticky top-0 z-10 border-b border-slate-200">
+                                            <thead className="bg-slate-900 border-b-2 border-emerald-500 text-white font-black uppercase text-[10px] tracking-wider sticky top-0 z-10">
                                                 <tr>
                                                     <th className="py-2.5 px-3 w-8 text-center">
                                                         <input
@@ -3887,14 +3968,14 @@ export default function ProductsPage() {
                                 </div>
                             ) : (
                                 <table className="w-full text-xs">
-                                    <thead>
-                                        <tr className="bg-slate-100 text-slate-600 font-bold uppercase text-[10px]">
-                                            <th className="py-2.5 px-3 text-left">Date</th>
-                                            <th className="py-2.5 px-3 text-left">Ref / Invoice</th>
-                                            <th className="py-2.5 px-3 text-left">Movement Type</th>
-                                            <th className="py-2.5 px-3 text-right">In (+)</th>
-                                            <th className="py-2.5 px-3 text-right">Out (-)</th>
-                                            <th className="py-2.5 px-3 text-right font-black">Balance</th>
+                                    <thead className="bg-slate-900 border-b-2 border-emerald-500 text-white font-black uppercase text-[11px] tracking-wider shadow-sm">
+                                        <tr>
+                                            <th className="py-3 px-3.5 text-left text-white font-black">Date</th>
+                                            <th className="py-3 px-3.5 text-left text-white font-black">Ref / Invoice</th>
+                                            <th className="py-3 px-3.5 text-left text-white font-black">Movement Type</th>
+                                            <th className="py-3 px-3.5 text-right text-white font-black">In (+)</th>
+                                            <th className="py-3 px-3.5 text-right text-white font-black">Out (-)</th>
+                                            <th className="py-3 px-3.5 text-right text-white font-black">Balance</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
@@ -3970,13 +4051,13 @@ export default function ProductsPage() {
                                 </div>
                             ) : (
                                 <table className="w-full text-xs">
-                                    <thead>
-                                        <tr className="bg-slate-100 text-slate-600 font-bold uppercase text-[10px]">
-                                            <th className="py-2.5 px-3 text-left">Date & Time</th>
-                                            <th className="py-2.5 px-3 text-right">Old Buy</th>
-                                            <th className="py-2.5 px-3 text-right text-blue-600 font-bold">New Buy</th>
-                                            <th className="py-2.5 px-3 text-right">Old Sell</th>
-                                            <th className="py-2.5 px-3 text-right text-purple-600 font-bold">New Sell</th>
+                                    <thead className="bg-slate-900 border-b-2 border-emerald-500 text-white font-black uppercase text-[10px] tracking-wider shadow-sm">
+                                        <tr>
+                                            <th className="py-2.5 px-3 text-left text-white font-black">Date & Time</th>
+                                            <th className="py-2.5 px-3 text-right text-white font-black">Old Buy</th>
+                                            <th className="py-2.5 px-3 text-right text-sky-400 font-black">New Buy</th>
+                                            <th className="py-2.5 px-3 text-right text-white font-black">Old Sell</th>
+                                            <th className="py-2.5 px-3 text-right text-emerald-400 font-black">New Sell</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
