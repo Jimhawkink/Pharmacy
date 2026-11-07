@@ -555,8 +555,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* ── Main Workspace ── */}
           <main className={`flex-1 ${isCashier ? 'ml-0' : sidebarOpen ? 'ml-[224px]' : 'ml-[68px]'} transition-all duration-300 flex flex-col ${pathname === '/dashboard/pos' ? 'h-screen overflow-hidden' : 'min-h-screen'} min-w-0 max-w-full overflow-x-hidden`}>
-            {/* Top header - Hidden on products page to avoid double header */}
-            {pathname !== '/dashboard/products' && (
+            {/* Top header - Exactly matching reference */}
             <header className="h-16 bg-white/95 backdrop-blur-sm border-b border-gray-100 flex items-center justify-between px-6 sticky top-0 z-40 shrink-0 shadow-xs">
               {/* Left Greeting & Sidebar Toggle */}
               <div className="flex items-center gap-3">
@@ -637,7 +636,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               </div>
             </header>
-            )}
 
             {/* Content Area */}
             <div className={`flex-1 flex flex-col min-w-0 max-w-full overflow-x-hidden ${pathname === '/dashboard/pos' ? 'p-0 overflow-hidden' : 'p-3 md:p-4'}`}>
@@ -645,7 +643,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
 
             {/* ── Luxury Emerald Bottom Curved Wave Ribbon Footer ── */}
-            {pathname !== '/dashboard/products' && (
             <footer className="h-10 bg-white border-t border-emerald-100/80 flex items-center justify-between select-none shrink-0 sticky bottom-0 z-30 shadow-[0_-1px_6px_rgba(0,0,0,0.03)] overflow-hidden">
               {/* Left Curved Wave - mirrors the right ribbon */}
               <div className="relative h-full flex items-center shrink-0 overflow-hidden pr-14 pl-5">
@@ -800,7 +797,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </div>
               </div>
             </footer>
-            )}
           </main>
         </div>
       </OutletProvider>
