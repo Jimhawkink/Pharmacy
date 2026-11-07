@@ -373,7 +373,7 @@ export default function ProductsPage() {
                     .select('*')
                     .in('product_id', pids)
                     .neq('status', 'Deleted')
-                    .order('expiry_date', { ascending: true });
+                    .order('expiry_date', { ascending: true });;
 
                 const batchMap: Record<number, Batch[]> = {};
                 (allBatches || []).forEach((b: Batch) => {
@@ -631,7 +631,7 @@ export default function ProductsPage() {
             .select('*')
             .eq('product_id', p.pid)
             .neq('status', 'Deleted')
-            .order('expiry_date', { ascending: true });
+            .order('expiry_date', { ascending: true });;
 
         setModalBatches(data || []);
         setNewBatchRow({
@@ -909,14 +909,20 @@ export default function ProductsPage() {
         setSelectedBatchId(null);
         setAdjustBatches([]);
         setAdjustBatchLoading(true);
+        try {
+            const { data: batches } = await
         supabase
             .from('pharmacy_batches')
             .select('batch_id, batch_number, expiry_date, remaining_qty, quantity, selling_price, supplier_name, status')
             .eq('product_id', p.pid)
             .eq('outlet_id', outletId)
-            .order('expiry_date', { ascending: true })
-            .then(({ data: batches }) => { setAdjustBatches(batches || []); setAdjustBatchLoading(false); })
-            .catch(() => { setAdjustBatches([]); setAdjustBatchLoading(false); });
+            .order('expiry_date', { ascending: true });
+            setAdjustBatches(batches || []);
+        } catch {
+            setAdjustBatches([]);
+        } finally {
+            setAdjustBatchLoading(false);
+        }
     };
 
     const submitStockAdjust = async () => {
