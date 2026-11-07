@@ -440,7 +440,11 @@ export default function ProductsPage() {
       Antiseptics: ShieldAlert,
     };
 
-    categories.forEach((catName) => {
+    // Sort categories so populated ones appear first
+    const populated = Object.keys(catMap).sort((a, b) => (catMap[b] || 0) - (catMap[a] || 0));
+    const allUniqueCats = Array.from(new Set([...populated, ...categories]));
+
+    allUniqueCats.forEach((catName) => {
       list.push({
         name: catName,
         count: catMap[catName] || 0,
@@ -829,55 +833,108 @@ export default function ProductsPage() {
         <img
           src={product.photo}
           alt={product.product_name}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover rounded-md"
         />
       );
     }
-    const cat = product.category || '';
-    if (cat.includes('Tablets') || cat.includes('Analgesics')) {
+    const name = (product.product_name || '').toLowerCase();
+    const cat = (product.category || '').toLowerCase();
+
+    // Panadol / Paracetamol (Blue pharma box)
+    if (name.includes('panadol') || name.includes('paracetamol')) {
       return (
-        <div className="w-full h-full bg-gradient-to-tr from-blue-600 to-sky-400 flex flex-col items-center justify-center text-white p-1">
-          <Pill className="w-4 h-4" />
-          <span className="text-[7px] font-black uppercase tracking-tighter mt-0.5">TAB</span>
+        <div className="w-12 h-9 rounded-md bg-gradient-to-b from-[#0052cc] to-[#003d99] p-1 flex flex-col justify-between shadow-xs border border-blue-400/40 text-white select-none">
+          <div className="flex items-center justify-between">
+            <span className="text-[7px] font-black tracking-tighter uppercase leading-none">Panadol</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-300"></span>
+          </div>
+          <div className="bg-white/20 h-1 rounded-xs w-3/4"></div>
+          <div className="text-[6px] font-bold text-blue-100 leading-none">500mg</div>
         </div>
       );
     }
-    if (cat.includes('Syrup') || cat.includes('Cough')) {
+
+    // Amoxicillin / Antibiotics (Red/White duo pharma box)
+    if (name.includes('amox') || cat.includes('antibiotic')) {
       return (
-        <div className="w-full h-full bg-gradient-to-tr from-amber-600 to-yellow-400 flex flex-col items-center justify-center text-white p-1">
-          <Droplet className="w-4 h-4" />
-          <span className="text-[7px] font-black uppercase tracking-tighter mt-0.5">SYR</span>
+        <div className="w-12 h-9 rounded-md bg-white border border-red-300 p-1 flex flex-col justify-between shadow-xs select-none overflow-hidden relative">
+          <div className="absolute top-0 left-0 right-0 h-3 bg-gradient-to-r from-red-600 to-rose-500 flex items-center px-1">
+            <span className="text-[6px] font-black text-white uppercase tracking-tighter">Amoxicillin</span>
+          </div>
+          <div className="mt-3 flex items-center justify-between">
+            <div className="flex gap-0.5">
+              <span className="w-2.5 h-1.5 rounded-full bg-red-500"></span>
+              <span className="w-2.5 h-1.5 rounded-full bg-amber-400"></span>
+            </div>
+            <span className="text-[6px] font-bold text-red-700">500mg</span>
+          </div>
+          <div className="text-[5px] text-gray-400 leading-none">Capsules</div>
         </div>
       );
     }
-    if (cat.includes('Supplies') || cat.includes('Mask')) {
+
+    // Vitamin C / Vitamins (Orange/Yellow pharma bottle/box)
+    if (name.includes('vitamin') || cat.includes('vitamin')) {
       return (
-        <div className="w-full h-full bg-gradient-to-tr from-sky-600 to-cyan-400 flex flex-col items-center justify-center text-white p-1">
-          <Package className="w-4 h-4" />
-          <span className="text-[7px] font-black uppercase tracking-tighter mt-0.5">MED</span>
+        <div className="w-12 h-9 rounded-md bg-gradient-to-b from-amber-400 to-orange-500 p-1 flex flex-col justify-between shadow-xs border border-orange-300 text-white select-none">
+          <div className="flex items-center justify-between">
+            <span className="text-[7px] font-black tracking-tighter uppercase leading-none">Vit-C</span>
+            <span className="text-[6px]">🍊</span>
+          </div>
+          <div className="bg-white text-orange-600 font-black text-[6px] px-1 rounded-xs text-center py-0.2">1000mg</div>
+          <div className="text-[5px] font-semibold text-orange-100 text-center">Daily Defense</div>
         </div>
       );
     }
-    if (cat.includes('First Aid') || cat.includes('Antiseptic')) {
+
+    // Syrups / Suspensions / Cough (Cough medicine bottle & box)
+    if (name.includes('syrup') || cat.includes('syrup') || name.includes('cough')) {
       return (
-        <div className="w-full h-full bg-gradient-to-tr from-orange-600 to-rose-400 flex flex-col items-center justify-center text-white p-1">
-          <PlusCircle className="w-4 h-4" />
-          <span className="text-[7px] font-black uppercase tracking-tighter mt-0.5">AID</span>
+        <div className="w-12 h-9 rounded-md bg-gradient-to-b from-rose-700 to-red-900 p-1 flex flex-col justify-between shadow-xs border border-red-500/40 text-white select-none">
+          <div className="flex items-center justify-between">
+            <span className="text-[6px] font-black tracking-tighter uppercase leading-none">Syrup</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+          </div>
+          <div className="bg-amber-100/30 text-white text-[6px] font-bold px-0.5 rounded-xs text-center">100ml</div>
+          <div className="text-[5px] text-red-200">Oral Liquid</div>
         </div>
       );
     }
-    if (cat.includes('Vitamin') || cat.includes('Supplement')) {
+
+    // Betadine / Topical / Ointment (Yellow/Orange ointment tube box)
+    if (name.includes('betadine') || cat.includes('topical') || name.includes('ointment')) {
       return (
-        <div className="w-full h-full bg-gradient-to-tr from-purple-600 to-indigo-400 flex flex-col items-center justify-center text-white p-1">
-          <Sparkles className="w-4 h-4" />
-          <span className="text-[7px] font-black uppercase tracking-tighter mt-0.5">VIT</span>
+        <div className="w-12 h-9 rounded-md bg-[#facc15] border border-amber-500 p-1 flex flex-col justify-between shadow-xs text-amber-950 select-none">
+          <div className="bg-amber-900 text-white text-[6px] font-black px-1 rounded-xs leading-none py-0.5">BETADINE</div>
+          <div className="text-[6px] font-bold text-amber-900">Ointment 30g</div>
+          <div className="text-[5px] text-amber-800 leading-none">Povidone Iodine</div>
         </div>
       );
     }
+
+    // Medical Supplies / Masks / First Aid (Sky blue medical box)
+    if (cat.includes('supplies') || name.includes('mask') || cat.includes('first aid')) {
+      return (
+        <div className="w-12 h-9 rounded-md bg-gradient-to-b from-sky-400 to-blue-600 p-1 flex flex-col justify-between shadow-xs border border-sky-300 text-white select-none">
+          <div className="flex items-center justify-between">
+            <span className="text-[6px] font-black tracking-tighter uppercase leading-none">MedSupply</span>
+            <span className="text-[6px]">🛡️</span>
+          </div>
+          <div className="bg-white/30 text-white text-[6px] font-bold px-0.5 rounded-xs text-center">Sterile</div>
+          <div className="text-[5px] text-sky-100 leading-none">SafePack</div>
+        </div>
+      );
+    }
+
+    // Default Tablets & Capsules (Crisp Emerald pharma box)
     return (
-      <div className="w-full h-full bg-gradient-to-tr from-emerald-600 to-teal-400 flex flex-col items-center justify-center text-white p-1">
-        <Pill className="w-4 h-4" />
-        <span className="text-[7px] font-black uppercase tracking-tighter mt-0.5">DRG</span>
+      <div className="w-12 h-9 rounded-md bg-gradient-to-b from-emerald-500 to-teal-700 p-1 flex flex-col justify-between shadow-xs border border-emerald-300 text-white select-none">
+        <div className="flex items-center justify-between">
+          <span className="text-[7px] font-black tracking-tighter uppercase leading-none truncate max-w-[36px]">{product.product_name}</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-200"></span>
+        </div>
+        <div className="bg-white/20 h-1 rounded-xs w-2/3"></div>
+        <div className="text-[6px] font-bold text-emerald-100 leading-none">{product.drug_type || 'Medicine'}</div>
       </div>
     );
   };
@@ -1245,20 +1302,20 @@ export default function ProductsPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-[12px] border-collapse">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50/60 text-gray-500 font-bold text-[10px] uppercase tracking-wider">
-                    <th className="py-3 px-3 text-center w-8">
-                      <input type="checkbox" checked={isAllSelected} onChange={toggleSelectAll} className="rounded text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer" />
+                  <tr className="border-b border-slate-200 bg-[#f8fafc] text-slate-700 font-bold text-[11px] tracking-wide">
+                    <th className="py-3.5 px-3 text-center w-9">
+                      <input type="checkbox" checked={isAllSelected} onChange={toggleSelectAll} className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer" />
                     </th>
-                    <th className="py-3 px-2 w-12 text-center">Image</th>
-                    <th className="py-3 px-3">Product Name</th>
-                    <th className="py-3 px-3">Generic Name</th>
-                    <th className="py-3 px-3">Category</th>
-                    <th className="py-3 px-3">Barcode</th>
-                    <th className="py-3 px-3 text-right">Selling Price</th>
-                    <th className="py-3 px-3 text-center">Stock Qty</th>
-                    <th className="py-3 px-3 text-center">Status</th>
-                    <th className="py-3 px-3 text-center">Expiry Alert</th>
-                    <th className="py-3 px-3 text-center">Actions</th>
+                    <th className="py-3.5 px-3 w-16 text-center">Image</th>
+                    <th className="py-3.5 px-3">Product Name</th>
+                    <th className="py-3.5 px-3">Generic Name</th>
+                    <th className="py-3.5 px-3">Category</th>
+                    <th className="py-3.5 px-3">Barcode</th>
+                    <th className="py-3.5 px-3 text-right">Selling Price</th>
+                    <th className="py-3.5 px-3 text-center">Stock Qty</th>
+                    <th className="py-3.5 px-3 text-center">Status</th>
+                    <th className="py-3.5 px-3 text-center">Expiry Alert</th>
+                    <th className="py-3.5 px-3 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -1297,11 +1354,11 @@ export default function ProductsPage() {
                           </td>
                           <td className="py-2.5 px-3 font-mono text-[11px] text-gray-500">{p.barcode || '—'}</td>
                           <td className="py-2.5 px-3 text-right">
-                            <span className="font-black text-emerald-600 text-[12px]">Ksh {Number(p.sales_cost || 0).toFixed(2)}</span>
+                            <span className="font-extrabold text-[#008744] text-xs">Ksh {Number(p.sales_cost || 0).toFixed(2)}</span>
                           </td>
                           <td className="py-2.5 px-3 text-center">
                             <span className={`inline-flex items-center justify-center w-9 h-7 rounded-full text-[12px] font-black ${
-                              metrics.totalStock > 20 ? 'bg-emerald-100 text-emerald-700' : metrics.totalStock > 0 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                              metrics.totalStock > 20 ? 'bg-emerald-100/90 text-emerald-800' : metrics.totalStock > 0 ? 'bg-amber-100/90 text-amber-800' : 'bg-rose-100/90 text-rose-800'
                             }`}>{metrics.totalStock}</span>
                           </td>
                           <td className="py-2.5 px-3 text-center">
@@ -1316,7 +1373,7 @@ export default function ProductsPage() {
                               </span>
                             ) : metrics.isExpiringSoon && metrics.daysUntilClosest !== null ? (
                               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                                metrics.daysUntilClosest <= 30 ? 'bg-red-50 text-red-600 border-red-200' : metrics.daysUntilClosest <= 60 ? 'bg-amber-50 text-amber-600 border-amber-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                'bg-[#fff7ed] text-[#ea580c] border-[#ffedd5]'
                               }`}>
                                 <Clock className="w-3 h-3" /> In {metrics.daysUntilClosest} days
                               </span>
@@ -1325,10 +1382,16 @@ export default function ProductsPage() {
                             )}
                           </td>
                           <td className="py-2.5 px-3 text-center relative">
-                            <div className="flex items-center justify-center gap-0.5">
-                              <button onClick={() => setShowViewModal(p)} title="View Details" className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => openEditProductModal(p)} title="Edit" className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => setActiveDropdownPid(activeDropdownPid === p.pid ? null : p.pid)} title="More" className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"><MoreVertical className="w-3.5 h-3.5" /></button>
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button onClick={() => setShowViewModal(p)} title="View Details" className="w-7 h-7 rounded-full border border-blue-200 bg-blue-50/70 hover:bg-blue-100 text-blue-600 flex items-center justify-center transition-all shadow-2xs">
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={() => openEditProductModal(p)} title="Edit Product" className="w-7 h-7 rounded-full border border-emerald-200 bg-emerald-50/70 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center transition-all shadow-2xs">
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={() => setActiveDropdownPid(activeDropdownPid === p.pid ? null : p.pid)} title="More Options" className="w-7 h-7 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 flex items-center justify-center transition-all shadow-2xs">
+                                <MoreVertical className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                             {activeDropdownPid === p.pid && (
                               <div className="absolute right-2 top-9 w-44 bg-white rounded-xl shadow-2xl border border-gray-100 py-1.5 z-40 text-left text-gray-700 font-medium text-xs overflow-hidden">
