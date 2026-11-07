@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
+import { calculateStockBreakdown } from '@/lib/stockBreakdown';
 
 export interface BatchItem {
     batch_id: number;
@@ -20,6 +21,8 @@ export interface BatchItem {
     dosage?: string;
     drug_type?: string;
     sales_unit?: string;
+    purchase_unit?: string;
+    pieces_per_package?: number;
     barcode?: string;
     manufacturer?: string;
     manufacture_date: string;
@@ -46,6 +49,8 @@ export interface ProductItem {
     dosage?: string;
     drug_type?: string;
     sales_unit?: string;
+    purchase_unit?: string;
+    pieces_per_package?: number;
     purchase_cost: number;
     sales_cost: number;
     barcode?: string;
@@ -198,6 +203,8 @@ export default function BatchesPage() {
                     dosage: p.dosage || '',
                     drug_type: p.drug_type || 'Medicine',
                     sales_unit: p.sales_unit || 'Unit',
+                    purchase_unit: p.purchase_unit || 'Box',
+                    pieces_per_package: Number(p.pieces_per_package) || 1,
                     barcode: p.barcode || '',
                     manufacturer: p.manufacturer || '',
                     manufacture_date: b.manufacture_date || '',
@@ -1402,9 +1409,18 @@ export default function BatchesPage() {
 
                                         {/* Stock & Progress */}
                                         <td className="px-2.5 py-2 text-center whitespace-nowrap">
-                                            <p className="font-extrabold text-gray-900 text-xs">
-                                                {b.remaining_qty} <span className="text-[9.5px] font-normal text-gray-500">/ {b.quantity} {b.sales_unit}</span>
-                                            </p>
+                                            {(() => {
+                                                const ppp = b.pieces_per_package || 1;
+                                                const breakdown = calculateStockBreakdown(b.remaining_qty, ppp, b.purchase_unit, b.sales_unit);
+                                                return (
+                                                    <div>
+                                                        <p className="font-black text-gray-950 text-xs">
+                                                            {breakdown.boxes > 0 ? `${breakdown.boxes} Box + ${breakdown.loosePieces} Pcs` : `${b.remaining_qty} ${b.sales_unit || 'Pcs'}`}
+                                                        </p>
+                                                        <span className="text-[10px] text-gray-400 font-medium">({b.remaining_qty} total / {b.quantity})</span>
+                                                    </div>
+                                                );
+                                            })()}
                                             <div className="w-16 mx-auto bg-gray-200 rounded-full h-1 mt-1 overflow-hidden" title={`${stockPct}% remaining`}>
                                                 <div
                                                     className={`h-full ${days < 0 ? 'bg-red-500' : days <= 30 ? 'bg-amber-500' : 'bg-emerald-500'}`}

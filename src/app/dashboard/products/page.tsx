@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase, logActivity } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
+import { calculateStockBreakdown } from '@/lib/stockBreakdown';
 import {
     FiPackage, FiPlus, FiEdit2, FiTrash2, FiDownload, FiRefreshCw,
     FiSearch, FiGrid, FiList, FiChevronLeft, FiChevronRight, FiX,
@@ -2332,9 +2333,15 @@ export default function ProductsPage() {
                                             <span className={`w-2.5 h-2.5 rounded-full ${
                                                 stk <= 0 ? 'bg-red-500 animate-pulse' : stk <= (p.reorder_point || 10) ? 'bg-amber-500' : 'bg-sky-500'
                                             }`} />
-                                            <span className="text-xs font-black text-slate-800">
-                                                {stk} {p.sales_unit || 'Pcs'}
-                                            </span>
+                                            {(() => {
+                                                const ppp = p.pieces_per_package || 1;
+                                                const breakdown = calculateStockBreakdown(stk, ppp, p.purchase_unit, p.sales_unit);
+                                                return (
+                                                    <span className="text-xs font-black text-slate-800">
+                                                        {breakdown.boxes > 0 ? `${breakdown.boxes} Box + ${breakdown.loosePieces} Pcs` : `${stk} ${p.sales_unit || 'Pcs'}`}
+                                                    </span>
+                                                );
+                                            })()}
                                         </div>
                                         {nearestDays !== null && getExpiryBadge(nearestDays)}
                                     </div>
@@ -2515,18 +2522,30 @@ export default function ProductsPage() {
                                                 {/* Current Stock */}
                                                 <td className="py-3 px-3.5 text-center">
                                                     <div className="flex flex-col items-center">
-                                                        <span className={`inline-block px-2.5 py-0.5 rounded-lg text-xs font-black ${
-                                                            stk <= 0
-                                                                ? 'bg-red-100 text-red-700 border border-red-200'
-                                                                : stk <= (p.reorder_point || 10)
-                                                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                                                : 'bg-sky-50 text-sky-800 border border-sky-200'
-                                                        }`}>
-                                                            {stk} {p.sales_unit || 'Pcs'}
-                                                        </span>
-                                                        <span className="text-[10px] text-slate-400 mt-0.5">
-                                                            Min: {p.reorder_point || 10}
-                                                        </span>
+                                                        {(() => {
+                                                            const ppp = p.pieces_per_package || 1;
+                                                            const breakdown = calculateStockBreakdown(stk, ppp, p.purchase_unit, p.sales_unit);
+                                                            return (
+                                                                <>
+                                                                    <span className={`inline-block px-2.5 py-0.5 rounded-lg text-xs font-black ${
+                                                                        stk <= 0
+                                                                            ? 'bg-red-100 text-red-700 border border-red-200'
+                                                                            : stk <= (p.reorder_point || 10)
+                                                                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                                                            : breakdown.boxes > 0
+                                                                            ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 font-black shadow-2xs'
+                                                                            : 'bg-sky-50 text-sky-800 border border-sky-200'
+                                                                    }`}
+                                                                    title={`Total Stock: ${stk} ${p.sales_unit || 'Pcs'}\nBreakdown: ${breakdown.displayText}`}
+                                                                    >
+                                                                        {breakdown.boxes > 0 ? `${breakdown.boxes} Box + ${breakdown.loosePieces} Pcs` : `${stk} ${p.sales_unit || 'Pcs'}`}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-slate-400 mt-0.5">
+                                                                        {breakdown.boxes > 0 ? `(${stk} total pcs)` : `Min: ${p.reorder_point || 10}`}
+                                                                    </span>
+                                                                </>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </td>
 

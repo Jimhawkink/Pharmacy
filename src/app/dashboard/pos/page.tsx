@@ -4,6 +4,7 @@ import { supabase, c2bSupabase, completeSaleTransaction, getNextReceiptNumber } 
 import { printCustomerReceipt, createReceiptData, loadCompanyInfo, CompanyInfo } from '@/lib/receiptPrinter';
 import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
+import { calculateStockBreakdown } from '@/lib/stockBreakdown';
 
 interface Product {
     id: number;
@@ -14,6 +15,8 @@ interface Product {
     costPrice: number;
     salesPrice: number;
     salesUnit: string;
+    purchaseUnit?: string;
+    pieces_per_package?: number;
     imageUrl: string;
     generic_name: string;
     drug_type: string;
@@ -251,17 +254,25 @@ const ProductCard = ({
                         <span className="text-[12px] font-extrabold text-gray-900 leading-none">
                             Ksh {product.salesPrice.toLocaleString()}
                         </span>
-                        <span
-                            className={`px-1 py-0.2 rounded text-[8px] font-bold leading-none ${
-                                product.availableQty > 10
-                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                    : product.availableQty > 0
-                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                    : 'bg-red-50 text-red-600 border border-red-200'
-                            }`}
-                        >
-                            {product.availableQty > 0 ? `${product.availableQty} ${product.salesUnit}` : 'Out'}
-                        </span>
+                        {(() => {
+                            const ppp = product.pieces_per_package || 1;
+                            const breakdown = calculateStockBreakdown(product.availableQty, ppp, product.purchaseUnit, product.salesUnit);
+                            const isOut = product.availableQty <= 0;
+                            return (
+                                <span
+                                    className={`px-1.5 py-0.5 rounded text-[8.5px] font-bold leading-tight ${
+                                        isOut
+                                            ? 'bg-red-50 text-red-600 border border-red-200'
+                                            : breakdown.boxes > 0
+                                            ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 font-black shadow-2xs'
+                                            : 'bg-teal-50 text-teal-800 border border-teal-200'
+                                    }`}
+                                    title={`Total Stock: ${product.availableQty.toLocaleString()} ${product.salesUnit}s\nBreakdown: ${breakdown.displayText}\nPack Size: ${ppp} ${product.salesUnit}s per ${product.purchaseUnit || 'Box'}`}
+                                >
+                                    {isOut ? 'Out of Stock' : breakdown.badgeText}
+                                </span>
+                            );
+                        })()}
                     </div>
 
                     <button
@@ -576,6 +587,8 @@ export default function PharmacyPOS() {
                     costPrice: p.purchase_cost || 0,
                     salesPrice: p.sales_cost || 0,
                     salesUnit: p.sales_unit || 'Piece',
+                    purchaseUnit: p.purchase_unit || 'Box',
+                    pieces_per_package: Math.max(1, Number(p.pieces_per_package) || 1),
                     imageUrl: p.photo || '',
                     generic_name: p.generic_name || '',
                     drug_type: p.drug_type || '',
@@ -1897,7 +1910,15 @@ export default function PharmacyPOS() {
                                                 Batch: {b.batch_number}
                                             </p>
                                             <p className="text-xs text-gray-600 mt-0.5">
-                                                Exp: {b.expiry_date} • Available: <span className="font-bold">{b.remaining_qty}</span> units
+                                                {(() => {
+                                                const ppp = batchProduct?.pieces_per_package || 1;
+                                                const breakdown = calculateStockBreakdown(b.remaining_qty, ppp, batchProduct?.purchaseUnit, batchProduct?.salesUnit);
+                                                return (
+                                                    <span>
+                                                        Exp: {b.expiry_date} • Stock: <span className="font-black text-emerald-800">{breakdown.displayText}</span> <span className="text-gray-400 font-mono">({b.remaining_qty} total pcs)</span>
+                                                    </span>
+                                                );
+                                            })()}
                                             </p>
                                         </div>
                                         <div className="text-right">

@@ -574,6 +574,9 @@ export default function PurchaseEntryPage() {
 
             // 2. Insert Line Items (pharmacy_purchase_products -> fallback to retail_purchase_products)
             for (const it of items) {
+                const ppp = Math.max(1, Number(it.piecesPerPackage) || 1);
+                const totalBasePieces = Math.round(Number(it.qty) * ppp);
+
                 const lineItemPayload = {
                     purchase_id: pId,
                     product_id: it.productId,
@@ -600,6 +603,10 @@ export default function PurchaseEntryPage() {
                             product_name: it.productName,
                             quantity: it.qty,
                             unit: it.purchaseUnit,
+                            big_quantity: it.qty,
+                            big_unit: it.purchaseUnit,
+                            pieces_per_package: ppp,
+                            piece_qty: totalBasePieces,
                             rate: it.price,
                             sales_cost: it.newSellPrice,
                             total_amount: it.total,
@@ -610,14 +617,14 @@ export default function PurchaseEntryPage() {
                     }
                 }
 
-                // 3. Register lot into pharmacy_batches (FEFO engine)
+                // 3. Register lot into pharmacy_batches (FEFO engine - Base inventory in small units/pieces)
                 const batchPayload = {
                     product_id: it.productId,
                     batch_number: it.batchNumber,
                     expiry_date: it.expiryDate,
                     manufacture_date: it.manufactureDate || null,
-                    quantity: it.qty,
-                    remaining_qty: it.qty,
+                    quantity: totalBasePieces,
+                    remaining_qty: totalBasePieces,
                     purchase_cost: it.price,
                     selling_price: it.newSellPrice,
                     supplier_id: selectedSupplierId,
@@ -625,7 +632,7 @@ export default function PurchaseEntryPage() {
                     purchase_invoice: invoiceNo,
                     status: 'Active',
                     outlet_id: outletId,
-                    notes: `Received via ${invoiceNo} on ${purchaseDate}. Storage: ${it.storageCondition}`,
+                    notes: `Received via ${invoiceNo} on ${purchaseDate} (${it.qty} ${it.purchaseUnit} x ${ppp} pcs = ${totalBasePieces} total). Storage: ${it.storageCondition}`,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString(),
                 };
@@ -642,17 +649,17 @@ export default function PurchaseEntryPage() {
                     // ignore if batches table not ready
                 }
 
-                // 4. Update Stock in pharmacy_stock & retail_stock
+                // 4. Update Stock in pharmacy_stock (base pieces)
                 try {
                     const stockPayload = {
                         pid: it.productId,
                         batch_id: batchId,
                         invoice_no: invoiceNo,
-                        qty: it.qty,
+                        qty: totalBasePieces,
                         storage_type: it.storageCondition,
                         expiry_date: it.expiryDate,
                         outlet_id: outletId,
-                        notes: `GRN ${invoiceNo}`,
+                        notes: `GRN ${invoiceNo}: ${it.qty} ${it.purchaseUnit} (${totalBasePieces} pcs)`,
                         created_at: new Date().toISOString(),
                     };
                     await supabase.from('pharmacy_stock').insert(stockPayload);
@@ -660,13 +667,14 @@ export default function PurchaseEntryPage() {
                     // ignore
                 }
 
-                // stock recorded in pharmacy_stock
-
-                // 5. Update Master Catalog Prices if requested
+                // 5. Update Master Catalog Prices & packaging if requested
                 if (it.updatePrices) {
                     const priceUpdates = {
                         purchase_cost: it.price,
                         sales_cost: it.newSellPrice,
+                        purchase_unit: it.purchaseUnit,
+                        sales_unit: it.salesUnit,
+                        pieces_per_package: ppp,
                         updated_at: new Date().toISOString(),
                     };
                     try {
