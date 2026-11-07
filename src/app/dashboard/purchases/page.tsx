@@ -1,11 +1,12 @@
 'use client';
 // =====================================================================
-// Alpha Pharmacy - Super Massive Purchases Master Register & Audit Hub v2.0
-// Ultra-Detailed Procurement Ledger, Invoice Breakdown, Dual DB Fallback,
-// Live Batch & Expiry Traceability, 360° Dossier, Printable GRN & Super Bright Excel
+// Alpha Pharmacy - Super Massive Purchases Master Register & Audit Hub v3.0
+// Ultra-Detailed Procurement Ledger, Expandable Invoice Items Breakdown,
+// High-Contrast Visible Headers, Live Batch & Expiry Traceability,
+// 360° Dossier, Printable GRN & Super Bright Excel
 // =====================================================================
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import { supabase, logActivity } from '@/lib/supabase';
 import { useOutlet } from '@/context/OutletContext';
 import Link from 'next/link';
@@ -28,7 +29,6 @@ export interface PurchaseRecord {
     notes?: string;
     created_at?: string;
     outlet_id?: number;
-    // Linked items count
     items_count?: number;
 }
 
@@ -47,6 +47,7 @@ export interface PurchaseItemDetail {
     total_amount: number;
     batch_number?: string;
     expiry_date?: string;
+    remaining_qty?: number;
 }
 
 export interface SupplierOption {
@@ -77,6 +78,11 @@ export default function PurchasesMasterPage() {
     const [isAutoFit, setIsAutoFit] = useState(true);
     const [activeDbTable, setActiveDbTable] = useState('purchases');
 
+    // Expandable Rows & Items Cache
+    const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+    const [purchaseItemsCache, setPurchaseItemsCache] = useState<Record<number, PurchaseItemDetail[]>>({});
+    const [loadingItemsMap, setLoadingItemsMap] = useState<Set<number>>(new Set());
+
     // Filters
     const [search, setSearch] = useState('');
     const [filterSupplier, setFilterSupplier] = useState('All');
@@ -105,6 +111,125 @@ export default function PurchasesMasterPage() {
     const [newPaymentStatus, setNewPaymentStatus] = useState<'Paid' | 'Unpaid' | 'Partial'>('Paid');
     const [paymentNotes, setPaymentNotes] = useState('');
     const [isUpdatingPayment, setIsUpdatingPayment] = useState(false);
+
+    // Fetch line items for a single purchase with multi-tier fallback
+    const fetchItemsForPurchase = useCallback(async (p: PurchaseRecord): Promise<PurchaseItemDetail[]> => {
+        try {
+            let items: PurchaseItemDetail[] = [];
+
+            // 1. Try pharmacy_purchase_products
+            const { data: pharmItems, error: pharmErr } = await supabase
+                .from('pharmacy_purchase_products')
+                .select('*')
+                .eq('purchase_id', p.purchase_id)
+                .order('id', { ascending: true });
+
+            if (!pharmErr && pharmItems && pharmItems.length > 0) {
+                items = pharmItems.map((r: any) => ({
+                    id: r.id,
+                    pp_id: r.pp_id,
+                    purchase_id: r.purchase_id,
+                    product_id: r.product_id,
+                    product_code: r.product_code || `PRD-${r.product_id}`,
+                    product_name: r.product_name,
+                    quantity: Number(r.quantity) || 0,
+                    unit: r.unit || 'Piece',
+                    rate: Number(r.rate) || 0,
+                    sales_cost: Number(r.sales_cost || r.selling_price) || 0,
+                    total_amount: Number(r.total_amount) || (Number(r.quantity) * Number(r.rate)),
+                    batch_number: r.batch_number,
+                    expiry_date: r.expiry_date,
+                }));
+            } else {
+                // Fallback 1: retail_purchase_products
+                const { data: retItems } = await supabase
+                    .from('retail_purchase_products')
+                    .select('*')
+                    .eq('purchase_id', p.purchase_id);
+                if (retItems && retItems.length > 0) {
+                    items = retItems.map((r: any) => ({
+                        id: r.id,
+                        purchase_id: r.purchase_id,
+                        product_id: r.product_id,
+                        product_code: r.product_code || `PRD-${r.product_id}`,
+                        product_name: r.product_name,
+                        quantity: Number(r.quantity) || 0,
+                        unit: r.unit || 'Piece',
+                        rate: Number(r.rate) || 0,
+                        sales_cost: Number(r.sales_cost) || 0,
+                        total_amount: Number(r.total_amount) || (Number(r.quantity) * Number(r.rate)),
+                    }));
+                }
+            }
+
+            // Fallback 2: If still empty, check pharmacy_batches matching invoice #
+            if (items.length === 0 && (p.purchase_no || p.supplier_invoice)) {
+                const invQuery = p.purchase_no || p.supplier_invoice;
+                const { data: bData } = await supabase
+                    .from('pharmacy_batches')
+                    .select('*')
+                    .or(`purchase_invoice.eq.${invQuery},batch_number.eq.${invQuery}`);
+
+                if (bData && bData.length > 0) {
+                    const pids = bData.map((b: any) => b.product_id).filter(Boolean);
+                    const prodMap = new Map<number, string>();
+                    if (pids.length > 0) {
+                        const { data: prods } = await supabase
+                            .from('pharmacy_products')
+                            .select('pid, name, product_name')
+                            .in('pid', pids);
+                        if (prods) {
+                            prods.forEach((pr: any) => prodMap.set(pr.pid, pr.product_name || pr.name));
+                        }
+                    }
+
+                    items = bData.map((b: any, idx: number) => ({
+                        id: b.batch_id || idx,
+                        purchase_id: p.purchase_id,
+                        product_id: b.product_id,
+                        product_code: `BAT-${b.batch_number}`,
+                        product_name: prodMap.get(b.product_id) || b.product_name || `Drug #${b.product_id}`,
+                        quantity: Number(b.quantity) || 0,
+                        unit: b.unit || 'Piece',
+                        rate: Number(b.purchase_cost) || 0,
+                        sales_cost: Number(b.selling_price) || 0,
+                        total_amount: (Number(b.quantity) || 0) * (Number(b.purchase_cost) || 0),
+                        batch_number: b.batch_number,
+                        expiry_date: b.expiry_date,
+                        remaining_qty: b.remaining_qty,
+                    }));
+                }
+            }
+
+            // Enhance with batch info from pharmacy_batches if available
+            if (items.length > 0 && p.purchase_no) {
+                const { data: batchData } = await supabase
+                    .from('pharmacy_batches')
+                    .select('batch_number, expiry_date, product_id, remaining_qty, selling_price')
+                    .eq('purchase_invoice', p.purchase_no);
+
+                if (batchData && batchData.length > 0) {
+                    const batchMap = new Map<number, any>();
+                    batchData.forEach((b: any) => batchMap.set(b.product_id, b));
+                    items = items.map((it) => {
+                        const matched = batchMap.get(it.product_id);
+                        return {
+                            ...it,
+                            batch_number: matched?.batch_number || it.batch_number || 'N/A',
+                            expiry_date: matched?.expiry_date || it.expiry_date || 'N/A',
+                            remaining_qty: matched?.remaining_qty,
+                            sales_cost: matched?.selling_price || it.sales_cost,
+                        };
+                    });
+                }
+            }
+
+            return items;
+        } catch (err) {
+            console.error('Error fetching purchase items:', err);
+            return [];
+        }
+    }, []);
 
     // =====================================================================
     // LOAD PURCHASES & VENDORS WITH DUAL-TABLE DATABASE FALLBACK
@@ -147,6 +272,75 @@ export default function PurchasesMasterPage() {
             setActiveDbTable(resolvedTable);
             setPurchases(purchasesData);
 
+            // Pre-fetch line items for visible purchases for instant count & expansion
+            if (purchasesData.length > 0) {
+                const pIds = purchasesData.map((p) => p.purchase_id).slice(0, 100);
+                const { data: pItems } = await supabase
+                    .from('pharmacy_purchase_products')
+                    .select('*')
+                    .in('purchase_id', pIds);
+
+                const cache: Record<number, PurchaseItemDetail[]> = {};
+                if (pItems && pItems.length > 0) {
+                    pItems.forEach((it: any) => {
+                        if (!cache[it.purchase_id]) cache[it.purchase_id] = [];
+                        cache[it.purchase_id].push({
+                            id: it.id,
+                            pp_id: it.pp_id,
+                            purchase_id: it.purchase_id,
+                            product_id: it.product_id,
+                            product_code: it.product_code || `PRD-${it.product_id}`,
+                            product_name: it.product_name,
+                            quantity: Number(it.quantity) || 0,
+                            unit: it.unit || 'Piece',
+                            rate: Number(it.rate) || 0,
+                            sales_cost: Number(it.sales_cost) || 0,
+                            total_amount: Number(it.total_amount) || (Number(it.quantity) * Number(it.rate)),
+                            batch_number: it.batch_number,
+                            expiry_date: it.expiry_date,
+                        });
+                    });
+                }
+
+                // Check pharmacy_batches for any purchases without items in pharmacy_purchase_products
+                const missingP = purchasesData.filter((p) => !cache[p.purchase_id] || cache[p.purchase_id].length === 0);
+                if (missingP.length > 0) {
+                    const invNos = missingP.map((p) => p.purchase_no).filter(Boolean);
+                    if (invNos.length > 0) {
+                        const { data: bData } = await supabase
+                            .from('pharmacy_batches')
+                            .select('*')
+                            .in('purchase_invoice', invNos);
+
+                        if (bData && bData.length > 0) {
+                            bData.forEach((b: any) => {
+                                const matchedP = purchasesData.find((p) => p.purchase_no === b.purchase_invoice);
+                                if (matchedP) {
+                                    if (!cache[matchedP.purchase_id]) cache[matchedP.purchase_id] = [];
+                                    cache[matchedP.purchase_id].push({
+                                        id: b.batch_id,
+                                        purchase_id: matchedP.purchase_id,
+                                        product_id: b.product_id,
+                                        product_code: `BAT-${b.batch_number}`,
+                                        product_name: b.product_name || `Drug #${b.product_id}`,
+                                        quantity: Number(b.quantity) || 0,
+                                        unit: b.unit || 'Box',
+                                        rate: Number(b.purchase_cost) || 0,
+                                        sales_cost: Number(b.selling_price) || 0,
+                                        total_amount: (Number(b.quantity) || 0) * (Number(b.purchase_cost) || 0),
+                                        batch_number: b.batch_number,
+                                        expiry_date: b.expiry_date,
+                                        remaining_qty: b.remaining_qty,
+                                    });
+                                }
+                            });
+                        }
+                    }
+                }
+
+                setPurchaseItemsCache(cache);
+            }
+
             // 2. Fetch Suppliers (pharmacy_suppliers -> fallback to suppliers)
             let suppList: SupplierOption[] = [];
             const { data: sPharm, error: sPharmErr } = await supabase
@@ -176,6 +370,30 @@ export default function PurchasesMasterPage() {
         loadData();
     }, [loadData]);
 
+    // Expand/Collapse Row
+    const toggleRow = async (p: PurchaseRecord) => {
+        const next = new Set(expandedRows);
+        if (next.has(p.purchase_id)) {
+            next.delete(p.purchase_id);
+        } else {
+            next.add(p.purchase_id);
+            if (!purchaseItemsCache[p.purchase_id]) {
+                setLoadingItemsMap((prev) => new Set(prev).add(p.purchase_id));
+                try {
+                    const items = await fetchItemsForPurchase(p);
+                    setPurchaseItemsCache((prev) => ({ ...prev, [p.purchase_id]: items }));
+                } finally {
+                    setLoadingItemsMap((prev) => {
+                        const s = new Set(prev);
+                        s.delete(p.purchase_id);
+                        return s;
+                    });
+                }
+            }
+        }
+        setExpandedRows(next);
+    };
+
     // View Invoice Dossier with Line Items & Linked Batches
     const handleViewDossier = async (p: PurchaseRecord) => {
         setActivePurchase(p);
@@ -183,60 +401,13 @@ export default function PurchasesMasterPage() {
         setIsLoadingItems(true);
 
         try {
-            // 1. Try fetching line items from pharmacy_purchase_products then retail_purchase_products
-            let items: PurchaseItemDetail[] = [];
-            const { data: pharmItems, error: pharmErr } = await supabase
-                .from('pharmacy_purchase_products')
-                .select('*')
-                .eq('purchase_id', p.purchase_id);
-
-            if (!pharmErr && pharmItems && pharmItems.length > 0) {
-                items = pharmItems;
+            if (purchaseItemsCache[p.purchase_id] && purchaseItemsCache[p.purchase_id].length > 0) {
+                setPurchaseLineItems(purchaseItemsCache[p.purchase_id]);
             } else {
-                const { data: retItems } = await supabase
-                    .from('retail_purchase_products')
-                    .select('*')
-                    .eq('purchase_id', p.purchase_id);
-                if (retItems && retItems.length > 0) {
-                    items = retItems.map((r: any) => ({
-                        id: r.id,
-                        purchase_id: r.purchase_id,
-                        product_id: r.product_id,
-                        product_code: r.product_code || `PRD-${r.product_id}`,
-                        product_name: r.product_name,
-                        quantity: Number(r.quantity) || 0,
-                        unit: r.unit || 'Piece',
-                        pieces_per_package: r.pieces_per_package || 1,
-                        rate: Number(r.rate) || 0,
-                        sales_cost: Number(r.sales_cost) || 0,
-                        total_amount: Number(r.total_amount) || (Number(r.quantity) * Number(r.rate)),
-                    }));
-                }
+                const items = await fetchItemsForPurchase(p);
+                setPurchaseLineItems(items);
+                setPurchaseItemsCache((prev) => ({ ...prev, [p.purchase_id]: items }));
             }
-
-            // 2. Fetch linked batches from pharmacy_batches matching this invoice #
-            if (p.purchase_no) {
-                const { data: batchData } = await supabase
-                    .from('pharmacy_batches')
-                    .select('batch_number, expiry_date, product_id')
-                    .eq('purchase_invoice', p.purchase_no);
-
-                if (batchData && batchData.length > 0) {
-                    const batchMap = new Map<number, { batch_number: string; expiry_date: string }>();
-                    batchData.forEach((b: any) => batchMap.set(b.product_id, b));
-
-                    items = items.map((it) => {
-                        const matched = batchMap.get(it.product_id);
-                        return {
-                            ...it,
-                            batch_number: matched?.batch_number || it.batch_number || 'N/A',
-                            expiry_date: matched?.expiry_date || it.expiry_date || 'N/A',
-                        };
-                    });
-                }
-            }
-
-            setPurchaseLineItems(items);
         } catch (err: any) {
             console.error('Failed to load invoice items:', err);
             toast.error('Failed to load itemized lines');
@@ -260,13 +431,18 @@ export default function PurchasesMasterPage() {
 
         setIsUpdatingPayment(true);
         try {
+            const updatePayload: any = {
+                payment_status: newPaymentStatus,
+                notes: `${paymentPurchase.notes || ''}\n[${new Date().toLocaleDateString()}] Payment updated to ${newPaymentStatus}: ${paymentNotes}`,
+            };
+            // Note: pharmacy_purchases does NOT have an updated_at column
+            if (activeDbTable !== 'pharmacy_purchases') {
+                updatePayload.updated_at = new Date().toISOString();
+            }
+
             const { error } = await supabase
                 .from(activeDbTable)
-                .update({
-                    payment_status: newPaymentStatus,
-                    updated_at: new Date().toISOString(),
-                    notes: `${paymentPurchase.notes || ''}\n[${new Date().toLocaleDateString()}] Payment updated to ${newPaymentStatus}: ${paymentNotes}`,
-                })
+                .update(updatePayload)
                 .eq('purchase_id', paymentPurchase.purchase_id);
 
             if (error) throw error;
@@ -287,14 +463,13 @@ export default function PurchasesMasterPage() {
         }
     };
 
-    // Delete Invoice & Reverse Stock
+    // Delete Invoice & Line Items
     const handleDeletePurchase = async (p: PurchaseRecord) => {
         if (!confirm(`Are you sure you want to delete Invoice ${p.purchase_no}? This action will permanently remove the record.`)) {
             return;
         }
 
         try {
-            // Delete line items
             try {
                 await supabase.from('pharmacy_purchase_products').delete().eq('purchase_id', p.purchase_id);
             } catch {
@@ -389,6 +564,14 @@ export default function PurchasesMasterPage() {
         const unpaidDebt = unpaidPurchases.reduce((sum, p) => sum + (Number(p.grand_total) || 0), 0);
         const avgOrder = totalCount > 0 ? Math.round(totalSpend / totalCount) : 0;
 
+        // Calculate total physical units from cached line items
+        let totalUnits = 0;
+        Object.values(purchaseItemsCache).forEach((items) => {
+            items.forEach((it) => {
+                totalUnits += Number(it.quantity) || 0;
+            });
+        });
+
         // Top Vendor by spend
         const vendorSpendMap = new Map<string, number>();
         purchases.forEach((p) => {
@@ -407,6 +590,7 @@ export default function PurchasesMasterPage() {
         return {
             totalCount,
             totalSpend,
+            totalUnits,
             paidCount: paidPurchases.length,
             paidSpend,
             unpaidCount: unpaidPurchases.length,
@@ -415,7 +599,7 @@ export default function PurchasesMasterPage() {
             topVendor,
             topSpend,
         };
-    }, [purchases]);
+    }, [purchases, purchaseItemsCache]);
 
     // Quick Date Range Presets
     const applyDatePreset = (preset: 'today' | 'week' | 'month' | 'quarter' | 'all') => {
@@ -460,7 +644,6 @@ export default function PurchasesMasterPage() {
 
     // =====================================================================
     // BRIGHT COLORS EXCEL EXPORTER (SpreadsheetML XML)
-    // Matches the exact high-voltage vivid styling of Batches / Suppliers
     // =====================================================================
     const exportBrightExcel = () => {
         if (filtered.length === 0) {
@@ -583,6 +766,7 @@ export default function PurchasesMasterPage() {
    <Column ss:Width="80"/>  <!-- Date -->
    <Column ss:Width="160"/> <!-- Supplier -->
    <Column ss:Width="95"/>  <!-- Delivery Ref -->
+   <Column ss:Width="110"/> <!-- Items & Qty -->
    <Column ss:Width="95"/>  <!-- Subtotal -->
    <Column ss:Width="80"/>  <!-- Discount -->
    <Column ss:Width="105"/> <!-- Grand Total -->
@@ -592,22 +776,22 @@ export default function PurchasesMasterPage() {
 
    <!-- Title Banner -->
    <Row ss:Height="34">
-    <Cell ss:MergeAcross="9" ss:StyleID="TitleBanner"><Data ss:Type="String">ALPHA PHARMACY - PROCUREMENT &amp; PURCHASES MASTER AUDIT</Data></Cell>
+    <Cell ss:MergeAcross="10" ss:StyleID="TitleBanner"><Data ss:Type="String">ALPHA PHARMACY - PROCUREMENT &amp; PURCHASES MASTER AUDIT</Data></Cell>
    </Row>
 
    <!-- Meta Banner -->
    <Row ss:Height="20">
-    <Cell ss:MergeAcross="9" ss:StyleID="MetaBanner"><Data ss:Type="String">Generated: ${genDate} | Outlet: ${escapeXml(outletName)} | Database: ${escapeXml(activeDbTable)} | Count: ${filtered.length} Orders</Data></Cell>
+    <Cell ss:MergeAcross="10" ss:StyleID="MetaBanner"><Data ss:Type="String">Generated: ${genDate} | Outlet: ${escapeXml(outletName)} | Database: ${escapeXml(activeDbTable)} | Count: ${filtered.length} Orders</Data></Cell>
    </Row>
 
    <!-- KPI Cards Row -->
    <Row ss:Height="18">
-    <Cell ss:MergeAcross="2" ss:StyleID="KpiHdrBlue"><Data ss:Type="String">TOTAL PROCUREMENT ORDERS</Data></Cell>
+    <Cell ss:MergeAcross="3" ss:StyleID="KpiHdrBlue"><Data ss:Type="String">TOTAL PROCUREMENT ORDERS</Data></Cell>
     <Cell ss:MergeAcross="3" ss:StyleID="KpiHdrGreen"><Data ss:Type="String">LIFETIME PROCUREMENT VOLUME</Data></Cell>
     <Cell ss:MergeAcross="3" ss:StyleID="KpiHdrRed"><Data ss:Type="String">OUTSTANDING CREDIT / DEBT</Data></Cell>
    </Row>
    <Row ss:Height="24">
-    <Cell ss:MergeAcross="2" ss:StyleID="KpiValBlue"><Data ss:Type="String">${filtered.length} Orders in Range</Data></Cell>
+    <Cell ss:MergeAcross="3" ss:StyleID="KpiValBlue"><Data ss:Type="String">${filtered.length} Orders in Range</Data></Cell>
     <Cell ss:MergeAcross="3" ss:StyleID="KpiValGreen"><Data ss:Type="Number">${totalGrand}</Data></Cell>
     <Cell ss:MergeAcross="3" ss:StyleID="KpiValRed"><Data ss:Type="Number">${kpis.unpaidDebt}</Data></Cell>
    </Row>
@@ -620,6 +804,7 @@ export default function PurchasesMasterPage() {
     <Cell ss:StyleID="ColHeader"><Data ss:Type="String">DATE</Data></Cell>
     <Cell ss:StyleID="ColHeader"><Data ss:Type="String">SUPPLIER / DISTRIBUTOR</Data></Cell>
     <Cell ss:StyleID="ColHeader"><Data ss:Type="String">DELIVERY / INV #</Data></Cell>
+    <Cell ss:StyleID="ColHeader"><Data ss:Type="String">ITEMS &amp; QTY</Data></Cell>
     <Cell ss:StyleID="ColHeader"><Data ss:Type="String">SUBTOTAL</Data></Cell>
     <Cell ss:StyleID="ColHeader"><Data ss:Type="String">DISCOUNT</Data></Cell>
     <Cell ss:StyleID="ColHeader"><Data ss:Type="String">GRAND TOTAL</Data></Cell>
@@ -632,11 +817,15 @@ export default function PurchasesMasterPage() {
    ${filtered
        .map((p) => {
            const isPaid = (p.payment_status || '').toLowerCase() === 'paid';
+           const items = purchaseItemsCache[p.purchase_id] || [];
+           const qtySum = items.reduce((s, it) => s + (Number(it.quantity) || 0), 0);
+           const qtyStr = items.length > 0 ? `${qtySum} Units (${items.length} lines)` : '—';
            return `<Row ss:Height="20">
     <Cell ss:StyleID="CellTextBold"><Data ss:Type="String">${escapeXml(p.purchase_no)}</Data></Cell>
     <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(p.purchase_date)}</Data></Cell>
     <Cell ss:StyleID="CellTextBold"><Data ss:Type="String">${escapeXml(p.supplier_name)}</Data></Cell>
     <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(p.supplier_invoice || '—')}</Data></Cell>
+    <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${escapeXml(qtyStr)}</Data></Cell>
     <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${p.sub_total || 0}</Data></Cell>
     <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${p.discount || 0}</Data></Cell>
     <Cell ss:StyleID="CellCurrency"><Data ss:Type="Number">${p.grand_total || 0}</Data></Cell>
@@ -649,7 +838,7 @@ export default function PurchasesMasterPage() {
 
    <!-- Grand Summary Totals -->
    <Row ss:Height="24">
-    <Cell ss:MergeAcross="3" ss:StyleID="SummaryLabel"><Data ss:Type="String">GRAND PROCUREMENT TOTALS:</Data></Cell>
+    <Cell ss:MergeAcross="4" ss:StyleID="SummaryLabel"><Data ss:Type="String">GRAND PROCUREMENT TOTALS:</Data></Cell>
     <Cell ss:StyleID="SummaryVal"><Data ss:Type="Number">${totalSub}</Data></Cell>
     <Cell ss:StyleID="SummaryVal"><Data ss:Type="Number">${totalDisc}</Data></Cell>
     <Cell ss:StyleID="SummaryVal"><Data ss:Type="Number">${totalGrand}</Data></Cell>
@@ -673,7 +862,7 @@ export default function PurchasesMasterPage() {
 
     if (isLoading) {
         return (
-            <div className="flex flex-col items-center justify-center h-96" style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+            <div className="flex flex-col items-center justify-center h-96">
                 <div className="w-14 h-14 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
                 <p className="mt-4 text-gray-900 font-bold text-base">Loading Purchases &amp; Procurement Register...</p>
                 <p className="text-xs text-gray-500 mt-1">Connecting to active invoices, line items &amp; vendor accounts</p>
@@ -682,15 +871,15 @@ export default function PurchasesMasterPage() {
     }
 
     return (
-        <div className="w-full max-w-full space-y-4 px-1 md:px-2 pb-16" style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+        <div className="w-full max-w-full space-y-4 px-1 md:px-2 pb-16">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-gray-200 shadow-xs">
                 <div className="flex items-center gap-3">
                     <div className="w-12 h-12 bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl flex items-center justify-center text-white text-2xl shadow-lg flex-shrink-0">
                         📋
                     </div>
                     <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <h1 className="text-2xl font-black text-gray-900 tracking-tight">Purchases Master Register &amp; Ledger</h1>
                             <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-900 rounded-full text-xs font-bold border border-emerald-200">
                                 Enterprise Audit
@@ -700,7 +889,7 @@ export default function PurchasesMasterPage() {
                             </span>
                         </div>
                         <p className="text-gray-600 text-xs mt-0.5">
-                            Active Outlet: <span className="font-bold text-gray-900">{outletName}</span> • Audit supplier deliveries, GRN invoices, itemized pharmaceutical lot history &amp; settlement status
+                            Active Outlet: <span className="font-bold text-gray-900">{outletName}</span> • Audit supplier deliveries, itemized received batches &amp; settlement status
                         </p>
                     </div>
                 </div>
@@ -752,13 +941,20 @@ export default function PurchasesMasterPage() {
                 </div>
             </div>
 
-            {/* 6 Light Gradient Stat KPI Cards */}
+            {/* 6 High-Impact Stat KPI Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5 w-full">
                 {/* Total Procurement Spend */}
                 <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-3.5 border border-emerald-100 shadow-xs relative overflow-hidden">
                     <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Total Procurement</p>
                     <p className="text-lg font-black text-emerald-950 mt-1">Ksh {kpis.totalSpend.toLocaleString()}</p>
                     <p className="text-[10px] text-gray-600 font-medium mt-0.5">{kpis.totalCount} Invoices in DB</p>
+                </div>
+
+                {/* Total Received Units */}
+                <div className="bg-gradient-to-br from-teal-50 to-emerald-100 rounded-2xl p-3.5 border border-teal-200 shadow-xs relative overflow-hidden">
+                    <p className="text-[10px] font-bold text-teal-800 uppercase tracking-wider">Total Units Received</p>
+                    <p className="text-lg font-black text-teal-950 mt-1">📦 {kpis.totalUnits.toLocaleString()} Units</p>
+                    <p className="text-[10px] text-teal-800 font-medium mt-0.5">Physical Stock Intake</p>
                 </div>
 
                 {/* Paid Spend */}
@@ -789,15 +985,6 @@ export default function PurchasesMasterPage() {
                         {kpis.topVendor}
                     </p>
                     <p className="text-[10px] text-amber-800 font-bold mt-0.5">Ksh {kpis.topSpend.toLocaleString()}</p>
-                </div>
-
-                {/* Filtered Range Total */}
-                <div className="bg-gradient-to-br from-slate-50 to-gray-100 rounded-2xl p-3.5 border border-gray-200 shadow-xs relative overflow-hidden">
-                    <p className="text-[10px] font-bold text-gray-700 uppercase tracking-wider">Filtered View Total</p>
-                    <p className="text-lg font-black text-gray-950 mt-1">
-                        Ksh {filtered.reduce((sum, p) => sum + (Number(p.grand_total) || 0), 0).toLocaleString()}
-                    </p>
-                    <p className="text-[10px] text-gray-600 font-medium mt-0.5">{filtered.length} Matching Orders</p>
                 </div>
             </div>
 
@@ -943,37 +1130,41 @@ export default function PurchasesMasterPage() {
                 </div>
             </div>
 
-            {/* Main Purchases DataGrid Table */}
-            <div className="bg-white rounded-3xl border border-gray-200 shadow-xs overflow-hidden">
+            {/* Main Purchases DataGrid Table with High-Contrast Dark Headers & Dropdown Collapsible Rows */}
+            <div className="bg-white rounded-3xl border border-gray-200 shadow-md overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                            <tr className="bg-gray-50/80 border-b border-gray-200 text-[10px] font-black uppercase text-gray-900 tracking-wider">
-                                <th className="p-3 w-8">
+                        <thead className="bg-slate-900 border-b-2 border-emerald-500 text-white font-black uppercase text-[11px] tracking-wider">
+                            <tr>
+                                <th className="p-3 text-white text-center w-8">
+                                    <span className="text-gray-400">#</span>
+                                </th>
+                                <th className="p-3 text-white w-8">
                                     <input
                                         type="checkbox"
                                         checked={paginated.length > 0 && selectedIds.size === paginated.length}
                                         onChange={(e) => handleSelectAll(e.target.checked)}
-                                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                        className="rounded border-gray-400 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                                     />
                                 </th>
-                                <th className="p-3">Purchase / GRN #</th>
-                                <th className="p-3">Date</th>
-                                <th className="p-3">Distributor / Supplier</th>
-                                <th className="p-3">Delivery Ref</th>
-                                <th className="p-3 text-right">Subtotal</th>
-                                <th className="p-3 text-right">Discount</th>
-                                <th className="p-3 text-right">Grand Total</th>
-                                <th className="p-3 text-center">Payment Status</th>
-                                <th className="p-3 text-center">Order Status</th>
-                                <th className="p-3">Received By</th>
-                                <th className="p-3 text-center w-36">Actions</th>
+                                <th className="p-3 text-white whitespace-nowrap">Invoice / GRN #</th>
+                                <th className="p-3 text-white whitespace-nowrap">Date</th>
+                                <th className="p-3 text-white whitespace-nowrap">Distributor / Supplier</th>
+                                <th className="p-3 text-white whitespace-nowrap">Delivery Ref</th>
+                                <th className="p-3 text-white text-center whitespace-nowrap">Items &amp; Qty Received</th>
+                                <th className="p-3 text-white text-right whitespace-nowrap">Subtotal</th>
+                                <th className="p-3 text-white text-right whitespace-nowrap">Discount</th>
+                                <th className="p-3 text-white text-right whitespace-nowrap">Grand Total</th>
+                                <th className="p-3 text-white text-center whitespace-nowrap">Payment Status</th>
+                                <th className="p-3 text-white text-center whitespace-nowrap">Order Status</th>
+                                <th className="p-3 text-white whitespace-nowrap">Received By</th>
+                                <th className="p-3 text-white text-center w-36 whitespace-nowrap">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-gray-900 font-medium">
                             {paginated.length === 0 ? (
                                 <tr>
-                                    <td colSpan={12} className="p-12 text-center text-gray-500">
+                                    <td colSpan={14} className="p-12 text-center text-gray-500">
                                         <div className="text-4xl mb-2">📋</div>
                                         <p className="font-bold text-gray-800 text-sm">No purchase orders found</p>
                                         <p className="text-xs text-gray-500 mt-1">Try clearing your filters or create a new GRN</p>
@@ -983,101 +1174,295 @@ export default function PurchasesMasterPage() {
                                 paginated.map((p) => {
                                     const isSelected = selectedIds.has(p.purchase_id);
                                     const isPaid = (p.payment_status || '').toLowerCase() === 'paid';
+                                    const isExpanded = expandedRows.has(p.purchase_id);
+                                    const items = purchaseItemsCache[p.purchase_id] || [];
+                                    const isRowLoading = loadingItemsMap.has(p.purchase_id);
+                                    const totalUnitsInInvoice = items.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
 
                                     return (
-                                        <tr
-                                            key={p.purchase_id}
-                                            className={`hover:bg-emerald-50/40 transition-colors ${
-                                                isSelected ? 'bg-emerald-50/70' : ''
-                                            }`}
-                                        >
-                                            <td className="p-3">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={isSelected}
-                                                    onChange={() => handleSelectOne(p.purchase_id)}
-                                                    className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                                                />
-                                            </td>
-                                            <td className="p-3 whitespace-nowrap">
-                                                <button
-                                                    onClick={() => handleViewDossier(p)}
-                                                    className="px-2.5 py-0.5 bg-blue-50 hover:bg-blue-100 text-blue-900 font-mono font-bold rounded-md border border-blue-200 inline-flex items-center gap-1 transition-colors"
-                                                    title="Click to view full line items dossier"
-                                                >
-                                                    {p.purchase_no}
-                                                </button>
-                                            </td>
-                                            <td className="p-3 whitespace-nowrap text-gray-700 font-semibold">
-                                                {p.purchase_date}
-                                            </td>
-                                            <td className="p-3 whitespace-nowrap">
-                                                <p className="font-bold text-gray-900">{p.supplier_name}</p>
-                                            </td>
-                                            <td className="p-3 whitespace-nowrap font-mono text-gray-700">
-                                                {p.supplier_invoice || '—'}
-                                            </td>
-                                            <td className="p-3 text-right font-mono font-bold text-gray-800 whitespace-nowrap">
-                                                Ksh {(p.sub_total || 0).toLocaleString()}
-                                            </td>
-                                            <td className="p-3 text-right font-mono text-gray-600 whitespace-nowrap">
-                                                {p.discount ? `Ksh ${Number(p.discount).toLocaleString()}` : '—'}
-                                            </td>
-                                            <td className="p-3 text-right font-mono font-black text-gray-950 whitespace-nowrap">
-                                                Ksh {(p.grand_total || 0).toLocaleString()}
-                                            </td>
-                                            <td className="p-3 text-center whitespace-nowrap">
-                                                <button
-                                                    onClick={() => handleOpenPaymentUpdate(p)}
-                                                    className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
-                                                        isPaid
-                                                            ? 'bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200'
-                                                            : 'bg-red-100 text-red-900 border-red-300 hover:bg-red-200'
-                                                    }`}
-                                                    title="Click to update payment settlement"
-                                                >
-                                                    {p.payment_status || 'Paid'}
-                                                </button>
-                                            </td>
-                                            <td className="p-3 text-center whitespace-nowrap">
-                                                <span className="px-2 py-0.5 bg-gray-100 text-gray-800 rounded font-bold text-[10px]">
-                                                    {p.status || 'Completed'}
-                                                </span>
-                                            </td>
-                                            <td className="p-3 whitespace-nowrap text-gray-700">
-                                                {p.created_by || 'Pharmacist'}
-                                            </td>
-                                            <td className="p-3 text-center whitespace-nowrap">
-                                                <div className="flex items-center justify-center gap-1">
-                                                    {/* View Line Items */}
+                                        <Fragment key={p.purchase_id}>
+                                            <tr
+                                                className={`hover:bg-emerald-50/50 transition-colors border-b border-gray-100 cursor-pointer ${
+                                                    isSelected ? 'bg-emerald-50/70' : isExpanded ? 'bg-emerald-50/40' : ''
+                                                }`}
+                                                onClick={() => toggleRow(p)}
+                                            >
+                                                {/* Chevron Dropdown Toggle */}
+                                                <td className="p-3 text-center" onClick={(e) => { e.stopPropagation(); toggleRow(p); }}>
                                                     <button
-                                                        onClick={() => handleViewDossier(p)}
-                                                        className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
-                                                        title="View Line Items &amp; Batches"
+                                                        type="button"
+                                                        className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold transition-all ${
+                                                            isExpanded
+                                                                ? 'bg-emerald-600 text-white rotate-90 shadow-xs'
+                                                                : 'bg-gray-100 text-gray-700 hover:bg-emerald-100 hover:text-emerald-800'
+                                                        }`}
+                                                        title={isExpanded ? 'Collapse line items' : 'Click to expand invoice items'}
                                                     >
-                                                        👁️
+                                                        ▶
                                                     </button>
+                                                </td>
 
-                                                    {/* Update Payment */}
+                                                {/* Checkbox */}
+                                                <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => handleSelectOne(p.purchase_id)}
+                                                        className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                                    />
+                                                </td>
+
+                                                {/* Purchase / GRN # */}
+                                                <td className="p-3 whitespace-nowrap">
+                                                    <span className="px-2.5 py-1 bg-blue-50 text-blue-900 font-mono font-black rounded-lg border border-blue-200 inline-flex items-center gap-1.5 shadow-xs">
+                                                        <span>📄</span>
+                                                        {p.purchase_no}
+                                                    </span>
+                                                </td>
+
+                                                {/* Date */}
+                                                <td className="p-3 whitespace-nowrap text-gray-800 font-bold font-mono">
+                                                    {p.purchase_date}
+                                                </td>
+
+                                                {/* Distributor / Supplier */}
+                                                <td className="p-3 whitespace-nowrap">
+                                                    <p className="font-black text-gray-950">{p.supplier_name}</p>
+                                                </td>
+
+                                                {/* Delivery Ref */}
+                                                <td className="p-3 whitespace-nowrap font-mono text-gray-700 font-bold">
+                                                    {p.supplier_invoice || '—'}
+                                                </td>
+
+                                                {/* Received Items & Qty */}
+                                                <td className="p-3 text-center whitespace-nowrap">
+                                                    {isRowLoading ? (
+                                                        <span className="text-[11px] text-gray-400 font-bold animate-pulse">Loading...</span>
+                                                    ) : items.length > 0 ? (
+                                                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">
+                                                            <span>📦</span>
+                                                            <span>{totalUnitsInInvoice} Units</span>
+                                                            <span className="text-emerald-700 font-normal">({items.length} {items.length === 1 ? 'line' : 'lines'})</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-gray-400 font-mono text-[11px]">Click to view</span>
+                                                    )}
+                                                </td>
+
+                                                {/* Subtotal */}
+                                                <td className="p-3 text-right font-mono font-bold text-gray-800 whitespace-nowrap">
+                                                    Ksh {(p.sub_total || 0).toLocaleString()}
+                                                </td>
+
+                                                {/* Discount */}
+                                                <td className="p-3 text-right font-mono text-red-600 font-bold whitespace-nowrap">
+                                                    {p.discount ? `-Ksh ${Number(p.discount).toLocaleString()}` : '—'}
+                                                </td>
+
+                                                {/* Grand Total */}
+                                                <td className="p-3 text-right font-mono font-black text-emerald-950 text-sm whitespace-nowrap">
+                                                    Ksh {(p.grand_total || 0).toLocaleString()}
+                                                </td>
+
+                                                {/* Payment Status */}
+                                                <td className="p-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                                     <button
                                                         onClick={() => handleOpenPaymentUpdate(p)}
-                                                        className="p-1.5 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-colors"
-                                                        title="Update Payment Settlement"
+                                                        className={`px-3 py-1 rounded-full text-[10px] font-black border transition-colors shadow-xs ${
+                                                            isPaid
+                                                                ? 'bg-emerald-100 text-emerald-900 border-emerald-300 hover:bg-emerald-200'
+                                                                : 'bg-rose-100 text-rose-900 border-rose-300 hover:bg-rose-200'
+                                                        }`}
+                                                        title="Click to update payment settlement"
                                                     >
-                                                        💳
+                                                        {isPaid ? '✓ Paid' : '⏳ Due'}
                                                     </button>
+                                                </td>
 
-                                                    {/* Delete */}
-                                                    <button
-                                                        onClick={() => handleDeletePurchase(p)}
-                                                        className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
-                                                        title="Delete Purchase Record"
-                                                    >
-                                                        🗑️
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
+                                                {/* Order Status */}
+                                                <td className="p-3 text-center whitespace-nowrap">
+                                                    <span className="px-2.5 py-0.5 bg-gray-100 text-gray-800 rounded-full font-bold text-[10px] border border-gray-200">
+                                                        {p.status || 'Completed'}
+                                                    </span>
+                                                </td>
+
+                                                {/* Received By */}
+                                                <td className="p-3 whitespace-nowrap text-gray-700 font-semibold">
+                                                    {p.created_by || 'Pharmacist'}
+                                                </td>
+
+                                                {/* Actions */}
+                                                <td className="p-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="flex items-center justify-center gap-1.5">
+                                                        <button
+                                                            onClick={() => toggleRow(p)}
+                                                            className={`p-1.5 rounded-lg transition-colors ${isExpanded ? 'bg-emerald-600 text-white' : 'bg-gray-100 hover:bg-emerald-100 text-gray-700'}`}
+                                                            title="Toggle Individual Items Dropdown"
+                                                        >
+                                                            <span>📦</span>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleViewDossier(p)}
+                                                            className="p-1.5 bg-gray-100 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors"
+                                                            title="View Full 360° Dossier &amp; Print"
+                                                        >
+                                                            👁️
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleOpenPaymentUpdate(p)}
+                                                            className="p-1.5 bg-gray-100 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors"
+                                                            title="Update Payment Settlement"
+                                                        >
+                                                            💳
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeletePurchase(p)}
+                                                            className="p-1.5 bg-gray-100 hover:bg-rose-100 text-rose-600 rounded-lg transition-colors"
+                                                            title="Delete Purchase Record"
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+
+                                            {/* EXPANDED INLINE ITEMS ACCORDION */}
+                                            {isExpanded && (
+                                                <tr className="bg-emerald-50/20">
+                                                    <td colSpan={14} className="p-3 md:p-5">
+                                                        <div className="bg-white rounded-3xl border-2 border-emerald-300 shadow-md p-4 md:p-5 space-y-4">
+                                                            {/* Header banner */}
+                                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-gray-100">
+                                                                <div className="flex items-center gap-3">
+                                                                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center text-xl font-bold shadow-sm">
+                                                                        📦
+                                                                    </div>
+                                                                    <div>
+                                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                                            <h4 className="font-black text-sm text-gray-900 tracking-tight">
+                                                                                Invoice #{p.purchase_no} — Itemized Stock Receipts &amp; Batches
+                                                                            </h4>
+                                                                            <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-800">
+                                                                                FEFO Live Batch Tracked
+                                                                            </span>
+                                                                        </div>
+                                                                        <p className="text-xs text-gray-500 font-medium mt-0.5">
+                                                                            Supplier: <span className="font-bold text-gray-800">{p.supplier_name}</span> • Delivery Ref: <span className="font-mono text-gray-700">{p.supplier_invoice || '—'}</span> • Received: {p.purchase_date}
+                                                                        </p>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="px-3 py-1 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-xl text-xs font-black">
+                                                                        Total Qty: {totalUnitsInInvoice} Units
+                                                                    </span>
+                                                                    <span className="px-3 py-1 bg-blue-50 text-blue-900 border border-blue-200 rounded-xl text-xs font-black">
+                                                                        {items.length} {items.length === 1 ? 'Line Item' : 'Line Items'}
+                                                                    </span>
+                                                                    <button
+                                                                        onClick={() => handleViewDossier(p)}
+                                                                        className="px-3 py-1 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-bold transition flex items-center gap-1 shadow-xs"
+                                                                    >
+                                                                        <span>📑</span> Dossier / Print
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+
+                                                            {/* Items Sub-table */}
+                                                            {isRowLoading ? (
+                                                                <div className="p-8 text-center text-gray-500">
+                                                                    <div className="w-8 h-8 border-3 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mx-auto mb-2" />
+                                                                    <p className="text-xs font-bold text-gray-700">Loading invoice line items &amp; batch lots...</p>
+                                                                </div>
+                                                            ) : items.length === 0 ? (
+                                                                <div className="p-8 text-center text-gray-400 border border-dashed border-gray-200 rounded-2xl">
+                                                                    <p className="font-bold text-gray-700 text-xs">No individual line items registered for this invoice.</p>
+                                                                    <p className="text-[11px] text-gray-400 mt-1">Invoice master record total: Ksh {Number(p.grand_total).toLocaleString()}</p>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="overflow-x-auto border border-gray-200 rounded-2xl shadow-2xs">
+                                                                    <table className="w-full text-xs">
+                                                                        <thead className="bg-gray-100 text-gray-800 font-black uppercase text-[10px] tracking-wider border-b border-gray-200">
+                                                                            <tr>
+                                                                                <th className="p-2.5 text-left w-8 text-gray-700">#</th>
+                                                                                <th className="p-2.5 text-left text-gray-700">Medicine / Product</th>
+                                                                                <th className="p-2.5 text-left text-gray-700">Batch / Lot #</th>
+                                                                                <th className="p-2.5 text-left text-gray-700">Expiry Date</th>
+                                                                                <th className="p-2.5 text-right text-gray-700">Received Qty</th>
+                                                                                <th className="p-2.5 text-right text-gray-700">Unit Cost (Ksh)</th>
+                                                                                <th className="p-2.5 text-right text-gray-700">Selling Price (Ksh)</th>
+                                                                                <th className="p-2.5 text-right text-gray-700">Line Total (Ksh)</th>
+                                                                                <th className="p-2.5 text-center text-gray-700">In Stock</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody className="divide-y divide-gray-100 text-gray-900 font-medium">
+                                                                            {items.map((it, idx) => {
+                                                                                const lineTot = Number(it.total_amount) || (Number(it.quantity) * Number(it.rate));
+                                                                                return (
+                                                                                    <tr key={it.id || idx} className="hover:bg-emerald-50/30 transition">
+                                                                                        <td className="p-2.5 text-gray-400 font-bold">{idx + 1}</td>
+                                                                                        <td className="p-2.5">
+                                                                                            <p className="font-black text-gray-900">{it.product_name}</p>
+                                                                                            <span className="text-[10px] font-mono text-gray-400">{it.product_code}</span>
+                                                                                        </td>
+                                                                                        <td className="p-2.5 whitespace-nowrap">
+                                                                                            <span className="px-2 py-0.5 rounded font-mono font-bold text-xs bg-indigo-50 text-indigo-800 border border-indigo-200">
+                                                                                                {it.batch_number || 'N/A'}
+                                                                                            </span>
+                                                                                        </td>
+                                                                                        <td className="p-2.5 whitespace-nowrap font-mono text-gray-700 font-semibold">
+                                                                                            {it.expiry_date || '—'}
+                                                                                        </td>
+                                                                                        <td className="p-2.5 text-right whitespace-nowrap">
+                                                                                            <span className="font-black text-sm text-gray-900">
+                                                                                                {it.quantity}
+                                                                                            </span>
+                                                                                            <span className="text-gray-500 text-[11px] ml-1">{it.unit || 'Piece'}</span>
+                                                                                        </td>
+                                                                                        <td className="p-2.5 text-right font-mono font-semibold text-gray-700 whitespace-nowrap">
+                                                                                            Ksh {Number(it.rate || 0).toLocaleString()}
+                                                                                        </td>
+                                                                                        <td className="p-2.5 text-right font-mono font-semibold text-emerald-800 whitespace-nowrap">
+                                                                                            Ksh {Number(it.sales_cost || 0).toLocaleString()}
+                                                                                        </td>
+                                                                                        <td className="p-2.5 text-right font-mono font-black text-gray-950 whitespace-nowrap">
+                                                                                            Ksh {lineTot.toLocaleString()}
+                                                                                        </td>
+                                                                                        <td className="p-2.5 text-center whitespace-nowrap">
+                                                                                            {it.remaining_qty !== undefined ? (
+                                                                                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200">
+                                                                                                    {it.remaining_qty} remaining
+                                                                                                </span>
+                                                                                            ) : (
+                                                                                                <span className="text-gray-300">—</span>
+                                                                                            )}
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                );
+                                                                            })}
+                                                                            {/* Sub-total summary row */}
+                                                                            <tr className="bg-gray-50/80 font-black text-xs border-t-2 border-gray-200">
+                                                                                <td colSpan={4} className="p-2.5 text-right uppercase text-gray-700 tracking-wider">
+                                                                                    INVOICE TOTALS:
+                                                                                </td>
+                                                                                <td className="p-2.5 text-right font-black text-emerald-900 text-sm">
+                                                                                    {totalUnitsInInvoice} Units
+                                                                                </td>
+                                                                                <td colSpan={2} className="p-2.5"></td>
+                                                                                <td className="p-2.5 text-right font-black text-emerald-950 text-sm">
+                                                                                    Ksh {(Number(p.grand_total) || items.reduce((s, it) => s + (Number(it.total_amount) || it.quantity * it.rate), 0)).toLocaleString()}
+                                                                                </td>
+                                                                                <td></td>
+                                                                            </tr>
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </Fragment>
                                     );
                                 })
                             )}
@@ -1225,15 +1610,15 @@ export default function PurchasesMasterPage() {
                             ) : (
                                 <div className="overflow-x-auto border border-gray-200 rounded-2xl">
                                     <table className="w-full text-left text-xs">
-                                        <thead className="bg-gray-50 text-[10px] font-black uppercase text-gray-900 border-b border-gray-200">
+                                        <thead className="bg-gray-100 text-[10px] font-black uppercase text-gray-900 border-b border-gray-200">
                                             <tr>
-                                                <th className="p-2.5">#</th>
-                                                <th className="p-2.5">Product Name</th>
-                                                <th className="p-2.5">Batch #</th>
-                                                <th className="p-2.5">Expiry Date</th>
-                                                <th className="p-2.5 text-right">Received Qty</th>
-                                                <th className="p-2.5 text-right">Unit Rate</th>
-                                                <th className="p-2.5 text-right">Total Amount</th>
+                                                <th className="p-2.5 text-gray-800">#</th>
+                                                <th className="p-2.5 text-gray-800">Product Name</th>
+                                                <th className="p-2.5 text-gray-800">Batch #</th>
+                                                <th className="p-2.5 text-gray-800">Expiry Date</th>
+                                                <th className="p-2.5 text-right text-gray-800">Received Qty</th>
+                                                <th className="p-2.5 text-right text-gray-800">Unit Rate</th>
+                                                <th className="p-2.5 text-right text-gray-800">Total Amount</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100 text-gray-900 font-medium">
