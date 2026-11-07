@@ -541,7 +541,7 @@ export default function PharmacyPOS() {
         if (!activeOutlet) return;
         setLoading(true);
         try {
-            const [{ data: pharmProds }, { data: cats }, { data: stock }, { data: bData }] = await Promise.all([
+            const [{ data: prods }, { data: cats }, { data: stock }, { data: bData }] = await Promise.all([
                 supabase
                     .from('pharmacy_products')
                     .select('pid, product_code, product_name, barcode, category, purchase_unit, sales_unit, purchase_cost, sales_cost, pieces_per_package, photo, generic_name, drug_type, dosage, requires_prescription')
@@ -558,17 +558,6 @@ export default function PharmacyPOS() {
                     .gt('remaining_qty', 0)
                     .order('expiry_date', { ascending: true }),
             ]);
-
-            // If pharmacy_products is empty, fall back to retail_products
-            let prods = pharmProds;
-            if (!prods || prods.length === 0) {
-                const { data: retailProds } = await supabase
-                    .from('retail_products')
-                    .select('pid, product_code, product_name, barcode, category, purchase_unit, sales_unit, purchase_cost, sales_cost, pieces_per_package, photo, generic_name, drug_type, dosage, requires_prescription')
-                    .eq('active', true)
-                    .order('product_name');
-                prods = retailProds || [];
-            }
 
             const stockMap: Record<number, number> = {};
             (stock || []).forEach((s: any) => {

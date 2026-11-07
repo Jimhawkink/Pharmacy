@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
-import { calculateStockBreakdown } from '@/lib/stockBreakdown';
 import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
 import {
@@ -54,8 +53,6 @@ export type StockTakeItem = {
   variance_value: number;
   reason: string;
   status: 'Verified' | 'Pending' | string;
-  pieces_per_package?: number;
-  purchase_unit?: string;
 };
 
 export type PharmacyProduct = {
@@ -83,8 +80,6 @@ export type BatchItem = {
   status?: string;
   outlet_id?: number;
   created_at?: string;
-  pieces_per_package?: number;
-  purchase_unit?: string;
   // Computed / joined fields
   product_name?: string;
   generic_name?: string;
@@ -248,8 +243,6 @@ export default function StockTakePage() {
           generic_name: p?.generic_name || prodMap.get(b.product_id)?.generic_name || '',
           category: p?.category || prodMap.get(b.product_id)?.category || 'General',
           cost_price: cost,
-          pieces_per_package: b.pieces_per_package || joined?.pieces_per_package || 1,
-          purchase_unit: b.purchase_unit || joined?.purchase_unit || 'Piece',
         };
       });
       setAllBatches(enrichedBatches);
@@ -421,9 +414,7 @@ export default function StockTakePage() {
           system_qty: b.remaining_qty || 0,
           physical_qty: b.remaining_qty || 0,
           variance_qty: 0,
-          unit_cost: b.cost_price || 0,
-          pieces_per_package: b.pieces_per_package || 1,
-          purchase_unit: b.purchase_unit || 'Piece',
+          unit_cost: b.cost_price || 0,,
           variance_value: 0,
           reason: 'Correct',
           status: 'Verified',
@@ -515,9 +506,7 @@ export default function StockTakePage() {
         system_qty: b.remaining_qty || 0,
         physical_qty: b.remaining_qty || 0,
         variance_qty: 0,
-        unit_cost: b.cost_price || 0,
-        pieces_per_package: b.pieces_per_package || 1,
-        purchase_unit: b.purchase_unit || 'Piece',
+        unit_cost: b.cost_price || 0,,
         variance_value: 0,
         reason: 'Correct',
         status: 'Verified',
@@ -1288,19 +1277,7 @@ export default function StockTakePage() {
 
                                   {/* System Qty */}
                                   <td className="px-3 py-2 text-xs font-black text-gray-800">
-                                    {(() => {
-                                      const ppp = it.pieces_per_package || 1;
-                                      if (ppp <= 1) return <span>{it.system_qty} Pcs</span>;
-                                      const bd = calculateStockBreakdown(it.system_qty, ppp, it.purchase_unit || 'Box');
-                                      return (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-900 font-black text-[11px]">
-                                          {bd.boxes > 0 && <span>{bd.boxes} {bd.purchaseUnit}</span>}
-                                          {bd.boxes > 0 && bd.loosePieces > 0 && <span className="text-amber-400">+</span>}
-                                          {bd.loosePieces > 0 && <span>{bd.loosePieces} Pcs</span>}
-                                          {bd.boxes === 0 && bd.loosePieces === 0 && <span>0 Pcs</span>}
-                                        </span>
-                                      );
-                                    })()}
+                                    {it.system_qty}
                                   </td>
 
                                   {/* Physical Count Input */}
