@@ -109,7 +109,7 @@ export default function SuppliersPage() {
     const [batches, setBatches] = useState<BatchRecord[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isAutoFit, setIsAutoFit] = useState(true);
-    const [activeDbTable, setActiveDbTable] = useState<string>('suppliers');
+    const [activeDbTable, setActiveDbTable] = useState<string>('pharmacy_suppliers');
 
     // Filters & Sorting
     const [search, setSearch] = useState('');
@@ -154,32 +154,23 @@ export default function SuppliersPage() {
     const loadData = useCallback(async () => {
         setIsLoading(true);
         try {
-            // 1. Fetch Suppliers (Dual-table support: pharmacy_suppliers -> suppliers)
+            // 1. Fetch Suppliers — ALWAYS use pharmacy_suppliers (only table in schema)
             let suppliersData: Supplier[] = [];
-            let resolvedTable = 'suppliers';
 
             const { data: pharmData, error: pharmErr } = await supabase
                 .from('pharmacy_suppliers')
                 .select('*')
                 .order('supplier_id', { ascending: false });
 
-            if (!pharmErr && pharmData && pharmData.length > 0) {
-                suppliersData = pharmData;
-                resolvedTable = 'pharmacy_suppliers';
+            if (!pharmErr) {
+                suppliersData = pharmData || [];
             } else {
-                const { data: baseData, error: baseErr } = await supabase
-                    .from('suppliers')
-                    .select('*')
-                    .order('supplier_id', { ascending: false });
-
-                if (!baseErr && baseData) {
-                    suppliersData = baseData;
-                    resolvedTable = 'suppliers';
-                }
+                console.error('pharmacy_suppliers fetch error:', pharmErr.message);
             }
-            setActiveDbTable(resolvedTable);
+            // Lock table name — never use 'suppliers' (does not exist in schema)
+            setActiveDbTable('pharmacy_suppliers');
 
-            // 2. Fetch Purchases (Dual-table support: pharmacy_purchases -> purchases)
+            // 2. Fetch Purchases from pharmacy_purchases
             let purchasesData: PurchaseRecord[] = [];
             const { data: pPharmData, error: pPharmErr } = await supabase
                 .from('pharmacy_purchases')
@@ -188,14 +179,6 @@ export default function SuppliersPage() {
 
             if (!pPharmErr && pPharmData) {
                 purchasesData = pPharmData;
-            } else {
-                const { data: pBaseData, error: pBaseErr } = await supabase
-                    .from('purchases')
-                    .select('*')
-                    .order('purchase_date', { ascending: false });
-                if (!pBaseErr && pBaseData) {
-                    purchasesData = pBaseData;
-                }
             }
             setPurchases(purchasesData);
 
@@ -290,7 +273,7 @@ export default function SuppliersPage() {
         setShowAddEditModal(true);
     };
 
-    // Save or Update Supplier with multi-table guarantee
+    // Save or Update Supplier — only uses pharmacy_suppliers (no secondary table sync)
     const handleSaveSupplier = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.supplier_name.trim()) {
@@ -323,37 +306,18 @@ export default function SuppliersPage() {
             };
 
             if (editingSupplier) {
-                // Update in primary table
                 const { error: updErr } = await supabase
-                    .from(activeDbTable)
+                    .from('pharmacy_suppliers')
                     .update(payload)
                     .eq('supplier_id', editingSupplier.supplier_id);
-
                 if (updErr) throw updErr;
-
-                // Sync to secondary table if exists
-                try {
-                    const secondary = activeDbTable === 'suppliers' ? 'pharmacy_suppliers' : 'suppliers';
-                    await supabase.from(secondary).update(payload).eq('supplier_code', payload.supplier_code);
-                } catch {
-                    // ignore if secondary table does not exist
-                }
-
                 toast.success(`Supplier "${formData.supplier_name}" updated!`);
                 await logActivity('Supplier Updated', `Updated vendor ${formData.supplier_name} (${payload.supplier_code})`);
             } else {
-                // Insert new supplier
-                const { error: insErr } = await supabase.from(activeDbTable).insert(payload);
+                const { error: insErr } = await supabase
+                    .from('pharmacy_suppliers')
+                    .insert(payload);
                 if (insErr) throw insErr;
-
-                // Also sync to secondary table if available
-                try {
-                    const secondary = activeDbTable === 'suppliers' ? 'pharmacy_suppliers' : 'suppliers';
-                    await supabase.from(secondary).insert(payload);
-                } catch {
-                    // ignore if secondary table does not exist
-                }
-
                 toast.success(`Supplier ${payload.supplier_code} successfully registered!`);
                 await logActivity('Supplier Created', `Registered new vendor ${formData.supplier_name} (${payload.supplier_code})`);
             }

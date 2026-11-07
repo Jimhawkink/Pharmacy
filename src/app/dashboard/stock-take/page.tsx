@@ -367,6 +367,8 @@ export default function StockTakePage() {
       let items: StockTakeItem[] = [];
 
       // 1. Try Supabase pharmacy_stock_take_items
+      //    NOTE: pharmacy_stock_take_items has NO batch_id column per schema.
+      //    Re-enrich product_name by matching batch_number from currentBatches.
       try {
         const { data, error } = await supabase
           .from('pharmacy_stock_take_items')
@@ -374,16 +376,22 @@ export default function StockTakePage() {
           .eq('stock_take_id', stId)
           .order('product_name', { ascending: true });
         if (!error && data && data.length > 0) {
-          // Re-enrich product names from currentBatches in case DB items have stale names
-          const batchMap = new Map<number, BatchItem>();
-          currentBatches.forEach(b => { if (b.batch_id) batchMap.set(b.batch_id, b); });
+          // Build lookup by batch_number to get real product names
+          const batchByNumber = new Map<string, BatchItem>();
+          const batchByProductId = new Map<number, BatchItem>();
+          currentBatches.forEach(b => {
+            if (b.batch_number) batchByNumber.set(b.batch_number, b);
+            if (b.product_id && !batchByProductId.has(b.product_id)) batchByProductId.set(b.product_id, b);
+          });
           items = (data as StockTakeItem[]).map(item => {
-            const b = item.batch_id ? batchMap.get(item.batch_id) : undefined;
+            const bByNum = item.batch_number ? batchByNumber.get(item.batch_number) : undefined;
+            const bByPid = item.product_id ? batchByProductId.get(item.product_id) : undefined;
+            const b = bByNum || bByPid;
             return {
               ...item,
-              product_name: b?.product_name || item.product_name,
-              generic_name: b?.generic_name || item.generic_name,
-              category: b?.category || item.category,
+              product_name: b?.product_name || item.product_name || `Product #${item.product_id}`,
+              generic_name: b?.generic_name || item.generic_name || '',
+              category: b?.category || item.category || 'General',
             };
           });
         }
@@ -391,16 +399,16 @@ export default function StockTakePage() {
         console.warn('pharmacy_stock_take_items query error, using batches directly:', e);
       }
 
-      // 2. Build from currentBatches (localStorage cache cleared on load, so this is always fresh)
+      // 2. Build fresh from currentBatches when no DB items exist
       if (items.length === 0 && currentBatches.length > 0) {
         items = currentBatches.map((b, idx) => ({
           item_id: idx + 1,
           stock_take_id: stId,
           batch_id: b.batch_id,
           product_id: b.product_id,
-          product_name: b.product_name || b.batch_number || `Batch #${b.batch_id}`,
-          generic_name: b.generic_name,
-          category: b.category,
+          product_name: b.product_name || b.batch_number || `Product #${b.product_id}`,
+          generic_name: b.generic_name || '',
+          category: b.category || 'General',
           batch_number: b.batch_number || 'LOT-AUTO',
           expiry_date: b.expiry_date,
           system_qty: b.remaining_qty || 0,
