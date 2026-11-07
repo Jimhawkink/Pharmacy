@@ -34,12 +34,28 @@ export async function logActivity(actionType: string, description: string, detai
     try {
         const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
         const user = userData ? JSON.parse(userData) : null;
-        await supabase.from('pharmacy_activity_log').insert({
+        const logEntry = {
             action_type: actionType,
             description,
             details: details || null,
-            user_name: user?.name || 'System',
-        });
+            user_name: user?.name || user?.userName || 'System',
+            user_type: user?.userType || 'Staff',
+            created_at: new Date().toISOString()
+        };
+
+        // Dual-log: Primary to live retail_activity_log, and secondary to pharmacy_activity_log
+        try {
+            await supabase.from('retail_activity_log').insert([logEntry]);
+        } catch { /* silent */ }
+
+        try {
+            await supabase.from('pharmacy_activity_log').insert([{
+                action_type: actionType,
+                description,
+                details: details || null,
+                user_name: user?.name || user?.userName || 'System',
+            }]);
+        } catch { /* silent */ }
     } catch { /* silent */ }
 }
 

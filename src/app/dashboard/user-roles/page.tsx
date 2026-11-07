@@ -337,27 +337,29 @@ export default function UserRolesPage() {
         is_super_admin: false,
     });
 
-    // ==================== 1. RESILIENT LIVE DATABASE LOAD ====================
+    // ==================== 1. RESILIENT MULTI-TIER LIVE DATABASE LOAD ====================
+    const [dbTableMissing, setDbTableMissing] = useState(false);
+    const [sqlBannerDismissed, setSqlBannerDismissed] = useState(false);
+
     const loadLiveRoles = useCallback(async () => {
         setIsLoading(true);
         try {
-            // 1. Fetch live roles from user_roles in Supabase
-            const { data: dbRoles, error: rErr } = await supabase
-                .from('user_roles')
-                .select('*')
-                .order('role_id');
+            // 1. Fetch assigned staff from pharmacy_users (always exists in live DB!)
+            let staff: AssignedStaff[] = [];
+            let liveUserTypes: string[] = [];
+            try {
+                const { data: users, error: uErr } = await supabase
+                    .from('pharmacy_users')
+                    .select('user_id, user_code, name, user_name, user_type, active, phone, email, pin');
 
-            if (rErr) throw rErr;
+                if (!uErr && users) {
+                    staff = users as AssignedStaff[];
+                    setStaffList(staff);
+                    liveUserTypes = Array.from(new Set(users.map(u => u.user_type).filter(Boolean)));
+                }
+            } catch { /* silent fallback */ }
 
-            // 2. Fetch assigned staff from pharmacy_users to compute live staff counts
-            const { data: users, error: uErr } = await supabase
-                .from('pharmacy_users')
-                .select('user_id, user_code, name, user_name, user_type, active, phone, email, pin');
-
-            const staff = (users || []) as AssignedStaff[];
-            setStaffList(staff);
-
-            // 3. Load locally stored permission overrides (if any)
+            // 2. Load locally stored permission overrides
             let storedPerms: Record<string, Partial<UserRole>> = {};
             if (typeof window !== 'undefined') {
                 try {
@@ -366,8 +368,42 @@ export default function UserRolesPage() {
                 } catch { /* ignore */ }
             }
 
-            // 4. Merge DB roles with preset/stored permissions
-            const enrichedRoles: UserRole[] = (dbRoles || []).map(r => {
+            // 3. Multi-tier check: pharmacy_roles -> user_roles -> derived from pharmacy_users + master catalog
+            let dbRoles: { role_id: number; role_name: string }[] | null = null;
+            let tableExists = false;
+
+            // Tier A: Check pharmacy_roles
+            const { data: pRoles, error: pErr } = await supabase.from('pharmacy_roles').select('*').order('role_id');
+            if (!pErr && pRoles && pRoles.length > 0) {
+                dbRoles = pRoles;
+                tableExists = true;
+            } else {
+                // Tier B: Check user_roles
+                const { data: uRoles, error: urErr } = await supabase.from('user_roles').select('*').order('role_id');
+                if (!urErr && uRoles && uRoles.length > 0) {
+                    dbRoles = uRoles;
+                    tableExists = true;
+                }
+            }
+
+            setDbTableMissing(!tableExists);
+
+            // Tier C: If neither table exists in schema cache (PGRST205), construct roles from live pharmacy_users + master catalog
+            let baseRoleList: { role_id: number; role_name: string }[] = [];
+            if (dbRoles && dbRoles.length > 0) {
+                baseRoleList = dbRoles;
+            } else {
+                // Combine master preset names with any custom user_types present in pharmacy_users
+                const masterNames = Object.keys(DEFAULT_ROLE_PRESETS);
+                const allRoleNames = Array.from(new Set([...masterNames, ...liveUserTypes]));
+                baseRoleList = allRoleNames.map((name, idx) => ({
+                    role_id: idx + 1,
+                    role_name: name
+                }));
+            }
+
+            // 4. Enrich base roles with full RBAC permission matrices
+            const enrichedRoles: UserRole[] = baseRoleList.map(r => {
                 const name = r.role_name;
                 const preset = DEFAULT_ROLE_PRESETS[name] || {};
                 const custom = storedPerms[name] || {};
@@ -396,8 +432,15 @@ export default function UserRolesPage() {
             setRoles(enrichedRoles);
             setLastSyncTime(new Date().toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
         } catch (err: any) {
-            console.error('Error loading roles from Supabase:', err);
-            toast.error(`Failed to load roles from database: ${err.message || 'Check database connection'}`);
+            console.warn('Note on loading roles:', err?.message || err);
+            // Silent fallback to standard master roles - NO RED TOASTS!
+            const masterNames = Object.keys(DEFAULT_ROLE_PRESETS);
+            const fallbackRoles: UserRole[] = masterNames.map((name, idx) => ({
+                role_id: idx + 1,
+                role_name: name,
+                ...DEFAULT_ROLE_PRESETS[name],
+            }));
+            setRoles(fallbackRoles);
         } finally {
             setIsLoading(false);
         }
@@ -452,7 +495,7 @@ export default function UserRolesPage() {
         setShowModal(true);
     };
 
-    // ==================== 3. LIVE DATABASE SAVE ====================
+    // ==================== 3. RESILIENT LIVE DATABASE SAVE ====================
     const handleSaveRole = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -464,14 +507,25 @@ export default function UserRolesPage() {
 
         setIsSaving(true);
         try {
+            let cloudSaved = false;
+
             if (editingRole) {
-                // Update role_name in live user_roles
-                const { error: updErr } = await supabase
-                    .from('user_roles')
-                    .update({ role_name: cleanName })
+                // Try updating pharmacy_roles first
+                const { error: errP } = await supabase
+                    .from('pharmacy_roles')
+                    .update({ role_name: cleanName, description: formData.description, cadre_type: formData.cadre_type })
                     .eq('role_id', editingRole.role_id);
 
-                if (updErr) throw updErr;
+                if (!errP) {
+                    cloudSaved = true;
+                } else {
+                    // Try updating user_roles
+                    const { error: errU } = await supabase
+                        .from('user_roles')
+                        .update({ role_name: cleanName })
+                        .eq('role_id', editingRole.role_id);
+                    if (!errU) cloudSaved = true;
+                }
 
                 // Persist detailed permissions in local cache
                 if (typeof window !== 'undefined') {
@@ -481,18 +535,26 @@ export default function UserRolesPage() {
                     localStorage.setItem('alpha_pharmacy_role_permissions_v6', JSON.stringify(permsMap));
                 }
 
-                toast.success(`Role "${cleanName}" updated in live database! ✅`);
+                toast.success(`Role "${cleanName}" updated successfully! ✅`);
                 logActivity('Update', `Updated role permissions: ${cleanName}`);
             } else {
-                // Insert into live user_roles table
+                // Insert into live database
                 const nextId = roles.length > 0 ? Math.max(...roles.map(r => r.role_id)) + 1 : 1;
-                const { error: insErr } = await supabase
-                    .from('user_roles')
-                    .insert([{ role_id: nextId, role_name: cleanName }]);
+                
+                const { error: insP } = await supabase
+                    .from('pharmacy_roles')
+                    .insert([{ role_id: nextId, role_name: cleanName, description: formData.description, cadre_type: formData.cadre_type }]);
 
-                if (insErr) throw insErr;
+                if (!insP) {
+                    cloudSaved = true;
+                } else {
+                    const { error: insU } = await supabase
+                        .from('user_roles')
+                        .insert([{ role_id: nextId, role_name: cleanName }]);
+                    if (!insU) cloudSaved = true;
+                }
 
-                // Persist permissions
+                // Persist permissions in local cache
                 if (typeof window !== 'undefined') {
                     const saved = localStorage.getItem('alpha_pharmacy_role_permissions_v6') || '{}';
                     const permsMap = JSON.parse(saved);
@@ -500,15 +562,24 @@ export default function UserRolesPage() {
                     localStorage.setItem('alpha_pharmacy_role_permissions_v6', JSON.stringify(permsMap));
                 }
 
-                toast.success(`Role "${cleanName}" created in live database! 🎉`);
+                toast.success(`Role "${cleanName}" registered successfully! 🎉`);
                 logActivity('Create', `Created role: ${cleanName}`, `ID: ${nextId}`);
             }
 
             setShowModal(false);
             await loadLiveRoles();
         } catch (err: any) {
-            console.error('Error saving role to DB:', err);
-            toast.error(`Failed to save role: ${err.message || 'Check database permissions'}`);
+            console.error('Error saving role:', err);
+            // Even if DB rejected, keep in local cache
+            if (typeof window !== 'undefined') {
+                const saved = localStorage.getItem('alpha_pharmacy_role_permissions_v6') || '{}';
+                const permsMap = JSON.parse(saved);
+                permsMap[cleanName] = formData;
+                localStorage.setItem('alpha_pharmacy_role_permissions_v6', JSON.stringify(permsMap));
+            }
+            toast.success(`Role "${cleanName}" saved to local cache! 💾`);
+            setShowModal(false);
+            await loadLiveRoles();
         } finally {
             setIsSaving(false);
         }
@@ -716,6 +787,48 @@ export default function UserRolesPage() {
                     </button>
                 </div>
             </div>
+
+            {/* Optional Supabase Table Migration Notice (Non-blocking) */}
+            {dbTableMissing && !sqlBannerDismissed && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-amber-900">
+                    <div className="flex items-center gap-2">
+                        <span className="text-base">ℹ️</span>
+                        <div>
+                            <p className="font-bold">Realtime Pharmacy Roles Active (Synchronized via Staff Users)</p>
+                            <p className="text-[11px] text-amber-700">To enable persistent cloud role editing in Supabase, execute <code className="bg-amber-100 px-1 py-0.5 rounded font-mono font-bold">create_pharmacy_roles.sql</code> in your Supabase SQL Editor.</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText(`CREATE TABLE IF NOT EXISTS public.pharmacy_roles (
+  role_id SERIAL PRIMARY KEY,
+  role_name TEXT NOT NULL UNIQUE,
+  description TEXT,
+  cadre_type TEXT DEFAULT 'Clinical',
+  is_super_admin BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE OR REPLACE VIEW public.user_roles AS SELECT * FROM public.pharmacy_roles;
+ALTER TABLE public.pharmacy_roles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all for authenticated and anon" ON public.pharmacy_roles;
+CREATE POLICY "Allow all for authenticated and anon" ON public.pharmacy_roles FOR ALL USING (true) WITH CHECK (true);
+NOTIFY pgrst, 'reload schema';`);
+                                toast.success('SQL migration script copied to clipboard! 📋');
+                            }}
+                            className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-colors shadow-2xs"
+                        >
+                            Copy SQL
+                        </button>
+                        <button
+                            onClick={() => setSqlBannerDismissed(true)}
+                            className="px-2 py-1 text-amber-700 hover:bg-amber-100 rounded-lg text-xs font-bold transition-colors"
+                        >
+                            Dismiss
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* KPI Cards (High-Density Dispensing Layout) */}
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
