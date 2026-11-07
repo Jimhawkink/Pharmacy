@@ -96,7 +96,7 @@ export default function PurchaseEntryPage() {
     const [recentInvoices, setRecentInvoices] = useState<RecentInvoice[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [activeSupplierTable, setActiveSupplierTable] = useState('suppliers');
+    const [activeSupplierTable, setActiveSupplierTable] = useState('pharmacy_suppliers');
 
     // GRN Master Fields
     const [invoiceNo, setInvoiceNo] = useState('');
@@ -128,6 +128,10 @@ export default function PurchaseEntryPage() {
     const [itemMfgDate, setItemMfgDate] = useState<string>('');
     const [itemStorage, setItemStorage] = useState<string>('Room Temp (15-25°C)');
     const [itemUpdateMasterPrice, setItemUpdateMasterPrice] = useState<boolean>(true);
+
+    // Existing Batches Panel (shown when product is selected)
+    const [existingBatches, setExistingBatches] = useState<any[]>([]);
+    const [showBatchPanel, setShowBatchPanel] = useState(false);
 
     // Modals
     const [showAddProductModal, setShowAddProductModal] = useState(false);
@@ -169,22 +173,11 @@ export default function PurchaseEntryPage() {
                 .select('supplier_id, supplier_code, supplier_name, phone, contact_person, current_balance, payment_terms')
                 .order('supplier_name');
 
-            if (!pSuppErr && pSupp && pSupp.length > 0) {
+            if (!pSuppErr && pSupp) {
                 suppList = pSupp;
-                resolvedSuppTable = 'pharmacy_suppliers';
-            } else {
-                const { data: bSupp, error: bSuppErr } = await supabase
-                    .from('suppliers')
-                    .select('supplier_id, supplier_code, supplier_name, phone, contact_person, current_balance, payment_terms')
-                    .order('supplier_name');
-
-                if (!bSuppErr && bSupp) {
-                    suppList = bSupp;
-                    resolvedSuppTable = 'suppliers';
-                }
             }
             setSuppliers(suppList);
-            setActiveSupplierTable(resolvedSuppTable);
+            setActiveSupplierTable('pharmacy_suppliers');
 
             // 2. Fetch Products (pharmacy_products merged with products)
             let prodList: Product[] = [];
@@ -208,33 +201,6 @@ export default function PurchaseEntryPage() {
                     storage_conditions: p.storage_conditions || 'Room Temp (15-25°C)',
                 }));
             }
-
-            // Fallback / merge from products if pharmacy_products has few or no items
-            const { data: bProd } = await supabase
-                .from('products')
-                .select('pid, product_code, product_name, alias, category, purchase_unit, sales_unit, purchase_cost, sales_cost, pieces_per_package, barcode');
-
-            if (bProd && bProd.length > 0) {
-                const existingCodes = new Set(prodList.map((p) => p.product_code));
-                bProd.forEach((p) => {
-                    if (!existingCodes.has(p.product_code)) {
-                        prodList.push({
-                            pid: p.pid,
-                            product_code: p.product_code || `PRD-${p.pid}`,
-                            product_name: p.product_name,
-                            alias: p.alias,
-                            category: p.category || 'General Pharma',
-                            purchase_unit: p.purchase_unit || 'Box',
-                            sales_unit: p.sales_unit || 'Piece',
-                            purchase_cost: Number(p.purchase_cost) || 0,
-                            sales_cost: Number(p.sales_cost) || 0,
-                            pieces_per_package: Number(p.pieces_per_package) || 1,
-                            barcode: p.barcode,
-                            storage_conditions: 'Room Temp (15-25°C)',
-                        });
-                    }
-                });
-            }
             setProducts(prodList);
 
             // 3. Fetch Recent Invoices
@@ -247,13 +213,6 @@ export default function PurchaseEntryPage() {
 
             if (pRec && pRec.length > 0) {
                 recents = pRec;
-            } else {
-                const { data: bRec } = await supabase
-                    .from('purchases')
-                    .select('purchase_id, purchase_no, purchase_date, supplier_name, grand_total, payment_status, created_at')
-                    .order('purchase_id', { ascending: false })
-                    .limit(10);
-                if (bRec) recents = bRec;
             }
             setRecentInvoices(recents);
 
@@ -287,18 +246,6 @@ export default function PurchaseEntryPage() {
                 if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10));
             });
 
-            // Check purchases
-            const { data: bData } = await supabase
-                .from('purchases')
-                .select('purchase_no')
-                .order('purchase_id', { ascending: false })
-                .limit(20);
-
-            (bData || []).forEach((row) => {
-                const match = (row.purchase_no || '').match(/INV-(\d+)/i);
-                if (match) maxNum = Math.max(maxNum, parseInt(match[1], 10));
-            });
-
             const nextNum = maxNum + 1;
             setInvoiceNo(`INV-${String(nextNum).padStart(2, '0')}`);
         } catch {
@@ -314,7 +261,7 @@ export default function PurchaseEntryPage() {
     };
 
     // Handle Product Selection
-    const handleSelectProduct = (p: Product) => {
+    const handleSelectProduct = async (p: Product) => {
         setSelectedProduct(p);
         setProductSearch(p.product_name);
         setShowProductDropdown(false);
@@ -337,6 +284,24 @@ export default function PurchaseEntryPage() {
 
         setItemStorage(p.storage_conditions || 'Room Temp (15-25°C)');
         setItemUpdateMasterPrice(true);
+
+        // Fetch existing batches for this product
+        setExistingBatches([]);
+        setShowBatchPanel(false);
+        try {
+            const { data: batches } = await supabase
+                .from('pharmacy_batches')
+                .select('batch_id, batch_number, expiry_date, remaining_qty, quantity, selling_price, supplier_name, status')
+                .eq('product_id', p.pid)
+                .eq('outlet_id', outletId)
+                .order('expiry_date', { ascending: true });
+            if (batches && batches.length > 0) {
+                setExistingBatches(batches);
+                setShowBatchPanel(true);
+            }
+        } catch {
+            // ignore batch fetch errors
+        }
     };
 
     // Auto calculate markup and margin
@@ -519,7 +484,7 @@ export default function PurchaseEntryPage() {
                 updated_at: new Date().toISOString(),
             };
 
-            // 1. Insert Master Purchase Record (Try pharmacy_purchases, fallback purchases & retail_purchases)
+            // 1. Insert Master Purchase Record (pharmacy_purchases only)
             let createdPurchaseId: number | null = null;
 
             const { data: pPharm, error: pPharmErr } = await supabase
@@ -531,53 +496,34 @@ export default function PurchaseEntryPage() {
             if (!pPharmErr && pPharm) {
                 createdPurchaseId = pPharm.purchase_id;
             } else {
-                const { data: pBase, error: pBaseErr } = await supabase
-                    .from('purchases')
-                    .insert(invoicePayload)
-                    .select('purchase_id')
-                    .single();
-
-                if (!pBaseErr && pBase) {
-                    createdPurchaseId = pBase.purchase_id;
-                } else {
-                    // Try retail_purchases
-                    const { data: pRet, error: pRetErr } = await supabase
-                        .from('retail_purchases')
-                        .insert(invoicePayload)
-                        .select('purchase_id')
-                        .single();
-                    if (!pRetErr && pRet) createdPurchaseId = pRet.purchase_id;
-                    else throw pBaseErr || pPharmErr || new Error('Failed to save purchase header');
-                }
+                throw pPharmErr || new Error('Failed to save purchase record to pharmacy_purchases');
             }
 
             const pId = createdPurchaseId || Date.now();
 
             // 2. Insert Line Items
             for (const it of items) {
-                // Item record for retail_purchase_products
+                // Item record for pharmacy_purchase_products
                 const lineItemPayload = {
                     purchase_id: pId,
                     product_id: it.productId,
                     product_code: it.productCode,
                     product_name: it.productName,
+                    batch_number: it.batchNumber,
+                    expiry_date: it.expiryDate,
+                    manufacture_date: it.manufactureDate || null,
                     quantity: it.qty,
                     unit: it.purchaseUnit,
-                    pieces_per_package: it.piecesPerPackage || 1,
                     rate: it.price,
-                    sales_cost: it.newSellPrice,
                     total_amount: it.total,
                     created_at: new Date().toISOString(),
                 };
 
-                // Try pharmacy_purchase_products then retail_purchase_products
+                // Insert into pharmacy_purchase_products only
                 const { error: ppErr } = await supabase.from('pharmacy_purchase_products').insert(lineItemPayload);
                 if (ppErr) {
-                    try {
-                        await supabase.from('retail_purchase_products').insert(lineItemPayload);
-                    } catch {
-                        // ignore secondary table failure
-                    }
+                    console.error('Line item insert error:', ppErr);
+                    // non-fatal — continue with batch/stock insert
                 }
 
                 // 3. Register lot into pharmacy_batches (FEFO engine)
@@ -630,20 +576,7 @@ export default function PurchaseEntryPage() {
                     // ignore
                 }
 
-                try {
-                    await supabase.from('retail_stock').insert({
-                        pid: it.productId,
-                        invoice_no: invoiceNo,
-                        qty: it.qty,
-                        batch_no: it.batchNumber,
-                        expiry_date: it.expiryDate,
-                        mfg_date: it.manufactureDate || null,
-                        storage_type: it.storageCondition,
-                        outlet_id: outletId,
-                    });
-                } catch {
-                    // ignore
-                }
+                // stock recorded in pharmacy_stock
 
                 // 5. Update Master Catalog Prices if requested
                 if (it.updatePrices) {
@@ -657,11 +590,7 @@ export default function PurchaseEntryPage() {
                     } catch {
                         // ignore
                     }
-                    try {
-                        await supabase.from('products').update(priceUpdates).eq('pid', it.productId);
-                    } catch {
-                        // ignore
-                    }
+                    // pharmacy_products price updated
                 }
             }
 
@@ -673,7 +602,7 @@ export default function PurchaseEntryPage() {
 
                 try {
                     await supabase
-                        .from(activeSupplierTable)
+                        .from('pharmacy_suppliers')
                         .update({
                             current_balance: newBal,
                             updated_at: new Date().toISOString(),
@@ -751,8 +680,7 @@ export default function PurchaseEntryPage() {
             const { data: ppData } = await supabase.from('pharmacy_products').insert(payload).select().single();
             if (ppData) createdProduct = ppData;
 
-            const { data: bpData } = await supabase.from('products').insert(payload).select().single();
-            if (!createdProduct && bpData) createdProduct = bpData;
+            // Insert into pharmacy_products only
 
             const finalProd: Product = {
                 pid: createdProduct?.pid || nextPid,
@@ -811,7 +739,7 @@ export default function PurchaseEntryPage() {
             };
 
             let createdSupplier: any = null;
-            const { data: sData } = await supabase.from(activeSupplierTable).insert(payload).select().single();
+            const { data: sData } = await supabase.from('pharmacy_suppliers').insert(payload).select().single();
             if (sData) createdSupplier = sData;
 
             const finalSupp: Supplier = {
@@ -1430,7 +1358,77 @@ export default function PurchaseEntryPage() {
                 </form>
             </div>
 
-            {/* Goods Received Note (GRN) Items DataGrid Table */}
+            {/* Existing Batches Panel — shown when product is selected */}
+            {showBatchPanel && existingBatches.length > 0 && (
+                <div className="bg-white rounded-3xl border border-amber-200 shadow-xs overflow-hidden">
+                    <div className="p-4 bg-amber-50 border-b border-amber-200 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <span className="text-base">📋</span>
+                            <h3 className="font-black text-amber-900 text-xs uppercase tracking-wider">
+                                Existing Stock Batches — {selectedProduct?.product_name}
+                            </h3>
+                            <span className="text-xs bg-amber-200 text-amber-800 font-bold px-2 py-0.5 rounded-full">
+                                {existingBatches.length} batch{existingBatches.length !== 1 ? 'es' : ''}
+                            </span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowBatchPanel(false)}
+                            className="text-amber-500 hover:text-amber-700 text-xs font-bold"
+                        >
+                            ✕ Hide
+                        </button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                            <thead>
+                                <tr className="bg-amber-50/50 border-b border-amber-100">
+                                    <th className="text-left p-3 font-black text-amber-900 uppercase tracking-wide">Batch #</th>
+                                    <th className="text-left p-3 font-black text-amber-900 uppercase tracking-wide">Expiry</th>
+                                    <th className="text-right p-3 font-black text-amber-900 uppercase tracking-wide">Qty In</th>
+                                    <th className="text-right p-3 font-black text-amber-900 uppercase tracking-wide">Remaining</th>
+                                    <th className="text-right p-3 font-black text-amber-900 uppercase tracking-wide">Sell Price</th>
+                                    <th className="text-left p-3 font-black text-amber-900 uppercase tracking-wide">Supplier</th>
+                                    <th className="text-center p-3 font-black text-amber-900 uppercase tracking-wide">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {existingBatches.map((b, i) => {
+                                    const isExpired = b.expiry_date && new Date(b.expiry_date) < new Date();
+                                    const daysLeft = b.expiry_date ? Math.ceil((new Date(b.expiry_date).getTime() - Date.now()) / 86400000) : null;
+                                    return (
+                                        <tr key={b.batch_id || i} className="border-b border-amber-50 hover:bg-amber-50/40 transition">
+                                            <td className="p-3 font-bold text-slate-800">{b.batch_number || '—'}</td>
+                                            <td className="p-3">
+                                                <span className={`font-bold ${isExpired ? 'text-red-600' : daysLeft !== null && daysLeft < 90 ? 'text-orange-600' : 'text-green-700'}`}>
+                                                    {b.expiry_date ? new Date(b.expiry_date).toLocaleDateString('en-KE') : '—'}
+                                                </span>
+                                                {daysLeft !== null && !isExpired && daysLeft < 90 && (
+                                                    <span className="ml-1 text-orange-500 font-bold">({daysLeft}d)</span>
+                                                )}
+                                                {isExpired && <span className="ml-1 text-red-500 font-bold">(EXPIRED)</span>}
+                                            </td>
+                                            <td className="p-3 text-right font-bold text-slate-700">{Number(b.quantity || 0).toLocaleString()}</td>
+                                            <td className="p-3 text-right font-bold text-slate-900">{Number(b.remaining_qty || 0).toLocaleString()}</td>
+                                            <td className="p-3 text-right font-bold text-emerald-700">Ksh {Number(b.selling_price || 0).toLocaleString()}</td>
+                                            <td className="p-3 text-slate-600">{b.supplier_name || '—'}</td>
+                                            <td className="p-3 text-center">
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                                                    isExpired ? 'bg-red-100 text-red-700' :
+                                                    b.status === 'Active' ? 'bg-green-100 text-green-700' :
+                                                    'bg-gray-100 text-gray-600'
+                                                }`}>
+                                                    {isExpired ? 'EXPIRED' : b.status || 'Active'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
             <div className="bg-white rounded-3xl border border-gray-200 shadow-xs overflow-hidden space-y-0">
                 <div className="p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                     <div className="flex items-center gap-2">

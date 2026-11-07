@@ -323,6 +323,9 @@ export default function ProductsPage() {
     const [adjustPieces, setAdjustPieces] = useState(0);
     const [adjustType, setAdjustType] = useState<'add' | 'remove'>('add');
     const [adjustReason, setAdjustReason] = useState('');
+    const [adjustBatches, setAdjustBatches] = useState<any[]>([]);
+    const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
+    const [adjustBatchLoading, setAdjustBatchLoading] = useState(false);
 
     // ─── SUPER MASSIVE ULTRA IMPORT STATE ───
     const [showImportModal, setShowImportModal] = useState(false);
@@ -896,13 +899,24 @@ export default function ProductsPage() {
     };
 
     // ─── STOCK ADJUSTMENT ───
-    const openStockAdjust = (p: Product) => {
+    const openStockAdjust = async (p: Product) => {
         setAdjustProduct(p);
         setAdjustBags(0);
         setAdjustPieces(0);
         setAdjustType('add');
         setAdjustReason('');
         setShowStockAdjustModal(true);
+        setSelectedBatchId(null);
+        setAdjustBatches([]);
+        setAdjustBatchLoading(true);
+        supabase
+            .from('pharmacy_batches')
+            .select('batch_id, batch_number, expiry_date, remaining_qty, quantity, selling_price, supplier_name, status')
+            .eq('product_id', p.pid)
+            .eq('outlet_id', outletId)
+            .order('expiry_date', { ascending: true })
+            .then(({ data: batches }) => { setAdjustBatches(batches || []); setAdjustBatchLoading(false); })
+            .catch(() => { setAdjustBatches([]); setAdjustBatchLoading(false); });
     };
 
     const submitStockAdjust = async () => {
@@ -913,14 +927,16 @@ export default function ProductsPage() {
 
         try {
             const ref = `ADJ-${Date.now().toString(36).toUpperCase()}`;
-            const records: { pid: number; invoice_no: string; qty: number; storage_type: string; notes: string; outlet_id: number }[] = [];
+            const records: { pid: number; batch_id?: number; invoice_no: string; qty: number; storage_type: string; notes: string; outlet_id: number }[] = [];
+            const totalQty = adjustBags + adjustPieces;
+            const delta = adjustType === 'add' ? totalQty : -totalQty;
 
             if (adjustBags > 0) {
                 records.push({
-                    pid: adjustProduct.pid,
+                    pid: adjustProduct.pid, batch_id: selectedBatchId || undefined,
                     invoice_no: ref,
                     qty: adjustType === 'add' ? adjustBags : -adjustBags,
-                    storage_type: 'Bags',
+                    storage_type: selectedBatchId ? 'Batch Adj' : 'Bags',
                     notes: adjustReason || 'Physical Stock Reconciliation',
                     outlet_id: outletId
                 });
@@ -928,10 +944,10 @@ export default function ProductsPage() {
 
             if (adjustPieces > 0) {
                 records.push({
-                    pid: adjustProduct.pid,
+                    pid: adjustProduct.pid, batch_id: selectedBatchId || undefined,
                     invoice_no: ref,
                     qty: adjustType === 'add' ? adjustPieces : -adjustPieces,
-                    storage_type: 'Pieces',
+                    storage_type: selectedBatchId ? 'Batch Adj' : 'Pieces',
                     notes: adjustReason || 'Physical Stock Reconciliation',
                     outlet_id: outletId
                 });
@@ -939,6 +955,14 @@ export default function ProductsPage() {
 
             if (records.length > 0) {
                 await supabase.from('pharmacy_stock').insert(records);
+            }
+
+            if (selectedBatchId) {
+                const bMatch = adjustBatches.find(b => b.batch_id === selectedBatchId);
+                if (bMatch) {
+                    const nextRemaining = Math.max(0, (Number(bMatch.remaining_qty) || 0) + delta);
+                    await supabase.from('pharmacy_batches').update({ remaining_qty: nextRemaining, updated_at: new Date().toISOString() }).eq('batch_id', selectedBatchId);
+                }
             }
 
             toast.success(`Stock adjusted successfully (${adjustType === 'add' ? '+' : '-'}${adjustBags || adjustPieces})`);
@@ -3992,6 +4016,81 @@ export default function ProductsPage() {
                                 </span>
                             </div>
 
+                            {/* Batch Selection Section */}
+                            <div>
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <label className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                                        Select Batch to Adjust
+                                    </label>
+                                    <span className="text-[10px] font-bold text-slate-500">
+                                        {adjustBatches.length} {adjustBatches.length === 1 ? 'batch' : 'batches'} found
+                                    </span>
+                                </div>
+
+                                {adjustBatchLoading ? (
+                                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-center text-xs text-slate-500">
+                                        Loading product batches...
+                                    </div>
+                                ) : adjustBatches.length === 0 ? (
+                                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 text-center">
+                                        No batches registered for this drug. Adjustment will update general stock.
+                                    </div>
+                                ) : (
+                                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedBatchId(null)}
+                                            className={`w-full text-left p-2 rounded-xl text-xs border transition flex items-center justify-between ${
+                                                selectedBatchId === null
+                                                    ? 'bg-blue-50 border-blue-400 text-blue-900 font-bold'
+                                                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                                            }`}
+                                        >
+                                            <span>General Inventory (No batch linked)</span>
+                                            {selectedBatchId === null && <span className="text-blue-600 font-black">✓</span>}
+                                        </button>
+                                        {adjustBatches.map(b => {
+                                            const isSelected = selectedBatchId === b.batch_id;
+                                            const isExpired = b.expiry_date && new Date(b.expiry_date) < new Date();
+                                            return (
+                                                <button
+                                                    key={b.batch_id}
+                                                    type="button"
+                                                    onClick={() => setSelectedBatchId(isSelected ? null : b.batch_id)}
+                                                    className={`w-full text-left p-2 rounded-xl text-xs border transition flex items-center justify-between ${
+                                                        isSelected
+                                                            ? 'bg-blue-600 text-white border-blue-600 font-bold shadow-sm'
+                                                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    <div className="flex flex-col">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="font-mono font-black">{b.batch_number}</span>
+                                                            {isExpired && (
+                                                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${isSelected ? 'bg-red-400 text-white' : 'bg-red-100 text-red-700'}`}>
+                                                                    EXPIRED
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <span className={`text-[10px] ${isSelected ? 'text-blue-100' : 'text-slate-500'}`}>
+                                                            Exp: {b.expiry_date || 'N/A'} {b.supplier_name ? `• ${b.supplier_name}` : ''}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className={`text-xs font-black ${isSelected ? 'text-white' : 'text-slate-900'}`}>
+                                                            {b.remaining_qty ?? 0} {adjustProduct.sales_unit || 'Pcs'}
+                                                        </span>
+                                                        <span className={`block text-[9px] ${isSelected ? 'text-blue-100' : 'text-slate-400'}`}>
+                                                            remaining
+                                                        </span>
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Adjustment Action */}
                             <div>
                                 <label className="block text-xs font-black text-slate-700 mb-1.5 uppercase tracking-wider">Adjustment Action</label>
@@ -4050,6 +4149,26 @@ export default function ProductsPage() {
                                     />
                                 </div>
                             </div>
+
+                            {/* Selected Batch Preview */}
+                            {selectedBatchId && (
+                                <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-2xl flex items-center justify-between text-xs">
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-blue-900">
+                                            Adjusting Batch: <span className="font-mono">{adjustBatches.find(b => b.batch_id === selectedBatchId)?.batch_number}</span>
+                                        </span>
+                                        <span className="text-[10px] text-blue-600">Batch stock will be adjusted directly</span>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-[10px] text-slate-500 block">Projected:</span>
+                                        <span className="font-black text-blue-700">
+                                            {Number(adjustBatches.find(b => b.batch_id === selectedBatchId)?.remaining_qty ?? 0)} → {
+                                                Math.max(0, Number(adjustBatches.find(b => b.batch_id === selectedBatchId)?.remaining_qty ?? 0) + (adjustType === 'add' ? (adjustBags + adjustPieces) : -(adjustBags + adjustPieces)))
+                                            } {adjustProduct.sales_unit || 'Pcs'}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Reason */}
                             <div>
