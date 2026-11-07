@@ -1,9 +1,10 @@
 'use client';
 
 // =====================================================================
-// Alpha Pharmacy - Super Ultra Massive World-Class Expiry & FEFO Intelligence Hub v5.5
+// Alpha Pharmacy - Super Ultra Massive World-Class Expiry & FEFO Intelligence Hub v5.6
 // Realtime Live Database Sync, Multi-tier Retail/Pharmacy Fallback, Full Batches Traceability,
 // Intelligent FEFO Risk Stratification, Box-Breaking Stock Breakdown, Visual Chart.js Analytics,
+// Full Multi-Tab Pagination (First, Prev, Page Numbers, Next, Last, Rows Per Page),
 // Monthly Impending Expiration Horizons, Supplier Return Exposure, Quarantine & Disposal Modal,
 // High-Contrast Dark Headers, Super Premium Light Cards, PPB Regulatory PDF Audit & Styled Excel (.xls)
 // =====================================================================
@@ -92,6 +93,140 @@ const getDaysUntilExpiry = (dateStr: string): number => {
     return Math.ceil((target - now) / 86400000);
 };
 
+// ==================== REUSABLE PAGINATION FOOTER ====================
+function PaginationFooter({
+    currentPage,
+    totalItems,
+    pageSize,
+    onPageChange,
+    onPageSizeChange,
+    itemLabel = 'items',
+}: {
+    currentPage: number;
+    totalItems: number;
+    pageSize: number;
+    onPageChange: (p: number) => void;
+    onPageSizeChange: (s: number) => void;
+    itemLabel?: string;
+}) {
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+    const startIdx = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+    const endIdx = Math.min(totalItems, currentPage * pageSize);
+
+    const getPageNumbers = () => {
+        const pages: (number | string)[] = [];
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
+        } else {
+            pages.push(1);
+            if (currentPage > 3) pages.push('...');
+            const start = Math.max(2, currentPage - 1);
+            const end = Math.min(totalPages - 1, currentPage + 1);
+            for (let i = start; i <= end; i++) pages.push(i);
+            if (currentPage < totalPages - 2) pages.push('...');
+            pages.push(totalPages);
+        }
+        return pages;
+    };
+
+    return (
+        <div className="p-4 border-t border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-600">
+            {/* Left: Rows per page and item count */}
+            <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-slate-500 font-bold">Rows per page:</span>
+                <select
+                    value={pageSize}
+                    onChange={(e) => {
+                        onPageSizeChange(Number(e.target.value));
+                        onPageChange(1);
+                    }}
+                    className="px-2.5 py-1.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-800 shadow-xs focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                >
+                    {[10, 25, 50, 100, 250].map((n) => (
+                        <option key={n} value={n}>{n}</option>
+                    ))}
+                </select>
+                <span className="text-slate-300">|</span>
+                <span className="text-slate-700">
+                    Showing <strong className="text-slate-900 font-mono">{startIdx}</strong> - <strong className="text-slate-900 font-mono">{endIdx}</strong> of <strong className="text-rose-600 font-mono font-extrabold">{totalItems}</strong> {itemLabel}
+                </span>
+            </div>
+
+            {/* Right: Navigation Controls & Page Numbers */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+                {/* First Page */}
+                <button
+                    onClick={() => onPageChange(1)}
+                    disabled={currentPage === 1}
+                    title="First Page"
+                    className="px-2.5 py-1.5 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed shadow-xs transition-colors font-mono font-bold"
+                >
+                    «
+                </button>
+
+                {/* Previous Page */}
+                <button
+                    onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    title="Previous Page"
+                    className="px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed shadow-xs transition-colors font-bold"
+                >
+                    ‹ Prev
+                </button>
+
+                {/* Page Number Pills */}
+                <div className="hidden sm:flex items-center gap-1">
+                    {getPageNumbers().map((num, i) => {
+                        if (num === '...') {
+                            return <span key={`dots-${i}`} className="px-2 text-slate-400 font-mono">...</span>;
+                        }
+                        const pNum = Number(num);
+                        const isActive = pNum === currentPage;
+                        return (
+                            <button
+                                key={pNum}
+                                onClick={() => onPageChange(pNum)}
+                                className={`w-8 h-8 rounded-xl font-mono text-xs font-bold transition-all ${
+                                    isActive
+                                        ? 'bg-slate-900 text-white shadow-sm'
+                                        : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                                }`}
+                            >
+                                {pNum}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Mobile Page Indicator */}
+                <span className="sm:hidden px-2 font-mono font-bold text-slate-800">
+                    {currentPage} / {totalPages}
+                </span>
+
+                {/* Next Page */}
+                <button
+                    onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage >= totalPages}
+                    title="Next Page"
+                    className="px-3 py-1.5 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed shadow-xs transition-colors font-bold"
+                >
+                    Next ›
+                </button>
+
+                {/* Last Page */}
+                <button
+                    onClick={() => onPageChange(totalPages)}
+                    disabled={currentPage >= totalPages}
+                    title="Last Page"
+                    className="px-2.5 py-1.5 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed shadow-xs transition-colors font-mono font-bold"
+                >
+                    »
+                </button>
+            </div>
+        </div>
+    );
+}
+
 export default function ExpiryReportPage() {
     const { activeOutlet } = useOutlet();
     const companyName = useCompanyName() || 'Alpha Pharmacy';
@@ -110,9 +245,18 @@ export default function ExpiryReportPage() {
     const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
     const [sortBy, setSortBy] = useState<'fefo_asc' | 'expiry_desc' | 'risk_val_desc' | 'qty_desc'>('fefo_asc');
 
-    // Pagination
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(25);
+    // Multi-tab Pagination States
+    const [pageMaster, setPageMaster] = useState(1);
+    const [pageSizeMaster, setPageSizeMaster] = useState(25);
+
+    const [pageCritical, setPageCritical] = useState(1);
+    const [pageSizeCritical, setPageSizeCritical] = useState(25);
+
+    const [pageCategory, setPageCategory] = useState(1);
+    const [pageSizeCategory, setPageSizeCategory] = useState(25);
+
+    const [pageSupplier, setPageSupplier] = useState(1);
+    const [pageSizeSupplier, setPageSizeSupplier] = useState(25);
 
     // Master dataset
     const [batches, setBatches] = useState<ExpiryBatchRow[]>([]);
@@ -125,6 +269,35 @@ export default function ExpiryReportPage() {
     const [actionReason, setActionReason] = useState('Expired medication past regulatory shelf-life');
     const [actionNotes, setActionNotes] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
+
+    // Reset pagination when search or filters change
+    const handleSearchChange = (val: string) => {
+        setSearchQuery(val);
+        setPageMaster(1);
+        setPageCritical(1);
+    };
+
+    const handleHorizonChange = (val: string) => {
+        setSelectedHorizon(val);
+        setPageMaster(1);
+    };
+
+    const handleCategoryChange = (val: string) => {
+        setSelectedCategory(val);
+        setPageMaster(1);
+        setPageCritical(1);
+    };
+
+    const handleSupplierChange = (val: string) => {
+        setSelectedSupplier(val);
+        setPageMaster(1);
+        setPageCritical(1);
+    };
+
+    const handleStatusChange = (val: string) => {
+        setSelectedStatus(val);
+        setPageMaster(1);
+    };
 
     // ==================== CORE DATA LOADER ====================
     const loadExpiryData = useCallback(async (isSilent = false) => {
@@ -304,6 +477,15 @@ export default function ExpiryReportPage() {
         return batches.filter((b) => b.days_until <= 30 && b.remaining_qty > 0).sort((a, b) => a.days_until - b.days_until);
     }, [batches]);
 
+    // Paginated Slices
+    const paginatedMasterBatches = useMemo(() => {
+        return filteredBatches.slice((pageMaster - 1) * pageSizeMaster, pageMaster * pageSizeMaster);
+    }, [filteredBatches, pageMaster, pageSizeMaster]);
+
+    const paginatedCriticalBatches = useMemo(() => {
+        return criticalBatches.slice((pageCritical - 1) * pageSizeCritical, pageCritical * pageSizeCritical);
+    }, [criticalBatches, pageCritical, pageSizeCritical]);
+
     // Aggregates for Summary Cards
     const summaryMetrics = useMemo(() => {
         let expiredCost = 0;
@@ -474,6 +656,10 @@ export default function ExpiryReportPage() {
         return Array.from(map.values()).sort((a, b) => (b.expired_value + b.critical_value) - (a.expired_value + a.critical_value));
     }, [batches]);
 
+    const paginatedCategories = useMemo(() => {
+        return categoryAggregates.slice((pageCategory - 1) * pageSizeCategory, pageCategory * pageSizeCategory);
+    }, [categoryAggregates, pageCategory, pageSizeCategory]);
+
     // 4. Supplier Risk Aggregates
     const supplierAggregates: SupplierRiskAggregate[] = useMemo(() => {
         const map = new Map<string, SupplierRiskAggregate>();
@@ -503,6 +689,10 @@ export default function ExpiryReportPage() {
 
         return Array.from(map.values()).sort((a, b) => (b.expired_value + b.impending_value) - (a.expired_value + a.impending_value));
     }, [batches]);
+
+    const paginatedSuppliers = useMemo(() => {
+        return supplierAggregates.slice((pageSupplier - 1) * pageSizeSupplier, pageSupplier * pageSizeSupplier);
+    }, [supplierAggregates, pageSupplier, pageSizeSupplier]);
 
     // ==================== QUARANTINE & DISPOSAL HANDLER ====================
     const handleBatchAction = async () => {
@@ -918,10 +1108,7 @@ export default function ExpiryReportPage() {
                         ].map((btn) => (
                             <button
                                 key={btn.key}
-                                onClick={() => {
-                                    setSelectedHorizon(btn.key);
-                                    setPage(1);
-                                }}
+                                onClick={() => handleHorizonChange(btn.key)}
                                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                                     selectedHorizon === btn.key
                                         ? 'bg-slate-900 text-white shadow-sm'
@@ -946,17 +1133,14 @@ export default function ExpiryReportPage() {
                                 type="text"
                                 placeholder="Search by drug name, code, batch #, or supplier..."
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                onChange={(e) => handleSearchChange(e.target.value)}
                                 className="w-full pl-9 pr-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500"
                             />
                         </div>
 
                         <select
                             value={selectedCategory}
-                            onChange={(e) => {
-                                setSelectedCategory(e.target.value);
-                                setPage(1);
-                            }}
+                            onChange={(e) => handleCategoryChange(e.target.value)}
                             className="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500 bg-white"
                         >
                             <option value="ALL">All Categories ({categoriesList.length})</option>
@@ -967,10 +1151,7 @@ export default function ExpiryReportPage() {
 
                         <select
                             value={selectedSupplier}
-                            onChange={(e) => {
-                                setSelectedSupplier(e.target.value);
-                                setPage(1);
-                            }}
+                            onChange={(e) => handleSupplierChange(e.target.value)}
                             className="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500 bg-white"
                         >
                             <option value="ALL">All Suppliers ({suppliersList.length})</option>
@@ -981,10 +1162,7 @@ export default function ExpiryReportPage() {
 
                         <select
                             value={selectedStatus}
-                            onChange={(e) => {
-                                setSelectedStatus(e.target.value);
-                                setPage(1);
-                            }}
+                            onChange={(e) => handleStatusChange(e.target.value)}
                             className="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500 bg-white"
                         >
                             <option value="ALL">All Statuses</option>
@@ -996,7 +1174,10 @@ export default function ExpiryReportPage() {
 
                         <select
                             value={sortBy}
-                            onChange={(e) => setSortBy(e.target.value as any)}
+                            onChange={(e) => {
+                                setSortBy(e.target.value as any);
+                                setPageMaster(1);
+                            }}
                             className="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500 bg-white"
                         >
                             <option value="fefo_asc">FEFO: Earliest Expiry First</option>
@@ -1025,7 +1206,6 @@ export default function ExpiryReportPage() {
                         key={tab.id}
                         onClick={() => {
                             setActiveTab(tab.id as any);
-                            setPage(1);
                         }}
                         className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-2 ${
                             activeTab === tab.id
@@ -1257,7 +1437,7 @@ export default function ExpiryReportPage() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    criticalBatches.map((b) => (
+                                    paginatedCriticalBatches.map((b) => (
                                         <tr key={b.batch_id} className="hover:bg-rose-50/40 transition-colors">
                                             <td className="py-3.5 px-4 font-bold text-slate-900">
                                                 <div>
@@ -1326,6 +1506,18 @@ export default function ExpiryReportPage() {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Dedicated Pagination for Critical Center */}
+                    {criticalBatches.length > 0 && (
+                        <PaginationFooter
+                            currentPage={pageCritical}
+                            totalItems={criticalBatches.length}
+                            pageSize={pageSizeCritical}
+                            onPageChange={setPageCritical}
+                            onPageSizeChange={setPageSizeCritical}
+                            itemLabel="critical batches"
+                        />
+                    )}
                 </div>
             )}
 
@@ -1342,7 +1534,7 @@ export default function ExpiryReportPage() {
                             </p>
                         </div>
                         <div className="text-xs font-bold text-slate-600">
-                            Showing {Math.min(filteredBatches.length, (page - 1) * pageSize + 1)} - {Math.min(filteredBatches.length, page * pageSize)} of {filteredBatches.length} batches
+                            Total Batches Monitored: <span className="text-rose-600 font-extrabold">{filteredBatches.length}</span>
                         </div>
                     </div>
 
@@ -1379,122 +1571,96 @@ export default function ExpiryReportPage() {
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredBatches
-                                        .slice((page - 1) * pageSize, page * pageSize)
-                                        .map((b) => (
-                                            <tr key={b.batch_id} className="hover:bg-emerald-50/30 transition-colors">
-                                                <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
-                                                    {b.batch_number}
-                                                </td>
-                                                <td className="py-3.5 px-3 font-bold text-slate-900">
-                                                    <div>{b.product_name}</div>
-                                                    <div className="text-[10px] text-slate-400 font-mono">{b.product_code}</div>
-                                                </td>
-                                                <td className="py-3.5 px-3">
-                                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                                                        {b.category}
-                                                    </span>
-                                                </td>
-                                                <td className="py-3.5 px-3 text-slate-600 font-medium">
-                                                    {b.supplier_name}
-                                                </td>
-                                                <td className="py-3.5 px-3 text-center font-mono font-bold text-slate-800">
-                                                    {b.expiry_date}
-                                                </td>
-                                                <td className="py-3.5 px-3 text-center">
-                                                    <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black font-mono ${
-                                                        b.days_until < 0
-                                                            ? 'bg-rose-100 text-rose-800'
-                                                            : b.days_until <= 30
-                                                            ? 'bg-amber-100 text-amber-800'
-                                                            : b.days_until <= 90
-                                                            ? 'bg-yellow-100 text-yellow-800'
-                                                            : 'bg-emerald-100 text-emerald-800'
-                                                    }`}>
-                                                        {b.days_until < 0 ? `EXPIRED (${Math.abs(b.days_until)}d)` : `${b.days_until}d left`}
-                                                    </span>
-                                                </td>
-                                                <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900">
-                                                    <div>{b.remaining_qty} {b.sales_unit}</div>
-                                                    <div className="text-[10px] text-slate-500 font-normal">{b.box_breakdown}</div>
-                                                </td>
-                                                <td className="py-3.5 px-3 text-right font-mono text-slate-700">
-                                                    KES {b.unit_cost.toFixed(2)}
-                                                </td>
-                                                <td className={`py-3.5 px-3 text-right font-mono font-black ${
-                                                    b.days_until < 0 ? 'text-rose-600' : 'text-slate-900'
+                                    paginatedMasterBatches.map((b) => (
+                                        <tr key={b.batch_id} className="hover:bg-emerald-50/30 transition-colors">
+                                            <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
+                                                {b.batch_number}
+                                            </td>
+                                            <td className="py-3.5 px-3 font-bold text-slate-900">
+                                                <div>{b.product_name}</div>
+                                                <div className="text-[10px] text-slate-400 font-mono">{b.product_code}</div>
+                                            </td>
+                                            <td className="py-3.5 px-3">
+                                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                                                    {b.category}
+                                                </span>
+                                            </td>
+                                            <td className="py-3.5 px-3 text-slate-600 font-medium">
+                                                {b.supplier_name}
+                                            </td>
+                                            <td className="py-3.5 px-3 text-center font-mono font-bold text-slate-800">
+                                                {b.expiry_date}
+                                            </td>
+                                            <td className="py-3.5 px-3 text-center">
+                                                <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black font-mono ${
+                                                    b.days_until < 0
+                                                        ? 'bg-rose-100 text-rose-800'
+                                                        : b.days_until <= 30
+                                                        ? 'bg-amber-100 text-amber-800'
+                                                        : b.days_until <= 90
+                                                        ? 'bg-yellow-100 text-yellow-800'
+                                                        : 'bg-emerald-100 text-emerald-800'
                                                 }`}>
-                                                    KES {b.capital_at_risk.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                </td>
-                                                <td className="py-3.5 px-4 text-center">
-                                                    <button
-                                                        onClick={() => {
-                                                            setActionBatch(b);
-                                                            setActionType('quarantine');
-                                                        }}
-                                                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold border border-slate-200 transition-colors"
-                                                    >
-                                                        Manage
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))
+                                                    {b.days_until < 0 ? `EXPIRED (${Math.abs(b.days_until)}d)` : `${b.days_until}d left`}
+                                                </span>
+                                            </td>
+                                            <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900">
+                                                <div>{b.remaining_qty} {b.sales_unit}</div>
+                                                <div className="text-[10px] text-slate-500 font-normal">{b.box_breakdown}</div>
+                                            </td>
+                                            <td className="py-3.5 px-3 text-right font-mono text-slate-700">
+                                                KES {b.unit_cost.toFixed(2)}
+                                            </td>
+                                            <td className={`py-3.5 px-3 text-right font-mono font-black ${
+                                                b.days_until < 0 ? 'text-rose-600' : 'text-slate-900'
+                                            }`}>
+                                                KES {b.capital_at_risk.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </td>
+                                            <td className="py-3.5 px-4 text-center">
+                                                <button
+                                                    onClick={() => {
+                                                        setActionBatch(b);
+                                                        setActionType('quarantine');
+                                                    }}
+                                                    className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold border border-slate-200 transition-colors"
+                                                >
+                                                    Manage
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))
                                 )}
                             </tbody>
                         </table>
                     </div>
 
-                    {/* Pagination Bar */}
-                    <div className="p-4 border-t border-slate-200 flex items-center justify-between flex-wrap gap-3 text-xs">
-                        <div className="flex items-center gap-2">
-                            <span className="text-slate-500">Rows per page:</span>
-                            <select
-                                value={pageSize}
-                                onChange={(e) => {
-                                    setPageSize(Number(e.target.value));
-                                    setPage(1);
-                                }}
-                                className="px-2 py-1 rounded border border-slate-300 font-bold text-slate-700 focus:outline-none"
-                            >
-                                <option value={10}>10</option>
-                                <option value={25}>25</option>
-                                <option value={50}>50</option>
-                                <option value={100}>100</option>
-                            </select>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <button
-                                disabled={page === 1}
-                                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                                className="px-3 py-1.5 rounded-lg border border-slate-200 font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                                Previous
-                            </button>
-                            <span className="font-mono font-bold text-slate-700">
-                                Page {page} of {Math.max(1, Math.ceil(filteredBatches.length / pageSize))}
-                            </span>
-                            <button
-                                disabled={page >= Math.ceil(filteredBatches.length / pageSize)}
-                                onClick={() => setPage((prev) => prev + 1)}
-                                className="px-3 py-1.5 rounded-lg border border-slate-200 font-bold text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                                Next
-                            </button>
-                        </div>
-                    </div>
+                    {/* Dedicated Pagination for Master FEFO Ledger */}
+                    <PaginationFooter
+                        currentPage={pageMaster}
+                        totalItems={filteredBatches.length}
+                        pageSize={pageSizeMaster}
+                        onPageChange={setPageMaster}
+                        onPageSizeChange={setPageSizeMaster}
+                        itemLabel="batches"
+                    />
                 </div>
             )}
 
             {/* ==================== TAB 4: CATEGORY RISK MATRIX ==================== */}
             {activeTab === 'categories' && (
                 <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
-                    <div className="p-5 border-b border-slate-200 bg-slate-50/50">
-                        <h3 className="text-base font-black text-slate-900 tracking-tight">
-                            Category Expiry &amp; Risk Stratification Matrix
-                        </h3>
-                        <p className="text-xs text-slate-500 font-medium">
-                            Breakdown of expired and critical capital risk grouped by therapeutic category
-                        </p>
+                    <div className="p-5 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between flex-wrap gap-3">
+                        <div>
+                            <h3 className="text-base font-black text-slate-900 tracking-tight">
+                                Category Expiry &amp; Risk Stratification Matrix
+                            </h3>
+                            <p className="text-xs text-slate-500 font-medium">
+                                Breakdown of expired and critical capital risk grouped by therapeutic category
+                            </p>
+                        </div>
+                        <div className="text-xs font-bold text-slate-600">
+                            Total Categories: <span className="text-slate-900 font-extrabold">{categoryAggregates.length}</span>
+                        </div>
                     </div>
 
                     <div className="overflow-x-auto">
@@ -1511,7 +1677,7 @@ export default function ExpiryReportPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-800">
-                                {categoryAggregates.map((c) => (
+                                {paginatedCategories.map((c) => (
                                     <tr key={c.category} className="hover:bg-slate-50 transition-colors">
                                         <td className="py-3.5 px-4 font-bold text-slate-900">
                                             {c.category}
@@ -1539,19 +1705,34 @@ export default function ExpiryReportPage() {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Dedicated Pagination for Category Matrix */}
+                    <PaginationFooter
+                        currentPage={pageCategory}
+                        totalItems={categoryAggregates.length}
+                        pageSize={pageSizeCategory}
+                        onPageChange={setPageCategory}
+                        onPageSizeChange={setPageSizeCategory}
+                        itemLabel="categories"
+                    />
                 </div>
             )}
 
             {/* ==================== TAB 5: SUPPLIER RISK ANALYSIS ==================== */}
             {activeTab === 'suppliers' && (
                 <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden">
-                    <div className="p-5 border-b border-slate-200 bg-slate-50/50">
-                        <h3 className="text-base font-black text-slate-900 tracking-tight">
-                            Supplier Expiration Exposure &amp; Return Claims
-                        </h3>
-                        <p className="text-xs text-slate-500 font-medium">
-                            Supplier risk audit to initiate return claims and debit notes for expiring stock
-                        </p>
+                    <div className="p-5 border-b border-slate-200 bg-slate-50/50 flex items-center justify-between flex-wrap gap-3">
+                        <div>
+                            <h3 className="text-base font-black text-slate-900 tracking-tight">
+                                Supplier Expiration Exposure &amp; Return Claims
+                            </h3>
+                            <p className="text-xs text-slate-500 font-medium">
+                                Supplier risk audit to initiate return claims and debit notes for expiring stock
+                            </p>
+                        </div>
+                        <div className="text-xs font-bold text-slate-600">
+                            Total Suppliers: <span className="text-slate-900 font-extrabold">{supplierAggregates.length}</span>
+                        </div>
                     </div>
 
                     <div className="overflow-x-auto">
@@ -1566,7 +1747,7 @@ export default function ExpiryReportPage() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-800">
-                                {supplierAggregates.map((s) => (
+                                {paginatedSuppliers.map((s) => (
                                     <tr key={s.supplier_name} className="hover:bg-slate-50 transition-colors">
                                         <td className="py-3.5 px-4 font-bold text-slate-900">
                                             {s.supplier_name}
@@ -1588,6 +1769,16 @@ export default function ExpiryReportPage() {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Dedicated Pagination for Supplier Ledger */}
+                    <PaginationFooter
+                        currentPage={pageSupplier}
+                        totalItems={supplierAggregates.length}
+                        pageSize={pageSizeSupplier}
+                        onPageChange={setPageSupplier}
+                        onPageSizeChange={setPageSizeSupplier}
+                        itemLabel="suppliers"
+                    />
                 </div>
             )}
 
