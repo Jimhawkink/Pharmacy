@@ -38,25 +38,18 @@ export async function logActivity(actionType: string, description: string, detai
             action_type: actionType,
             description,
             details: details || null,
-            user_name: user?.name || user?.userName || 'System',
-            user_type: user?.userType || 'Staff',
+            user_name: user?.name || user?.userName || user?.displayName || 'Super Admin',
+            user_type: user?.userType || user?.role || 'Admin',
             created_at: new Date().toISOString()
         };
 
-        // Dual-log: Primary to live retail_activity_log, and secondary to pharmacy_activity_log
-        try {
-            await supabase.from('retail_activity_log').insert([logEntry]);
-        } catch { /* silent */ }
-
-        try {
-            await supabase.from('pharmacy_activity_log').insert([{
-                action_type: actionType,
-                description,
-                details: details || null,
-                user_name: user?.name || user?.userName || 'System',
-            }]);
-        } catch { /* silent */ }
-    } catch { /* silent */ }
+        const { error } = await supabase.from('retail_activity_log').insert([logEntry]);
+        if (error) {
+            console.warn('retail_activity_log insert notice:', error.message);
+        }
+    } catch (e) {
+        console.warn('logActivity exception:', e);
+    }
 }
 
 // ==================== BATCH FUNCTIONS ====================
@@ -322,6 +315,15 @@ export async function completeSaleTransaction(sale: {
             } catch { /* silent fallback */ }
         }
     }
+
+    // Auto-log sale activity
+    try {
+        await logActivity(
+            'Sale',
+            `Completed Sale #${sale.receiptNo} (${sale.paymentMethod}) - Ksh ${Number(sale.total || 0).toLocaleString()}`,
+            `Customer: ${sale.customerName || 'Walk-in'} | Items: ${(sale.items || []).map(i => `${i.productName} x${i.qty}`).join(', ')}`
+        );
+    } catch { /* non-blocking */ }
 
     console.log('✅ Sale complete:', sale.receiptNo);
     return saleRecord;

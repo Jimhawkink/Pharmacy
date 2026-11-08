@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase, c2bSupabase, completeSaleTransaction, getNextReceiptNumber } from '@/lib/supabase';
+import { supabase, c2bSupabase, completeSaleTransaction, getNextReceiptNumber, logActivity } from '@/lib/supabase';
 import { printCustomerReceipt, createReceiptData, loadCompanyInfo, CompanyInfo } from '@/lib/receiptPrinter';
 import { useOutlet } from '@/context/OutletContext';
 import toast from 'react-hot-toast';
@@ -917,6 +917,15 @@ export default function PharmacyPOS() {
             setRegisterOpen(true);
             setShowOpeningDrop(false);
             setOpeningAmount('');
+            // Log activity to audit trail
+            try {
+                await logActivity(
+                    'Shift',
+                    `Opened Register / Shift with Ksh ${amt.toLocaleString()}`,
+                    `Shift #${shift.shift_instance_id} | Cashier: ${user.name || 'Cashier'} | Outlet: ${outletId}`
+                );
+            } catch { /* silent */ }
+
             playSound('success');
             toast.success(`Register opened with Ksh ${amt.toLocaleString()}`);
         } catch (err: any) {
@@ -1100,6 +1109,15 @@ export default function PharmacyPOS() {
         setCurrentShiftId(null);
         setShowCloseReg(false);
         setCloseData(null);
+        // Log close register activity
+        try {
+            await logActivity(
+                'Shift',
+                `Closed Register / Shift #${currentShiftId || 'N/A'} - Total Cash: Ksh ${(closeData?.totalCash || 0).toLocaleString()}`,
+                `Cashier: ${user.name || 'Cashier'} | Status: Closed`
+            );
+        } catch { /* silent */ }
+
         playSound('success');
         toast.success('Register closed successfully');
     };
@@ -1318,6 +1336,18 @@ export default function PharmacyPOS() {
                 printCustomerReceipt(receiptData, company);
             } catch (printErr) {
                 console.error('Receipt print error:', printErr);
+            }
+
+            // Log Sale Activity to audit trail
+            try {
+                const itemsSummary = cart.map(c => `${c.name} x${c.qty}`).join(', ');
+                await logActivity(
+                    'Sale',
+                    `POS Sale #${freshReceiptNo} (${method.toUpperCase()}) - Ksh ${grandTotal.toLocaleString()}`,
+                    `Customer: ${effectiveCustomer || 'Walk-in Customer'} | Cashier: ${cashierName} | Items: ${itemsSummary}`
+                );
+            } catch (actErr) {
+                console.warn('Sale activity logging notice:', actErr);
             }
 
             playSound('success');

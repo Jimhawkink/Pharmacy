@@ -242,61 +242,128 @@ export default function ActivityLogPage() {
     // Inspector Modal
     const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
 
-    // ==================== 1. RESILIENT LIVE DATABASE LOAD (2,290+ RECORDS) ====================
+    // ==================== 1. RESILIENT LIVE DATABASE LOAD (MULTI-STREAM) ====================
     const loadLogs = useCallback(async () => {
         setIsLoading(true);
         try {
-            // Primary Query: retail_activity_log (verified contains 2,290+ live audit entries)
-            let q1 = supabase
-                .from('retail_activity_log')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(2000);
-
-            const { data: retailData, error: err1 } = await q1;
-
             let loadedLogs: ActivityLog[] = [];
 
-            if (!err1 && retailData && retailData.length > 0) {
-                loadedLogs = retailData.map((l: any, idx: number) => ({
-                    id: l.id || `ret-${idx}`,
-                    action_type: l.action_type || 'General',
-                    description: l.description || 'System activity recorded',
-                    details: l.details || null,
-                    user_name: l.user_name || 'System',
-                    user_type: l.user_type || 'Staff',
-                    ip_address: l.ip_address || null,
-                    created_at: l.created_at || new Date().toISOString(),
-                }));
-            }
-
-            // Secondary Query: pharmacy_activity_log (merge any additional pharmacy-specific actions)
+            // 1. Live Pharmacy Sales Stream (Every POS & Pharmacy Sale)
             try {
-                const { data: pharmData } = await supabase
-                    .from('pharmacy_activity_log')
+                const { data: salesData, error: salesErr } = await supabase
+                    .from('pharmacy_sales')
                     .select('*')
                     .order('created_at', { ascending: false })
-                    .limit(500);
+                    .limit(1000);
 
-                if (pharmData && pharmData.length > 0) {
-                    const mappedPharm: ActivityLog[] = pharmData.map((l: any) => ({
-                        id: l.log_id || `pharm-${l.log_id}`,
+                if (!salesErr && salesData && salesData.length > 0) {
+                    const mappedSales: ActivityLog[] = salesData.map((s: any) => ({
+                        id: `psale-${s.sale_id}`,
+                        action_type: 'Sale',
+                        description: `Sale #${s.receipt_no} - Total: Ksh ${Number(s.total || 0).toLocaleString()} (${s.payment_method || 'Cash'})`,
+                        details: `Receipt: ${s.receipt_no} | Total Amount: Ksh ${Number(s.total || 0).toLocaleString()} | Amount Paid: Ksh ${Number(s.amount_paid || s.total || 0).toLocaleString()}${s.change_amount ? ` | Change: Ksh ${s.change_amount}` : ''} | Customer: ${s.customer_name || 'Walk-in Customer'}${s.customer_phone ? ` (${s.customer_phone})` : ''} | Cashier: ${s.cashier_name || 'Super Admin'} | Payment: ${s.payment_method || 'Cash'}${s.mpesa_receipt ? ` | M-Pesa Code: ${s.mpesa_receipt}` : ''} | Status: ${s.status || 'Completed'}`,
+                        user_name: s.cashier_name || 'Super Admin',
+                        user_type: 'Cashier',
+                        ip_address: null,
+                        outlet_id: s.outlet_id || 1,
+                        created_at: s.sale_datetime || s.created_at || new Date().toISOString(),
+                    }));
+                    loadedLogs = [...loadedLogs, ...mappedSales];
+                }
+            } catch (err) {
+                console.warn('Pharmacy sales load notice:', err);
+            }
+
+            // 2. Live Retail Activity Log (Audit Trail: Logins, Products, Edits, Settings)
+            try {
+                const { data: retailData, error: err1 } = await supabase
+                    .from('retail_activity_log')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(2000);
+
+                if (!err1 && retailData && retailData.length > 0) {
+                    const mappedRetail: ActivityLog[] = retailData.map((l: any, idx: number) => ({
+                        id: l.id ? `ret-${l.id}` : `ret-idx-${idx}`,
                         action_type: l.action_type || 'General',
-                        description: l.description || '',
+                        description: l.description || 'System activity recorded',
                         details: l.details || null,
                         user_name: l.user_name || 'System',
-                        user_type: 'Staff',
+                        user_type: l.user_type || 'Staff',
+                        ip_address: l.ip_address || null,
+                        outlet_id: l.outlet_id || null,
                         created_at: l.created_at || new Date().toISOString(),
                     }));
-                    loadedLogs = [...loadedLogs, ...mappedPharm];
+                    loadedLogs = [...loadedLogs, ...mappedRetail];
+                }
+            } catch (err) {
+                console.warn('Retail activity log notice:', err);
+            }
+
+            // 3. Live Batch & Stock Movements
+            try {
+                const { data: batchData } = await supabase
+                    .from('pharmacy_batches')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(100);
+
+                if (batchData && batchData.length > 0) {
+                    const mappedBatches: ActivityLog[] = batchData.map((b: any) => ({
+                        id: `batch-${b.batch_id}`,
+                        action_type: 'Stock',
+                        description: `Batch ${b.batch_number} received/updated - Qty: ${b.quantity || b.remaining_qty} units`,
+                        details: `Batch: ${b.batch_number} | Expiry: ${b.expiry_date} | Supplier: ${b.supplier_name || 'N/A'} | Status: ${b.status || 'Active'}`,
+                        user_name: 'Inventory Staff',
+                        user_type: 'Staff',
+                        ip_address: null,
+                        outlet_id: b.outlet_id || 1,
+                        created_at: b.created_at || b.updated_at || new Date().toISOString(),
+                    }));
+                    loadedLogs = [...loadedLogs, ...mappedBatches];
                 }
             } catch { /* graceful fallback */ }
 
-            // Sort all by created_at descending
-            loadedLogs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            // 4. Retail Counter Sales (historical counter sales)
+            try {
+                const { data: retSalesData } = await supabase
+                    .from('retail_sales')
+                    .select('*')
+                    .order('sale_datetime', { ascending: false })
+                    .limit(200);
 
-            setLogs(loadedLogs);
-            setTotalDbCount(loadedLogs.length);
+                if (retSalesData && retSalesData.length > 0) {
+                    const mappedRetSales: ActivityLog[] = retSalesData.map((s: any) => ({
+                        id: `rsale-${s.sale_id}`,
+                        action_type: 'Sale',
+                        description: `Sale #${s.receipt_no} - Total: Ksh ${Number(s.total_amount || 0).toLocaleString()} (${s.payment_method || 'Cash'})`,
+                        details: `Receipt: ${s.receipt_no} | Total Amount: Ksh ${Number(s.total_amount || 0).toLocaleString()} | Paid: Ksh ${s.amount_paid || s.total_amount} | Customer: ${s.customer_name || 'Walk-in'} | Payment: ${s.payment_method || 'Cash'} | Status: ${s.status || 'Completed'}`,
+                        user_name: s.created_by || 'Staff',
+                        user_type: 'Cashier',
+                        ip_address: null,
+                        outlet_id: s.outlet_id || 1,
+                        created_at: s.sale_datetime || (s.sale_date ? `${s.sale_date}T12:00:00Z` : new Date().toISOString()),
+                    }));
+                    loadedLogs = [...loadedLogs, ...mappedRetSales];
+                }
+            } catch { /* graceful fallback */ }
+
+            // Deduplicate logs by unique id
+            const seenIds = new Set<string>();
+            const uniqueLogs: ActivityLog[] = [];
+            for (const log of loadedLogs) {
+                const strId = String(log.id);
+                if (!seenIds.has(strId)) {
+                    seenIds.add(strId);
+                    uniqueLogs.push(log);
+                }
+            }
+
+            // Sort all by created_at descending
+            uniqueLogs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+            setLogs(uniqueLogs);
+            setTotalDbCount(uniqueLogs.length);
             setLastSyncTime(new Date().toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
         } catch (err: any) {
             console.error('Error loading live activity logs:', err);
@@ -308,6 +375,11 @@ export default function ActivityLogPage() {
 
     useEffect(() => {
         loadLogs();
+        // Auto-refresh every 20 seconds to capture new counter sales
+        const timer = setInterval(() => {
+            loadLogs();
+        }, 20000);
+        return () => clearInterval(timer);
     }, [loadLogs]);
 
     // Apply Quick Date Horizon presets
