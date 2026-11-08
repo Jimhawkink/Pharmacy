@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase, logActivity } from '@/lib/supabase';
@@ -13,10 +13,10 @@ import {
     FiSliders, FiEye, FiChevronsLeft, FiChevronsRight, FiFileText,
     FiShield, FiCalendar, FiBox, FiAlertCircle, FiArrowUpRight,
     FiMaximize2, FiMinimize2, FiMinus, FiInfo, FiCopy, FiCheckCircle,
-    FiCheckSquare, FiSquare, FiActivity, FiChevronDown, FiChevronUp, FiShoppingCart
+    FiCheckSquare, FiSquare, FiActivity, FiChevronDown, FiChevronUp
 } from 'react-icons/fi';
 
-// â”€â”€â”€ TYPES & INTERFACES â”€â”€â”€
+// ─── TYPES & INTERFACES ───
 interface Product {
     pid: number;
     product_code: string;
@@ -137,7 +137,7 @@ interface ImportRow {
     requires_prescription?: boolean;
 }
 
-// â”€â”€â”€ CONSTANTS â”€â”€â”€
+// ─── CONSTANTS ───
 const DRUG_TYPES = [
     'Tablet', 'Capsule', 'Syrup', 'Suspension', 'Injection', 'Cream', 'Ointment',
     'Drops', 'Inhaler', 'Suppository', 'Powder', 'Gel', 'Spray', 'Patch', 'Sachet',
@@ -145,13 +145,13 @@ const DRUG_TYPES = [
 ];
 
 const STORAGE_PRESETS = [
-    'Room Temperature (15Â°C â€“ 25Â°C)',
-    'Cool Place (8Â°C â€“ 15Â°C)',
-    'Refrigerate (2Â°C â€“ 8Â°C)',
+    'Room Temperature (15°C – 25°C)',
+    'Cool Place (8°C – 15°C)',
+    'Refrigerate (2°C – 8°C)',
     'Do Not Freeze',
     'Protect from Direct Light',
     'Store in Dry & Sealed Container',
-    'Deep Freeze (-20Â°C)'
+    'Deep Freeze (-20°C)'
 ];
 
 const DEFAULT_UNITS: Unit[] = [
@@ -196,12 +196,12 @@ const getExpiryBadge = (days: number) => {
         return <span className="px-2 py-0.5 bg-red-100/90 text-red-700 border border-red-200 rounded-full text-[10px] font-black shadow-xs">EXPIRED</span>;
     }
     if (days <= 30) {
-        return <span className="px-2 py-0.5 bg-orange-100/90 text-orange-700 border border-orange-200 rounded-full text-[10px] font-black shadow-xs">{days}d âš ï¸</span>;
+        return <span className="px-2 py-0.5 bg-orange-100/90 text-orange-700 border border-orange-200 rounded-full text-[10px] font-black shadow-xs">{days}d ⚠️</span>;
     }
     if (days <= 90) {
         return <span className="px-2 py-0.5 bg-amber-100/90 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold shadow-xs">{days}d</span>;
     }
-    return <span className="px-2 py-0.5 bg-sky-100/90 text-sky-700 border border-sky-200 rounded-full text-[10px] font-bold shadow-xs">{days}d âœ“</span>;
+    return <span className="px-2 py-0.5 bg-sky-100/90 text-sky-700 border border-sky-200 rounded-full text-[10px] font-bold shadow-xs">{days}d ✓</span>;
 };
 
 // Default blank product form
@@ -214,7 +214,7 @@ const defaultForm: Omit<Product, 'pid' | 'product_code'> = {
     drug_type: 'Tablet',
     dosage: '',
     manufacturer: '',
-    storage_conditions: 'Room Temperature (15Â°C â€“ 25Â°C)',
+    storage_conditions: 'Room Temperature (15°C – 25°C)',
     shelf_location: '',
     requires_prescription: false,
     controlled_substance: false,
@@ -241,7 +241,7 @@ export default function ProductsPage() {
     const { activeOutlet } = useOutlet();
     const outletId = activeOutlet?.outlet_id || 1;
 
-    // â”€â”€â”€ CORE STATE â”€â”€â”€
+    // ─── CORE STATE ───
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -255,7 +255,7 @@ export default function ProductsPage() {
     const [pieceStockData, setPieceStockData] = useState<Record<number, number>>({});
     const [productBatches, setProductBatches] = useState<Record<number, Batch[]>>({});
 
-    // â”€â”€â”€ FILTER & DISPLAY STATE â”€â”€â”€
+    // ─── FILTER & DISPLAY STATE ───
     const [searchQuery, setSearchQuery] = useState('');
     const [filterCategory, setFilterCategory] = useState('All');
     const [filterDrugType, setFilterDrugType] = useState('All');
@@ -277,7 +277,7 @@ export default function ProductsPage() {
     // Selection & Bulk
     const [selectedPids, setSelectedPids] = useState<Set<number>>(new Set());
 
-    // â”€â”€â”€ ADD/EDIT PRODUCT MODAL STATE â”€â”€â”€
+    // ─── ADD/EDIT PRODUCT MODAL STATE ───
     const [showModal, setShowModal] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [modalTab, setModalTab] = useState<'general' | 'clinical' | 'pricing' | 'batches' | 'media'>('general');
@@ -294,7 +294,7 @@ export default function ProductsPage() {
     });
     const [isSaving, setIsSaving] = useState(false);
 
-    // â”€â”€â”€ OTHER MODALS â”€â”€â”€
+    // ─── OTHER MODALS ───
     // Label Generator
     const [showLabelModal, setShowLabelModal] = useState(false);
     const [labelProducts, setLabelProducts] = useState<number[]>([]);
@@ -328,7 +328,7 @@ export default function ProductsPage() {
     const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
     const [adjustBatchLoading, setAdjustBatchLoading] = useState(false);
 
-    // â”€â”€â”€ SUPER MASSIVE ULTRA IMPORT STATE â”€â”€â”€
+    // ─── SUPER MASSIVE ULTRA IMPORT STATE ───
     const [showImportModal, setShowImportModal] = useState(false);
     const [importFile, setImportFile] = useState<File | null>(null);
     const [importMode, setImportMode] = useState<'add_new' | 'update' | 'overwrite_all'>('add_new');
@@ -347,7 +347,7 @@ export default function ProductsPage() {
     const [importSkippedCount, setImportSkippedCount] = useState(0);
     const [importErrors, setImportErrors] = useState<{ row: number; item: string; error: string }[]>([]);
 
-    // â”€â”€â”€ DATA FETCHING â”€â”€â”€
+    // ─── DATA FETCHING ───
     const loadProducts = useCallback(async () => {
         setIsLoading(true);
         try {
@@ -492,7 +492,7 @@ export default function ProductsPage() {
         loadCompanyName();
     }, [loadProducts, loadStockData, loadCategories, loadSuppliers, loadUnits, loadCompanyName]);
 
-    // â”€â”€â”€ BARCODE & CODE GENERATORS â”€â”€â”€
+    // ─── BARCODE & CODE GENERATORS ───
     const generateBarcode = async (): Promise<string> => {
         try {
             const { data } = await supabase
@@ -539,7 +539,7 @@ export default function ProductsPage() {
         setNewBatchRow(prev => ({ ...prev, expiry_date: d.toISOString().split('T')[0] }));
     };
 
-    // â”€â”€â”€ MARGIN & FINANCIAL CALCULATIONS â”€â”€â”€
+    // ─── MARGIN & FINANCIAL CALCULATIONS ───
     const computedMetrics = useMemo(() => {
         const ppp = formData.pieces_per_package || 1;
         const costPerPkg = formData.purchase_cost || 0;
@@ -568,7 +568,7 @@ export default function ProductsPage() {
         };
     }, [formData.purchase_cost, formData.sales_cost, formData.pieces_per_package, formData.purchase_unit, formData.sales_unit]);
 
-    // â”€â”€â”€ MODAL OPENERS â”€â”€â”€
+    // ─── MODAL OPENERS ───
     const openAddModal = async () => {
         setEditingProduct(null);
         setModalTab('general');
@@ -603,7 +603,7 @@ export default function ProductsPage() {
             drug_type: p.drug_type || 'Tablet',
             dosage: p.dosage || '',
             manufacturer: p.manufacturer || '',
-            storage_conditions: p.storage_conditions || 'Room Temperature (15Â°C â€“ 25Â°C)',
+            storage_conditions: p.storage_conditions || 'Room Temperature (15°C – 25°C)',
             shelf_location: p.shelf_location || '',
             requires_prescription: !!p.requires_prescription,
             controlled_substance: !!p.controlled_substance,
@@ -647,7 +647,7 @@ export default function ProductsPage() {
         setShowModal(true);
     };
 
-    // â”€â”€â”€ SAVE PRODUCT â”€â”€â”€
+    // ─── SAVE PRODUCT ───
     const handleSaveProduct = async () => {
         if (!formData.product_name.trim()) {
             toast.error('Product trade name is required');
@@ -802,7 +802,7 @@ export default function ProductsPage() {
         }
     };
 
-    // â”€â”€â”€ DELETE PRODUCT â”€â”€â”€
+    // ─── DELETE PRODUCT ───
     const deleteProduct = async (p: Product) => {
         if (!confirm(`Are you sure you want to permanently delete "${p.product_name}" (${p.product_code})?`)) return;
         try {
@@ -817,7 +817,7 @@ export default function ProductsPage() {
         }
     };
 
-    // â”€â”€â”€ STOCK HISTORY MODAL â”€â”€â”€
+    // ─── STOCK HISTORY MODAL ───
     const openStockHistory = async (p: Product) => {
         setStockHistoryProduct(p);
         setShowStockHistoryModal(true);
@@ -873,7 +873,7 @@ export default function ProductsPage() {
         }
     };
 
-    // â”€â”€â”€ PRICE HISTORY MODAL â”€â”€â”€
+    // ─── PRICE HISTORY MODAL ───
     const openPriceHistory = async (p: Product) => {
         setPriceHistoryProduct(p);
         setShowPriceHistoryModal(true);
@@ -899,7 +899,7 @@ export default function ProductsPage() {
         }
     };
 
-    // â”€â”€â”€ STOCK ADJUSTMENT â”€â”€â”€
+    // ─── STOCK ADJUSTMENT ───
     const openStockAdjust = async (p: Product) => {
         setAdjustProduct(p);
         setAdjustBags(0);
@@ -980,7 +980,7 @@ export default function ProductsPage() {
         }
     };
 
-    // â”€â”€â”€ LABEL GENERATOR â”€â”€â”€
+    // ─── LABEL GENERATOR ───
     const labelSizes = {
         small: { w: '38mm', h: '25mm', name: 11, barcode: 14, price: 13, code: 8 },
         medium: { w: '50mm', h: '30mm', name: 13, barcode: 18, price: 16, code: 9 },
@@ -1009,7 +1009,7 @@ export default function ProductsPage() {
                 <div class='name'>${p.product_name}</div>
                 <div class='barcode'>${p.barcode || p.product_code}</div>
                 <div class='price'>KES ${(p.sales_cost || 0).toLocaleString()}</div>
-                <div class='code'>${p.product_code} â€¢ ${p.sales_unit || 'Pc'}</div>
+                <div class='code'>${p.product_code} • ${p.sales_unit || 'Pc'}</div>
             </div>`
             )
             .join('')}</body></html>`;
@@ -1047,7 +1047,7 @@ export default function ProductsPage() {
         );
     });
 
-    // â”€â”€â”€ FAST SCANNER / LOOKUP â”€â”€â”€
+    // ─── FAST SCANNER / LOOKUP ───
     const doLookup = () => {
         const q = lookupQuery.toLowerCase().trim();
         const found = products.find(
@@ -1061,7 +1061,7 @@ export default function ProductsPage() {
         if (!found) toast.error('No matching drug found in catalog');
     };
 
-    // â”€â”€â”€ SUPER MASSIVE ULTRA CSV/FILE PARSER â”€â”€â”€
+    // ─── SUPER MASSIVE ULTRA CSV/FILE PARSER ───
     const parseCSVFile = async (file: File) => {
         setImportFile(file);
         setImportStatus('parsing');
@@ -1144,7 +1144,7 @@ export default function ProductsPage() {
         }
     };
 
-    // â”€â”€â”€ EXECUTE SUPER MASSIVE IMPORT â”€â”€â”€
+    // ─── EXECUTE SUPER MASSIVE IMPORT ───
     const executeImport = async (targetRows: ImportRow[]) => {
         if (targetRows.length === 0) {
             toast.error('No rows selected for import');
@@ -1214,7 +1214,7 @@ export default function ProductsPage() {
                     vat_commodity: 'Standard (16%)',
                     supplier_name: r.supplier_name || null,
                     shelf_location: r.shelf_location || null,
-                    storage_conditions: r.storage_conditions || 'Room Temperature (15Â°C â€“ 25Â°C)',
+                    storage_conditions: r.storage_conditions || 'Room Temperature (15°C – 25°C)',
                     requires_prescription: !!r.requires_prescription,
                     active: true,
                     margin_per: margin,
@@ -1332,14 +1332,14 @@ export default function ProductsPage() {
     // Download Sample Detailed Pharmacy Template
     const downloadPharmacyCSVTemplate = () => {
         const sampleCSV = `product_name,generic_name,barcode,category,drug_type,dosage,purchase_unit,sales_unit,pieces_per_package,purchase_cost,sales_cost,wholesale_price,reorder_point,quantity,batch_number,expiry_date,supplier_name,storage_conditions,requires_prescription
-"Augmentin 625mg","Amoxicillin + Clavulanic Acid","616110123001","Antibiotics","Tablet","625mg","Box","Tablet",14,850,1400,1200,20,100,"AUG-2401","2026-11-30","GlaxoSmithKline","Room Temperature (15Â°C â€“ 25Â°C)",true
-"Panadol Extra 500mg","Paracetamol + Caffeine","616110123002","Analgesics & Pain","Tablet","500mg","Box","Tablet",100,600,1000,900,50,500,"PAN-2405","2027-06-30","Haleon Kenya","Room Temperature (15Â°C â€“ 25Â°C)",false
-"Amoxil 500mg","Amoxicillin Trihydrate","616110123003","Antibiotics","Capsule","500mg","Pack","Capsule",20,320,600,500,25,200,"AMX-2409","2026-08-31","Dawa Pharmaceuticals","Room Temperature (15Â°C â€“ 25Â°C)",true
-"Ventolin Inhaler 100mcg","Salbutamol Sulfate","616110123004","Respiratory","Inhaler","100mcg","Piece","Piece",1,450,750,650,15,50,"VEN-2412","2027-02-28","GlaxoSmithKline","Cool Place (8Â°C â€“ 15Â°C)",true
-"Cetirizine 10mg","Cetirizine Dihydrochloride","616110123005","Antihistamines","Tablet","10mg","Box","Tablet",30,180,350,300,30,150,"CET-2403","2026-12-31","Cosmos Ltd","Room Temperature (15Â°C â€“ 25Â°C)",false
-"Metformin 500mg","Metformin HCl","616110123006","Diabetes Care","Tablet","500mg","Box","Tablet",100,500,900,800,40,300,"MET-2408","2027-04-30","Beta Healthcare","Room Temperature (15Â°C â€“ 25Â°C)",true
-"Cough Syrup Adult 100ml","Guaifenesin + Menthol","616110123007","Cough & Cold","Syrup","100ml","Bottle","Bottle",1,220,400,350,20,80,"CSY-2410","2026-09-30","Regal Pharmaceuticals","Room Temperature (15Â°C â€“ 25Â°C)",false
-"Insulin Mixtard 100IU/ml","Human Insulin","616110123008","Diabetes Care","Injection","100IU/ml","Vial","Vial",1,1200,1850,1650,10,30,"INS-2411","2026-05-31","Novo Nordisk","Refrigerate (2Â°C â€“ 8Â°C)",true`;
+"Augmentin 625mg","Amoxicillin + Clavulanic Acid","616110123001","Antibiotics","Tablet","625mg","Box","Tablet",14,850,1400,1200,20,100,"AUG-2401","2026-11-30","GlaxoSmithKline","Room Temperature (15°C – 25°C)",true
+"Panadol Extra 500mg","Paracetamol + Caffeine","616110123002","Analgesics & Pain","Tablet","500mg","Box","Tablet",100,600,1000,900,50,500,"PAN-2405","2027-06-30","Haleon Kenya","Room Temperature (15°C – 25°C)",false
+"Amoxil 500mg","Amoxicillin Trihydrate","616110123003","Antibiotics","Capsule","500mg","Pack","Capsule",20,320,600,500,25,200,"AMX-2409","2026-08-31","Dawa Pharmaceuticals","Room Temperature (15°C – 25°C)",true
+"Ventolin Inhaler 100mcg","Salbutamol Sulfate","616110123004","Respiratory","Inhaler","100mcg","Piece","Piece",1,450,750,650,15,50,"VEN-2412","2027-02-28","GlaxoSmithKline","Cool Place (8°C – 15°C)",true
+"Cetirizine 10mg","Cetirizine Dihydrochloride","616110123005","Antihistamines","Tablet","10mg","Box","Tablet",30,180,350,300,30,150,"CET-2403","2026-12-31","Cosmos Ltd","Room Temperature (15°C – 25°C)",false
+"Metformin 500mg","Metformin HCl","616110123006","Diabetes Care","Tablet","500mg","Box","Tablet",100,500,900,800,40,300,"MET-2408","2027-04-30","Beta Healthcare","Room Temperature (15°C – 25°C)",true
+"Cough Syrup Adult 100ml","Guaifenesin + Menthol","616110123007","Cough & Cold","Syrup","100ml","Bottle","Bottle",1,220,400,350,20,80,"CSY-2410","2026-09-30","Regal Pharmaceuticals","Room Temperature (15°C – 25°C)",false
+"Insulin Mixtard 100IU/ml","Human Insulin","616110123008","Diabetes Care","Injection","100IU/ml","Vial","Vial",1,1200,1850,1650,10,30,"INS-2411","2026-05-31","Novo Nordisk","Refrigerate (2°C – 8°C)",true`;
 
         const blob = new Blob([sampleCSV], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -1353,7 +1353,7 @@ export default function ProductsPage() {
         toast.success('Downloaded master pharmacy template CSV');
     };
 
-    // â”€â”€â”€ SUPER VIVID BRIGHT COLORS EXCEL EXPORT (SpreadsheetML) â”€â”€â”€
+    // ─── SUPER VIVID BRIGHT COLORS EXCEL EXPORT (SpreadsheetML) ───
     const exportBrightExcel = () => {
         try {
             const rowsXml = filteredProducts
@@ -1492,7 +1492,7 @@ export default function ProductsPage() {
    <Column ss:Width="70"/>
 
    <Row ss:Height="36">
-    <Cell ss:MergeAcross="15" ss:StyleID="TitleHeader"><Data ss:Type="String">ðŸ¥ ${companyName.toUpperCase()} â€” MASTER PHARMACEUTICAL CATALOG</Data></Cell>
+    <Cell ss:MergeAcross="15" ss:StyleID="TitleHeader"><Data ss:Type="String">🏥 ${companyName.toUpperCase()} — MASTER PHARMACEUTICAL CATALOG</Data></Cell>
    </Row>
    <Row ss:Height="22">
     <Cell ss:MergeAcross="15" ss:StyleID="SubHeader"><Data ss:Type="String">Exported: ${new Date().toLocaleString('en-GB')} | Total Records: ${filteredProducts.length}</Data></Cell>
@@ -1535,12 +1535,12 @@ export default function ProductsPage() {
         }
     };
 
-    // â”€â”€â”€ PRINT CATALOG / PDF VIEW â”€â”€â”€
+    // ─── PRINT CATALOG / PDF VIEW ───
     const printCatalogReport = () => {
         window.print();
     };
 
-    // â”€â”€â”€ FILTERING & SORTING LOGIC â”€â”€â”€
+    // ─── FILTERING & SORTING LOGIC ───
     const filteredProducts = useMemo(() => {
         return products.filter(p => {
             // Omni-search
@@ -1630,7 +1630,7 @@ export default function ProductsPage() {
         productBatches
     ]);
 
-    // â”€â”€â”€ PORTFOLIO KPI AGGREGATES â”€â”€â”€
+    // ─── PORTFOLIO KPI AGGREGATES ───
     const kpiData = useMemo(() => {
         let totalValCost = 0;
         let totalValSales = 0;
@@ -1717,70 +1717,59 @@ export default function ProductsPage() {
         return importParsedRows.filter(r => r.selected).length;
     }, [importParsedRows]);
 
-    // â”€â”€â”€ CATEGORY COUNTS FOR SIDEBAR â”€â”€â”€
-    const categoryCounts = useMemo(() => {
-        const counts: Record<string, number> = {};
-        products.forEach(p => {
-            const cat = p.category || 'General';
-            counts[cat] = (counts[cat] || 0) + 1;
-        });
-        return counts;
-    }, [products]);
-
-    // â”€â”€â”€ STOCK ALERTS for bottom panel â”€â”€â”€
-    const stockAlerts = useMemo(() => {
-        const alerts: { name: string; type: 'low' | 'expiring' | 'out'; color: string }[] = [];
-        products.forEach(p => {
-            const stk = stockData[p.pid] || 0;
-            const reorder = p.reorder_point || 10;
-            const pBatches = productBatches[p.pid] || [];
-            const nearestDays = pBatches.length > 0 ? getDaysUntilExpiry(pBatches[0].expiry_date) : null;
-            if (stk <= 0) alerts.push({ name: p.product_name, type: 'out', color: 'bg-red-500' });
-            else if (stk <= reorder) alerts.push({ name: p.product_name, type: 'low', color: 'bg-orange-400' });
-            else if (nearestDays !== null && nearestDays <= 90 && nearestDays > 0) alerts.push({ name: p.product_name, type: 'expiring', color: 'bg-amber-400' });
-        });
-        return alerts.slice(0, 6);
-    }, [products, stockData, productBatches]);
-
     return (
-        <div className={`${autoFitScreen ? 'max-w-full' : 'max-w-[1800px]'} mx-auto`} style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+        <div className={`space-y-4 ${autoFitScreen ? 'max-w-full' : 'max-w-[1700px]'} mx-auto`} style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
 
-            {/* â”â”â” PREMIUM GREEN HEADER BAR â”â”â” */}
-            {/* â”â”â” PREMIUM GREEN HEADER BAR â”â”â” */}
-            <div className="bg-white border border-slate-200 rounded-2xl px-4 py-3 shadow-sm flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-600 to-emerald-700 flex items-center justify-center text-white shadow-sm flex-shrink-0">
-                        <FiPackage size={17} />
+            {/* ━━━ COMPACT SLEEK TOP BAR (LOW HEIGHT, MAX VISIBILITY) ━━━ */}
+            <div className="glass-card px-4 py-2.5 shadow-sm border border-white/80 flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-sm flex-shrink-0">
+                        <FiPackage size={16} />
                     </div>
-                    <div>
-                        <h1 className="text-base font-black text-slate-800 tracking-tight">Products Catalogue</h1>
-                        <p className="text-[11px] text-slate-500 font-medium">{products.length} total products &middot; {kpiData.activeSkus} active</p>
+                    <div className="flex items-center gap-2">
+                        <h1 className="text-base sm:text-lg font-black text-slate-800 tracking-tight">Products Formulary</h1>
+                        <span className="px-2 py-0.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-[11px] font-black">
+                            {products.length} Drugs
+                        </span>
                     </div>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                     <button
-                        onClick={() => { loadProducts(); loadStockData(); toast.success('Catalog refreshed'); }}
-                        className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-500 hover:text-green-700 hover:border-green-300 transition"
-                        title="Refresh"
+                        onClick={() => { loadProducts(); loadStockData(); toast.success('Formulary refreshed'); }}
+                        className="p-1.5 rounded-lg bg-white/90 border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 transition shadow-2xs"
+                        title="Refresh Catalog"
                     >
                         <FiRefreshCw size={13} />
                     </button>
+
                     <button
                         onClick={() => setShowAnalyticsCards(!showAnalyticsCards)}
-                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition ${
-                            showAnalyticsCards ? 'bg-green-50 border-green-300 text-green-700' : 'bg-white border-slate-200 text-slate-600'
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition shadow-2xs ${
+                            showAnalyticsCards
+                                ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                                : 'bg-white/90 border-slate-200 text-slate-600 hover:bg-slate-50'
                         }`}
+                        title="Toggle Metric Cards"
                     >
-                        <FiActivity size={12} />
-                        <span>{showAnalyticsCards ? 'Hide Stats' : 'Show Stats'}</span>
+                        <FiActivity size={12} className="text-indigo-600" />
+                        <span>{showAnalyticsCards ? 'Hide Cards' : 'Show Cards'}</span>
+                        {showAnalyticsCards ? <FiChevronUp size={11} /> : <FiChevronDown size={11} />}
                     </button>
+
                     <button
-                        onClick={() => { setShowLookupModal(true); setLookupQuery(''); setLookupResult(null); }}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-green-300 text-xs font-bold transition"
+                        onClick={() => setAutoFitScreen(!autoFitScreen)}
+                        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition shadow-2xs ${
+                            autoFitScreen
+                                ? 'bg-blue-50 border-blue-300 text-blue-700'
+                                : 'bg-white/90 border-slate-200 text-slate-600 hover:bg-slate-50'
+                        }`}
+                        title="Toggle Screen Fit"
                     >
-                        <FiEye size={13} /> Lookup
+                        {autoFitScreen ? <FiMinimize2 size={12} /> : <FiMaximize2 size={12} />}
+                        <span>{autoFitScreen ? 'Auto-Fit' : 'Wide'}</span>
                     </button>
+
                     <button
                         onClick={() => {
                             setShowLabelModal(true);
@@ -1789,750 +1778,1061 @@ export default function ProductsPage() {
                             paginatedProducts.slice(0, 10).forEach(p => qMap[p.pid] = 1);
                             setLabelQty(qMap);
                         }}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-green-300 text-xs font-bold transition"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-50 border border-purple-200 text-purple-700 hover:bg-purple-100 transition text-xs font-bold shadow-2xs"
+                        title="Print Barcode Labels"
                     >
-                        <FiPrinter size={13} /> Labels
+                        <FiPrinter size={13} />
+                        <span>Labels</span>
                     </button>
+
                     <button
-                        onClick={() => { setShowImportModal(true); setImportFile(null); setImportParsedRows([]); setImportStatus('idle'); setImportErrors([]); setConfirmOverwrite(false); }}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-green-300 text-xs font-bold transition"
+                        onClick={() => { setShowLookupModal(true); setLookupQuery(''); setLookupResult(null); }}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-sky-50 border border-sky-200 text-sky-700 hover:bg-sky-100 transition text-xs font-bold shadow-2xs"
+                        title="Scan Barcode / Fast Lookup"
                     >
-                        <FiUpload size={13} /> Import
+                        <FiEye size={13} />
+                        <span>Scan / Lookup</span>
                     </button>
+
+                    <button
+                        onClick={() => {
+                            setShowImportModal(true);
+                            setImportFile(null);
+                            setImportParsedRows([]);
+                            setImportStatus('idle');
+                            setImportErrors([]);
+                            setConfirmOverwrite(false);
+                        }}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition text-xs font-bold shadow-2xs"
+                        title="Advanced Import"
+                    >
+                        <FiUpload size={13} />
+                        <span>Import</span>
+                    </button>
+
                     <button
                         onClick={exportBrightExcel}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-green-300 text-xs font-bold transition"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 font-bold text-xs shadow-2xs transition"
+                        title="Download Vivid Color Excel Spreadsheet"
                     >
-                        <FiDownload size={13} /> Excel
+                        <FiDownload size={13} />
+                        <span>Excel</span>
                     </button>
+
                     <button
                         onClick={printCatalogReport}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:border-green-300 text-xs font-bold transition"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs shadow-2xs transition"
+                        title="Print Catalog PDF"
                     >
-                        <FiPrinter size={13} /> PDF
+                        <FiPrinter size={13} />
+                        <span>PDF</span>
                     </button>
+
                     <button
                         onClick={openAddModal}
-                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-green-700 hover:bg-green-800 text-white font-black text-xs shadow-sm transition"
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs shadow-md shadow-blue-500/20 transition transform hover:-translate-y-0.5 active:translate-y-0"
                     >
                         <FiPlus size={14} strokeWidth={2.5} />
-                        <span>+ Add Product</span>
+                        <span>+ Add Drug</span>
                     </button>
                 </div>
             </div>
 
-            {/* â”â”â” PREMIUM GREEN STATS CARDS â”â”â” */}
+            {/* ━━━ HIGH-VISIBILITY BRIGHT QUICK ACTIONS TOOLBAR ━━━ */}
+            <div className="glass-card px-3.5 py-2 border border-white/80 shadow-xs flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-1">Quick Actions:</span>
+                    <button
+                        onClick={openAddModal}
+                        className="px-2.5 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-xs font-bold shadow-xs transition flex items-center gap-1"
+                    >
+                        <FiPlus size={12} /> New Drug
+                    </button>
+                    <button
+                        onClick={() => { setShowLookupModal(true); setLookupQuery(''); setLookupResult(null); }}
+                        className="px-2.5 py-1 rounded-lg bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100 text-xs font-bold transition flex items-center gap-1"
+                    >
+                        <FiEye size={12} /> Barcode Scanner
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (paginatedProducts.length > 0) openStockAdjust(paginatedProducts[0]);
+                            else toast('No products available to adjust');
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 text-xs font-bold transition flex items-center gap-1"
+                    >
+                        <FiSliders size={12} /> Fast Adjust
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (paginatedProducts.length > 0) openStockHistory(paginatedProducts[0]);
+                            else toast('No products available');
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 text-xs font-bold transition flex items-center gap-1"
+                    >
+                        <FiClock size={12} /> Stock Ledger
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (paginatedProducts.length > 0) openPriceHistory(paginatedProducts[0]);
+                            else toast('No products available');
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 text-xs font-bold transition flex items-center gap-1"
+                    >
+                        <FiTrendingUp size={12} /> Price History
+                    </button>
+                    <button
+                        onClick={() => {
+                            setShowLabelModal(true);
+                            setLabelProducts(paginatedProducts.slice(0, 8).map(p => p.pid));
+                            const qMap: Record<number, number> = {};
+                            paginatedProducts.slice(0, 8).forEach(p => qMap[p.pid] = 1);
+                            setLabelQty(qMap);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 text-xs font-bold transition flex items-center gap-1"
+                    >
+                        <FiPrinter size={12} /> Barcode Labels
+                    </button>
+                    <button
+                        onClick={() => setShowImportModal(true)}
+                        className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 text-xs font-bold transition flex items-center gap-1"
+                    >
+                        <FiUpload size={12} /> Bulk Import
+                    </button>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs">
+                    <button
+                        onClick={exportBrightExcel}
+                        className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-bold transition flex items-center gap-1"
+                    >
+                        <FiDownload size={12} /> Excel
+                    </button>
+                    <button
+                        onClick={printCatalogReport}
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 text-white hover:bg-slate-900 font-bold transition flex items-center gap-1"
+                    >
+                        <FiPrinter size={12} /> Print
+                    </button>
+                </div>
+            </div>
+
+            {/* ━━━ GLASSMORPHIC KPI SUMMARY CARDS DECK (COLLAPSIBLE TO BRING TABLE TO TOP) ━━━ */}
             {showAnalyticsCards && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                    {/* Total Products */}
-                    <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-                            <FiPackage size={22} className="text-blue-600" />
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 animate-fadeIn">
+                    {/* Card 1: Total Catalog */}
+                    <div className="glass-card p-3.5 border border-white/80 shadow-md shadow-slate-200/30 hover:shadow-xl hover:-translate-y-0.5 transition-all relative overflow-hidden group">
+                        <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br from-blue-400/20 to-cyan-400/10 blur-xl group-hover:scale-150 transition-transform" />
+                        <div className="relative flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-blue-600">Total Formulary</span>
+                            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shadow-xs">
+                                <FiPackage size={16} />
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Total Products</p>
-                            <p className="text-2xl font-black text-slate-800">{kpiData.totalProducts.toLocaleString()}</p>
-                            <p className="text-[11px] text-slate-500">Active: <b className="text-blue-600">{kpiData.activeSkus}</b></p>
-                        </div>
-                    </div>
-                    {/* Low Stock */}
-                    <div className="bg-white rounded-2xl border border-green-200 p-4 shadow-sm hover:shadow-md transition flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-green-100 flex items-center justify-center flex-shrink-0">
-                            <FiBox size={22} className="text-green-600" />
-                        </div>
-                        <div>
-                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Low Stock Items</p>
-                            <p className="text-2xl font-black text-green-700">{kpiData.lowStockCount}</p>
-                            <p className="text-[11px] text-slate-500">â‰¤ reorder point</p>
+                        <p className="text-2xl font-black text-slate-800 mt-1.5 tracking-tight">{kpiData.totalProducts}</p>
+                        <div className="flex items-center justify-between mt-1 text-[11px] text-slate-500 font-semibold">
+                            <span>Active: <b className="text-blue-600">{kpiData.activeSkus}</b></span>
+                            <span>Disabled: <b className="text-slate-400">{kpiData.totalProducts - kpiData.activeSkus}</b></span>
                         </div>
                     </div>
-                    {/* Expiring Soon */}
-                    <div className="bg-white rounded-2xl border border-amber-200 p-4 shadow-sm hover:shadow-md transition flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center flex-shrink-0">
-                            <FiAlertTriangle size={22} className="text-amber-600" />
+
+                    {/* Card 2: Units in Stock */}
+                    <div className="glass-card p-3.5 border border-white/80 shadow-md shadow-slate-200/30 hover:shadow-xl hover:-translate-y-0.5 transition-all relative overflow-hidden group">
+                        <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br from-cyan-400/20 to-blue-400/10 blur-xl group-hover:scale-150 transition-transform" />
+                        <div className="relative flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-cyan-600">Stock on Shelf</span>
+                            <div className="w-8 h-8 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center shadow-xs">
+                                <FiBox size={16} />
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Expiring Soon</p>
-                            <p className="text-2xl font-black text-amber-700">{kpiData.expiringIn90Days}</p>
-                            <p className="text-[11px] text-slate-500">â‰¤ 90 days</p>
-                        </div>
+                        <p className="text-2xl font-black text-slate-800 mt-1.5 tracking-tight">{kpiData.totalUnits.toLocaleString()}</p>
+                        <p className="text-[11px] text-slate-500 mt-1 font-medium">Dispensing units in store</p>
                     </div>
-                    {/* Out of Stock */}
-                    <div className="bg-white rounded-2xl border border-red-200 p-4 shadow-sm hover:shadow-md transition flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center flex-shrink-0">
-                            <FiAlertCircle size={22} className="text-red-500" />
+
+                    {/* Card 3: Stock Value (Cost) */}
+                    <div className="glass-card p-3.5 border border-white/80 shadow-md shadow-slate-200/30 hover:shadow-xl hover:-translate-y-0.5 transition-all relative overflow-hidden group">
+                        <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br from-indigo-400/20 to-purple-400/10 blur-xl group-hover:scale-150 transition-transform" />
+                        <div className="relative flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600">Outlay (Buy Cost)</span>
+                            <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs">
+                                <FiDollarSign size={16} />
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Expired Items</p>
+                        <p className="text-2xl font-black text-slate-800 mt-1.5 tracking-tight">
+                            KES {Math.round(kpiData.totalValCost).toLocaleString()}
+                        </p>
+                        <p className="text-[11px] text-slate-500 mt-1 font-medium">Inventory purchase outlay</p>
+                    </div>
+
+                    {/* Card 4: Retail Sales Value */}
+                    <div className="glass-card p-3.5 border border-white/80 shadow-md shadow-slate-200/30 hover:shadow-xl hover:-translate-y-0.5 transition-all relative overflow-hidden group">
+                        <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br from-violet-400/20 to-purple-400/10 blur-xl group-hover:scale-150 transition-transform" />
+                        <div className="relative flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-violet-600">Retail Worth</span>
+                            <div className="w-8 h-8 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shadow-xs">
+                                <FiTrendingUp size={16} />
+                            </div>
+                        </div>
+                        <p className="text-2xl font-black text-violet-800 mt-1.5 tracking-tight">
+                            KES {Math.round(kpiData.totalValSales).toLocaleString()}
+                        </p>
+                        <p className="text-[11px] text-violet-700 mt-1 font-bold">
+                            Avg Margin: {kpiData.portfolioMargin.toFixed(1)}%
+                        </p>
+                    </div>
+
+                    {/* Card 5: Potential Gross Profit */}
+                    <div className="glass-card p-3.5 border border-white/80 shadow-md shadow-slate-200/30 hover:shadow-xl hover:-translate-y-0.5 transition-all relative overflow-hidden group">
+                        <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br from-purple-400/20 to-pink-400/10 blur-xl group-hover:scale-150 transition-transform" />
+                        <div className="relative flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-purple-600">Potential Profit</span>
+                            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shadow-xs">
+                                <FiZap size={16} />
+                            </div>
+                        </div>
+                        <p className="text-2xl font-black text-purple-800 mt-1.5 tracking-tight">
+                            KES {Math.round(kpiData.potentialProfit).toLocaleString()}
+                        </p>
+                        <p className="text-[11px] text-purple-700 mt-1 font-medium">Projected net earnings</p>
+                    </div>
+
+                    {/* Card 6: Restock & Nil Alerts */}
+                    <div className={`glass-card p-3.5 border shadow-md hover:shadow-xl hover:-translate-y-0.5 transition-all relative overflow-hidden group ${
+                        kpiData.lowStockCount > 0 || kpiData.outOfStockCount > 0 ? 'border-amber-300' : 'border-white/80'
+                    }`}>
+                        <div className="absolute -right-4 -top-4 w-20 h-20 rounded-full bg-gradient-to-br from-amber-400/20 to-rose-400/10 blur-xl group-hover:scale-150 transition-transform" />
+                        <div className="relative flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-amber-600">Restock Urgency</span>
+                            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shadow-xs">
+                                <FiAlertTriangle size={16} />
+                            </div>
+                        </div>
+                        <div className="flex items-baseline gap-1.5 mt-1.5">
+                            <p className="text-2xl font-black text-amber-700">{kpiData.lowStockCount}</p>
+                            <span className="text-[11px] text-amber-600 font-bold">low</span>
+                            <span className="text-xs text-slate-300">/</span>
                             <p className="text-2xl font-black text-red-600">{kpiData.outOfStockCount}</p>
-                            <p className="text-[11px] font-bold text-red-500">Needs Attention</p>
+                            <span className="text-[11px] text-red-600 font-bold">nil</span>
                         </div>
-                    </div>
-                    {/* Stock Value */}
-                    <div className="bg-white rounded-2xl border border-purple-200 p-4 shadow-sm hover:shadow-md transition flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center flex-shrink-0">
-                            <FiTrendingUp size={22} className="text-purple-600" />
-                        </div>
-                        <div>
-                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Stock Value</p>
-                            <p className="text-lg font-black text-slate-800">Ksh {Math.round(kpiData.totalValCost).toLocaleString()}</p>
-                            <p className="text-[11px] text-slate-500">At Cost</p>
-                        </div>
-                    </div>
-                    {/* Sales This Month */}
-                    <div className="bg-white rounded-2xl border border-green-300 p-4 shadow-sm hover:shadow-md transition flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-green-700 flex items-center justify-center flex-shrink-0">
-                            <FiZap size={22} className="text-white" />
-                        </div>
-                        <div>
-                            <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">Retail Value</p>
-                            <p className="text-lg font-black text-slate-800">Ksh {Math.round(kpiData.totalValSales).toLocaleString()}</p>
-                            <p className="text-[11px] text-green-600 font-bold">Margin: {kpiData.portfolioMargin.toFixed(1)}%</p>
-                        </div>
+                        <p className="text-[11px] text-slate-500 mt-1 font-medium">Items need purchase orders</p>
                     </div>
                 </div>
             )}
 
-            {/* â”â”â” PRODUCTS CATALOGUE SECTION â”â”â” */}
-            <div className="flex gap-4">
+            {/* ━━━ EXPANSIVE PROMINENT OMNI-SEARCH & FILTER BAR ━━━ */}
+            <div className="glass-card p-4 shadow-md shadow-slate-200/30 border border-white/80 space-y-3">
+                {/* 1. Generous, Prominent, Wide Search Bar */}
+                <div className="relative w-full">
+                    <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-600" size={20} />
+                    <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+                        placeholder="Search products by brand name, generic (INN), DRG code, barcode, or manufacturer..."
+                        className="w-full pl-12 pr-12 py-3.5 bg-white/95 backdrop-blur-md border border-slate-200 hover:border-blue-400 focus:border-blue-500 rounded-2xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-blue-500/15 shadow-sm transition"
+                        autoComplete="off"
+                    />
+                    {searchQuery ? (
+                        <button
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition"
+                            title="Clear search"
+                        >
+                            <FiX size={16} />
+                        </button>
+                    ) : (
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 hidden sm:inline">
+                            Instant Filter
+                        </span>
+                    )}
+                </div>
 
-                {/* â”€â”€ LEFT CATEGORY SIDEBAR â”€â”€ */}
-                <div className="hidden lg:flex flex-col w-52 flex-shrink-0">
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="bg-green-700 px-4 py-3 text-white">
-                            <p className="text-xs font-black uppercase tracking-wide">Categories</p>
-                        </div>
-                        <div className="p-2 space-y-0.5 max-h-[600px] overflow-y-auto">
-                            <button
-                                onClick={() => { setFilterCategory('All'); setPage(1); }}
-                                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition ${
-                                    filterCategory === 'All' ? 'bg-green-700 text-white' : 'text-slate-700 hover:bg-green-50'
-                                }`}
-                            >
-                                <span>All Categories</span>
-                                <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black ${filterCategory === 'All' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                                    {products.length}
-                                </span>
-                            </button>
+                {/* 2. Secondary Dropdown Filters + View Mode Controls */}
+                <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        {/* Category */}
+                        <select
+                            value={filterCategory}
+                            onChange={e => { setFilterCategory(e.target.value); setPage(1); }}
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
+                        >
+                            <option value="All">All Categories</option>
                             {categories.map(c => (
-                                <button
-                                    key={c.category_id}
-                                    onClick={() => { setFilterCategory(c.category_name); setPage(1); }}
-                                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition ${
-                                        filterCategory === c.category_name ? 'bg-green-700 text-white' : 'text-slate-700 hover:bg-green-50'
-                                    }`}
-                                >
-                                    <span className="truncate">{c.category_name}</span>
-                                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black flex-shrink-0 ${filterCategory === c.category_name ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                                        {categoryCounts[c.category_name] || 0}
-                                    </span>
-                                </button>
+                                <option key={c.category_id} value={c.category_name}>{c.category_name}</option>
                             ))}
-                        </div>
+                        </select>
+
+                        {/* Formulation */}
+                        <select
+                            value={filterDrugType}
+                            onChange={e => { setFilterDrugType(e.target.value); setPage(1); }}
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
+                        >
+                            <option value="All">All Forms</option>
+                            {DRUG_TYPES.map(t => (
+                                <option key={t} value={t}>{t}</option>
+                            ))}
+                        </select>
+
+                        {/* Prescription Regulation */}
+                        <select
+                            value={filterPrescription}
+                            onChange={e => { setFilterPrescription(e.target.value); setPage(1); }}
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
+                        >
+                            <option value="All">All Regulations</option>
+                            <option value="rx">℞ Prescription (POM)</option>
+                            <option value="otc">Over The Counter (OTC)</option>
+                            <option value="controlled">Controlled Drugs</option>
+                        </select>
+
+                        {/* Stock Level */}
+                        <select
+                            value={filterStockStatus}
+                            onChange={e => { setFilterStockStatus(e.target.value); setPage(1); }}
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
+                        >
+                            <option value="All">All Stock Levels</option>
+                            <option value="in_stock">In Stock (&gt; Min)</option>
+                            <option value="low_stock">⚠️ Low Stock (≤ Min)</option>
+                            <option value="out_of_stock">❌ Out of Stock (0)</option>
+                            <option value="overstocked">📦 Overstocked</option>
+                        </select>
+
+                        {/* Expiry Risk */}
+                        <select
+                            value={filterExpiryRisk}
+                            onChange={e => { setFilterExpiryRisk(e.target.value); setPage(1); }}
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
+                        >
+                            <option value="All">All Expiry States</option>
+                            <option value="has_batches">Has Batches</option>
+                            <option value="expiring_30">Expiring ≤ 30 Days</option>
+                            <option value="expiring_90">Expiring ≤ 90 Days</option>
+                            <option value="expired">🚨 Expired</option>
+                        </select>
+
+                        {/* Sort */}
+                        <select
+                            value={sortBy}
+                            onChange={e => setSortBy(e.target.value as any)}
+                            className="px-3 py-2 bg-white/90 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer shadow-xs"
+                        >
+                            <option value="name_asc">Name: A → Z</option>
+                            <option value="name_desc">Name: Z → A</option>
+                            <option value="stock_desc">Stock: High → Low</option>
+                            <option value="stock_asc">Stock: Low → High</option>
+                            <option value="price_desc">Price: High → Low</option>
+                            <option value="margin_desc">Margin %: High → Low</option>
+                        </select>
                     </div>
 
-                    {/* Pharmacy Health Card */}
-                    <div className="mt-3 bg-green-700 rounded-2xl p-4 text-white">
-                        <div className="flex items-center gap-2 mb-1">
-                            <FiShield size={16} />
-                            <span className="text-xs font-black">Pharmacy Health</span>
-                        </div>
-                        <p className="text-[11px] text-green-200">Better Health. Always.</p>
-                        <div className="mt-3 bg-white/10 rounded-xl p-2 text-center">
-                            <p className="text-lg font-black">
-                                {kpiData.totalProducts > 0 ? Math.round((kpiData.activeSkus / kpiData.totalProducts) * 100) : 0}%
-                            </p>
-                            <p className="text-[10px] text-green-200">Catalog Active</p>
-                        </div>
+                    {/* View Switcher */}
+                    <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-white/90 shadow-xs">
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={`p-2 transition ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            title="Table View"
+                        >
+                            <FiList size={16} />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('grid')}
+                            className={`p-2 transition ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
+                            title="Grid View"
+                        >
+                            <FiGrid size={16} />
+                        </button>
                     </div>
                 </div>
 
-                {/* â”€â”€ MAIN CONTENT AREA â”€â”€ */}
-                <div className="flex-1 min-w-0 space-y-3">
-
-                    {/* â”€â”€ PRODUCTS CATALOGUE HEADER + SEARCH â”€â”€ */}
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
-                        {/* Title row */}
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-xl bg-green-100 flex items-center justify-center">
-                                    <FiPackage size={16} className="text-green-700" />
-                                </div>
-                                <h2 className="text-sm font-black text-slate-800">Products Catalogue</h2>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                {/* View toggle */}
-                                <div className="flex border border-slate-200 rounded-xl overflow-hidden bg-white">
-                                    <button
-                                        onClick={() => setViewMode('grid')}
-                                        className={`px-3 py-1.5 text-xs font-bold flex items-center gap-1 transition ${viewMode === 'grid' ? 'bg-green-700 text-white' : 'text-slate-500 hover:text-slate-700'}`}
-                                    >
-                                        <FiGrid size={13} /> Grid
-                                    </button>
-                                    <button
-                                        onClick={() => setViewMode('list')}
-                                        className={`px-3 py-1.5 text-xs font-bold flex items-center gap-1 transition ${viewMode === 'list' ? 'bg-green-700 text-white' : 'text-slate-500 hover:text-slate-700'}`}
-                                    >
-                                        <FiList size={13} /> List
-                                    </button>
-                                    <button className="px-3 py-1.5 text-xs font-bold flex items-center gap-1 text-slate-500 hover:text-slate-700 transition">
-                                        <FiFileText size={13} /> Cards
-                                    </button>
-                                </div>
-                                <button
-                                    onClick={openAddModal}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-green-700 hover:bg-green-800 text-white font-black text-xs shadow-sm transition"
-                                >
-                                    <FiPlus size={13} /> Add Product
-                                </button>
-                                <div className="relative">
-                                    <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-green-700 hover:bg-green-800 text-white font-black text-xs shadow-sm transition">
-                                        <FiLayers size={13} /> Bulk Actions <FiChevronDown size={11} />
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Filter bar */}
-                        <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center gap-2">
-                            {/* Search */}
-                            <div className="relative flex-1 min-w-[200px]">
-                                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
-                                <input
-                                    type="text"
-                                    value={searchQuery}
-                                    onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
-                                    placeholder="Search for products (e.g. Paracetamol, Amoxicillin, Vitamin C)..."
-                                    className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 hover:border-green-400 focus:border-green-500 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500/15 transition"
-                                    autoComplete="off"
-                                />
-                                {searchQuery && (
-                                    <button onClick={() => setSearchQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                                        <FiX size={14} />
-                                    </button>
-                                )}
-                            </div>
-                            {/* All Suppliers */}
-                            <select
-                                value={filterCategory}
-                                onChange={e => { setFilterCategory(e.target.value); setPage(1); }}
-                                className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-green-500 cursor-pointer lg:hidden"
+                {/* 3. Fast Quick Filter Pills Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider mr-1">Fast Filters:</span>
+                        {[
+                            { id: 'all', label: 'All Items', count: products.length },
+                            { id: 'low_stock', label: '⚠️ Low Stock', count: kpiData.lowStockCount },
+                            { id: 'out_of_stock', label: '❌ Nil Stock', count: kpiData.outOfStockCount },
+                            { id: 'rx_only', label: '℞ Prescription', count: kpiData.rxCount },
+                            { id: 'expiring', label: '⏳ Expiry Risk', count: kpiData.expiringIn90Days },
+                            { id: 'high_margin', label: '⭐ High Margin', count: products.filter(p => (p.margin_per || 0) >= 30).length },
+                        ].map(f => (
+                            <button
+                                key={f.id}
+                                onClick={() => { setActiveFastFilter(f.id as any); setPage(1); }}
+                                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs ${
+                                    activeFastFilter === f.id
+                                        ? 'bg-blue-600 text-white shadow-blue-500/20'
+                                        : 'bg-white/80 text-slate-600 border border-slate-200 hover:bg-slate-100'
+                                }`}
                             >
-                                <option value="All">All Categories</option>
-                                {categories.map(c => <option key={c.category_id} value={c.category_name}>{c.category_name}</option>)}
-                            </select>
-                            <select
-                                value={filterDrugType}
-                                onChange={e => { setFilterDrugType(e.target.value); setPage(1); }}
-                                className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-green-500 cursor-pointer"
-                            >
-                                <option value="All">All Forms</option>
-                                {DRUG_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                            </select>
-                            <select
-                                value={filterStockStatus}
-                                onChange={e => { setFilterStockStatus(e.target.value); setPage(1); }}
-                                className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-green-500 cursor-pointer"
-                            >
-                                <option value="All">All Status</option>
-                                <option value="in_stock">In Stock</option>
-                                <option value="low_stock">âš ï¸ Low Stock</option>
-                                <option value="out_of_stock">âŒ Out of Stock</option>
-                            </select>
-                            <select
-                                value={sortBy}
-                                onChange={e => setSortBy(e.target.value as any)}
-                                className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none focus:border-green-500 cursor-pointer hidden sm:block"
-                            >
-                                <option value="name_asc">Name Aâ†’Z</option>
-                                <option value="name_desc">Name Zâ†’A</option>
-                                <option value="stock_desc">Stock Highâ†’Low</option>
-                                <option value="stock_asc">Stock Lowâ†’High</option>
-                                <option value="price_desc">Price Highâ†’Low</option>
-                                <option value="margin_desc">Margin %</option>
-                            </select>
-                            <button className="flex items-center gap-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:border-green-400 transition">
-                                <FiFilter size={13} /> More Filters
+                                <span>{f.label}</span>
+                                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                                    activeFastFilter === f.id ? 'bg-white/25 text-white' : 'bg-slate-200 text-slate-700'
+                                }`}>
+                                    {f.count}
+                                </span>
                             </button>
-                            {(filterCategory !== 'All' || filterDrugType !== 'All' || filterStockStatus !== 'All' || searchQuery) && (
-                                <button
-                                    onClick={() => { setSearchQuery(''); setFilterCategory('All'); setFilterDrugType('All'); setFilterStockStatus('All'); setActiveFastFilter('all'); setPage(1); }}
-                                    className="flex items-center gap-1 px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-xs font-bold text-red-600 hover:bg-red-100 transition"
-                                >
-                                    <FiRefreshCw size={12} /> Clear Filters
-                                </button>
-                            )}
-                        </div>
+                        ))}
+                    </div>
 
-                        {/* Bulk selection bar */}
-                        {selectedPids.size > 0 && (
-                            <div className="px-4 py-2 bg-green-50 border-b border-green-200 flex items-center justify-between text-xs font-bold text-green-900">
-                                <div className="flex items-center gap-2">
-                                    <FiCheckCircle size={14} className="text-green-700" />
-                                    <span>{selectedPids.size} product(s) selected</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => { setLabelProducts(Array.from(selectedPids)); const qMap: Record<number, number> = {}; selectedPids.forEach(id => qMap[id] = 1); setLabelQty(qMap); setShowLabelModal(true); }}
-                                        className="px-3 py-1 bg-white border border-green-300 rounded-lg text-green-700 hover:bg-green-100 transition"
-                                    >
-                                        Print Labels for Selected
-                                    </button>
-                                    <button onClick={() => setSelectedPids(new Set())} className="px-2 py-1 text-slate-500 hover:text-slate-800">Deselect All</button>
-                                </div>
-                            </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+                        <span>Showing <b>{filteredProducts.length}</b> of <b>{products.length}</b></span>
+                        {(filterCategory !== 'All' || filterDrugType !== 'All' || filterPrescription !== 'All' || filterStockStatus !== 'All' || filterExpiryRisk !== 'All' || activeFastFilter !== 'all' || searchQuery) && (
+                            <button
+                                onClick={() => {
+                                    setSearchQuery('');
+                                    setFilterCategory('All');
+                                    setFilterDrugType('All');
+                                    setFilterPrescription('All');
+                                    setFilterStockStatus('All');
+                                    setFilterExpiryRisk('All');
+                                    setActiveFastFilter('all');
+                                    setPage(1);
+                                }}
+                                className="text-red-500 hover:text-red-700 font-bold underline ml-1"
+                            >
+                                Reset All
+                            </button>
                         )}
+                    </div>
+                </div>
 
-                        {/* â”â”â” TABLE / GRID VIEW â”â”â” */}
-                        {isLoading ? (
-                            <div className="p-16 flex flex-col items-center justify-center">
-                                <div className="w-12 h-12 border-4 border-green-100 border-t-green-600 rounded-full animate-spin" />
-                                <p className="mt-4 text-sm font-bold text-slate-700">Loading Products...</p>
-                            </div>
-                        ) : paginatedProducts.length === 0 ? (
-                            <div className="p-16 text-center">
-                                <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
-                                    <FiPackage size={28} />
+                {/* Bulk Actions Toolbar */}
+                {selectedPids.size > 0 && (
+                    <div className="flex items-center justify-between p-2.5 bg-blue-50 border border-blue-200 rounded-xl text-xs font-bold text-blue-900 animate-fadeIn">
+                        <div className="flex items-center gap-2">
+                            <FiCheckCircle size={15} className="text-blue-600" />
+                            <span>{selectedPids.size} product(s) selected</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => {
+                                    setLabelProducts(Array.from(selectedPids));
+                                    const qMap: Record<number, number> = {};
+                                    selectedPids.forEach(id => qMap[id] = 1);
+                                    setLabelQty(qMap);
+                                    setShowLabelModal(true);
+                                }}
+                                className="px-3 py-1 bg-white border border-blue-300 rounded-lg text-blue-700 hover:bg-blue-100 transition"
+                            >
+                                Print Labels for Selected
+                            </button>
+                            <button
+                                onClick={() => setSelectedPids(new Set())}
+                                className="px-2 py-1 text-slate-500 hover:text-slate-800"
+                            >
+                                Deselect All
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* ━━━ PRODUCTS DATAGRID / CARD GRID (IMMEDIATELY VISIBLE & ACCESSIBLE) ━━━ */}
+            {isLoading ? (
+                <div className="glass-card p-16 flex flex-col items-center justify-center border border-white/80">
+                    <div className="w-12 h-12 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin" />
+                    <p className="mt-4 text-sm font-bold text-slate-700">Loading Pharmaceutical Formulary...</p>
+                    <p className="text-xs text-slate-400 mt-1">Connecting to live inventory balances and batch records</p>
+                </div>
+            ) : paginatedProducts.length === 0 ? (
+                <div className="glass-card p-16 text-center border border-white/80 shadow-md">
+                    <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                        <FiPackage size={28} />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800">No matching drugs found</h3>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                        Try clearing search terms or resetting filters to show all formulary items.
+                    </p>
+                    <button
+                        onClick={openAddModal}
+                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition"
+                    >
+                        + Add New Drug
+                    </button>
+                </div>
+            ) : viewMode === 'grid' ? (
+                /* ─── CARD GRID VIEW ─── */
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5">
+                    {paginatedProducts.map(p => {
+                        const stk = stockData[p.pid] || 0;
+                        const pBatches = productBatches[p.pid] || [];
+                        const nearestDays = pBatches.length > 0 ? getDaysUntilExpiry(pBatches[0].expiry_date) : null;
+                        const isSelected = selectedPids.has(p.pid);
+
+                        return (
+                            <div
+                                key={p.pid}
+                                className={`glass-card transition-all duration-200 overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-0.5 flex flex-col justify-between border ${
+                                    isSelected ? 'border-blue-500 ring-2 ring-blue-400/20' : 'border-white/80'
+                                }`}
+                            >
+                                <div className="p-3.5">
+                                    <div className="flex items-start justify-between gap-1 mb-2">
+                                        <div className="flex items-center gap-1.5">
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={() => toggleSelectPid(p.pid)}
+                                                className="w-4 h-4 rounded accent-blue-600 cursor-pointer"
+                                            />
+                                            <span className="font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                                                {p.product_code}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            {p.requires_prescription && (
+                                                <span className="px-1.5 py-0.5 rounded bg-red-50 text-red-700 border border-red-200 text-[10px] font-black">
+                                                    ℞ Rx
+                                                </span>
+                                            )}
+                                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                                p.active ? 'bg-sky-50 text-sky-700 border border-sky-200' : 'bg-slate-100 text-slate-400'
+                                            }`}>
+                                                {p.active ? 'Active' : 'Off'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <h4 className="text-sm font-black text-slate-800 line-clamp-1" title={p.product_name}>
+                                        {p.product_name}
+                                    </h4>
+                                    <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5 italic">
+                                        {p.generic_name || p.dosage || 'No generic specified'}
+                                    </p>
+
+                                    <div className="flex items-center gap-1 mt-2 flex-wrap">
+                                        <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-100 text-[10px] font-bold">
+                                            {p.category || 'General'}
+                                        </span>
+                                        <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-medium">
+                                            {p.drug_type || 'Tablet'}
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-3.5 p-2 bg-slate-50/70 rounded-xl border border-slate-100 space-y-1">
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-slate-400">Sell Price:</span>
+                                            <span className="font-black text-slate-800">KES {(p.sales_cost || 0).toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-slate-400">Buy Cost:</span>
+                                            <span className="font-medium text-slate-600">KES {(p.purchase_cost || 0).toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-200/60 font-bold">
+                                            <span className="text-slate-500">Margin:</span>
+                                            <span className={(p.margin_per || 0) >= 20 ? 'text-sky-700' : 'text-amber-600'}>
+                                                {(p.margin_per || 0).toFixed(1)}%
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-3 flex items-center justify-between">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className={`w-2.5 h-2.5 rounded-full ${
+                                                stk <= 0 ? 'bg-red-500 animate-pulse' : stk <= (p.reorder_point || 10) ? 'bg-amber-500' : 'bg-sky-500'
+                                            }`} />
+                                            {(() => {
+                                                const ppp = p.pieces_per_package || 1;
+                                                const breakdown = calculateStockBreakdown(stk, ppp, p.purchase_unit, p.sales_unit);
+                                                return (
+                                                    <span className="text-xs font-black text-slate-800">
+                                                        {breakdown.boxes > 0 ? `${breakdown.boxes} Box + ${breakdown.loosePieces} Pcs` : `${stk} ${p.sales_unit || 'Pcs'}`}
+                                                    </span>
+                                                );
+                                            })()}
+                                        </div>
+                                        {nearestDays !== null && getExpiryBadge(nearestDays)}
+                                    </div>
                                 </div>
-                                <h3 className="text-lg font-bold text-slate-800">No products found</h3>
-                                <p className="text-xs text-slate-500 mt-1">Try clearing filters or add a new product.</p>
-                                <button onClick={openAddModal} className="mt-4 px-4 py-2 bg-green-700 text-white rounded-xl text-xs font-bold hover:bg-green-800 transition">
-                                    + Add New Product
-                                </button>
+
+                                <div className="p-2.5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-1">
+                                    <button
+                                        onClick={() => openEditModal(p)}
+                                        className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-white rounded-lg transition"
+                                        title="Edit Product"
+                                    >
+                                        <FiEdit2 size={13} />
+                                    </button>
+                                    <button
+                                        onClick={() => openStockHistory(p)}
+                                        className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-white rounded-lg transition"
+                                        title="Stock History"
+                                    >
+                                        <FiClock size={13} />
+                                    </button>
+                                    <button
+                                        onClick={() => openStockAdjust(p)}
+                                        className="p-1.5 text-slate-600 hover:text-purple-600 hover:bg-white rounded-lg transition"
+                                        title="Adjust Stock"
+                                    >
+                                        <FiSliders size={13} />
+                                    </button>
+                                    <button
+                                        onClick={() => deleteProduct(p)}
+                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-white rounded-lg transition"
+                                        title="Delete Product"
+                                    >
+                                        <FiTrash2 size={13} />
+                                    </button>
+                                </div>
                             </div>
-                        ) : viewMode === 'grid' ? (
-                            /* â”€â”€â”€ CARD GRID VIEW â”€â”€â”€ */
-                            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
-                                {paginatedProducts.map(p => {
+                        );
+                    })}
+                </div>
+            ) : (
+                /* ─── DETAILED TABLE / DATAGRID (GLASSMORPHIC THEME) ─── */
+                <div className="glass-card border border-white/80 overflow-hidden shadow-lg shadow-slate-200/40">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-900 border-b-2 border-emerald-500 text-white font-black uppercase text-[11px] tracking-wider shadow-md">
+                                <tr>
+                                    <th className="py-3 px-2 w-8 text-center text-white font-black">#</th>
+                                    <th className="py-3 px-2 w-8 text-center text-white font-black">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedPids.size === paginatedProducts.length && paginatedProducts.length > 0}
+                                            onChange={toggleSelectAll}
+                                            className="w-4 h-4 rounded accent-emerald-500 cursor-pointer"
+                                        />
+                                    </th>
+                                    <th className="py-3 px-3.5 text-left text-white font-black whitespace-nowrap">Drug / Pharmaceutical</th>
+                                    <th className="py-3 px-3.5 text-left text-white font-black hidden md:table-cell whitespace-nowrap">Category</th>
+                                    <th className="py-3 px-3.5 text-left text-white font-black hidden lg:table-cell whitespace-nowrap">Form / Strength</th>
+                                    <th className="py-3 px-3.5 text-right text-white font-black whitespace-nowrap">Cost Price</th>
+                                    <th className="py-3 px-3.5 text-right text-white font-black whitespace-nowrap">Retail Sell</th>
+                                    <th className="py-3 px-3.5 text-center text-white font-black whitespace-nowrap">Margin</th>
+                                    <th className="py-3 px-3.5 text-center text-white font-black whitespace-nowrap">Current Stock</th>
+                                    <th className="py-3 px-3.5 text-center text-white font-black whitespace-nowrap">Batches / Shelf</th>
+                                    <th className="py-3 px-3.5 text-center text-white font-black whitespace-nowrap">Reg. Status</th>
+                                    <th className="py-3 px-3.5 text-center w-28 text-white font-black whitespace-nowrap">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-xs">
+                                {paginatedProducts.map((p, idx) => {
                                     const stk = stockData[p.pid] || 0;
                                     const pBatches = productBatches[p.pid] || [];
-                                    const nearestDays = pBatches.length > 0 ? getDaysUntilExpiry(pBatches[0].expiry_date) : null;
+                                    const nearestBatch = pBatches[0];
+                                    const nearestDays = nearestBatch ? getDaysUntilExpiry(nearestBatch.expiry_date) : null;
+                                    const isExpanded = expandedRows.has(p.pid);
                                     const isSelected = selectedPids.has(p.pid);
-                                    return (
-                                        <div key={p.pid} className={`bg-white rounded-2xl border shadow-sm hover:shadow-md transition flex flex-col ${isSelected ? 'border-green-500 ring-2 ring-green-400/20' : 'border-slate-200'}`}>
-                                            <div className="p-3.5">
-                                                <div className="flex items-start justify-between gap-1 mb-2">
-                                                    <div className="flex items-center gap-1.5">
-                                                        <input type="checkbox" checked={isSelected} onChange={() => toggleSelectPid(p.pid)} className="w-4 h-4 rounded accent-green-600 cursor-pointer" />
-                                                        <span className="font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">{p.product_code}</span>
-                                                    </div>
-                                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${p.active ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-slate-100 text-slate-400'}`}>
-                                                        {p.active ? 'â— Active' : 'Off'}
-                                                    </span>
-                                                </div>
-                                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-100 to-emerald-200 border border-green-200 flex items-center justify-center text-green-800 font-black text-sm mb-2 mx-auto">
-                                                    {p.photo ? <img src={p.photo} alt="" className="w-full h-full object-cover rounded-xl" onError={e => { (e.target as HTMLElement).style.display = 'none'; }} /> : p.product_name.charAt(0)}
-                                                </div>
-                                                <h4 className="text-sm font-black text-slate-800 line-clamp-1 text-center">{p.product_name}</h4>
-                                                <p className="text-[11px] text-slate-500 line-clamp-1 mt-0.5 italic text-center">{p.generic_name || p.dosage || 'â€”'}</p>
-                                                <div className="flex items-center justify-center gap-1 mt-2">
-                                                    <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-100 text-[10px] font-bold">{p.category || 'General'}</span>
-                                                    <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-[10px] font-medium">{p.drug_type || 'Tablet'}</span>
-                                                </div>
-                                                <div className="mt-3 p-2 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
-                                                    <div className="flex items-center justify-between text-xs">
-                                                        <span className="text-slate-400">Sell:</span>
-                                                        <span className="font-black text-slate-800">Ksh {(p.sales_cost || 0).toLocaleString()}</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between text-xs">
-                                                        <span className="text-slate-400">Stock:</span>
-                                                        <span className={`font-black ${stk <= 0 ? 'text-red-600' : stk <= (p.reorder_point || 10) ? 'text-amber-600' : 'text-green-700'}`}>{stk} {p.sales_unit || 'Pcs'}</span>
-                                                    </div>
-                                                </div>
-                                                {nearestDays !== null && <div className="mt-2 text-center">{getExpiryBadge(nearestDays)}</div>}
-                                            </div>
-                                            <div className="p-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-1 rounded-b-2xl">
-                                                <button onClick={() => openEditModal(p)} className="p-1.5 text-slate-600 hover:text-green-700 hover:bg-white rounded-lg transition" title="Edit"><FiEdit2 size={13} /></button>
-                                                <button onClick={() => openStockHistory(p)} className="p-1.5 text-slate-600 hover:text-green-700 hover:bg-white rounded-lg transition" title="Stock History"><FiClock size={13} /></button>
-                                                <button onClick={() => openStockAdjust(p)} className="p-1.5 text-slate-600 hover:text-green-700 hover:bg-white rounded-lg transition" title="Adjust Stock"><FiSliders size={13} /></button>
-                                                <button onClick={() => deleteProduct(p)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-white rounded-lg transition" title="Delete"><FiTrash2 size={13} /></button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            /* â”€â”€â”€ PREMIUM GREEN TABLE VIEW â”€â”€â”€ */
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
-                                    <thead className="bg-green-900 text-white text-[11px] font-black uppercase tracking-wider border-b-2 border-green-600">
-                                        <tr>
-                                            <th className="py-3 px-2 w-8 text-center">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedPids.size === paginatedProducts.length && paginatedProducts.length > 0}
-                                                    onChange={toggleSelectAll}
-                                                    className="w-4 h-4 rounded accent-green-400 cursor-pointer"
-                                                />
-                                            </th>
-                                            <th className="py-3 px-2 w-8"></th>
-                                            <th className="py-3 px-2 text-center">Image</th>
-                                            <th className="py-3 px-3 text-left">Product Name</th>
-                                            <th className="py-3 px-3 text-left hidden md:table-cell">Generic Name</th>
-                                            <th className="py-3 px-3 text-left hidden md:table-cell">Category</th>
-                                            <th className="py-3 px-3 text-left hidden lg:table-cell">Barcode</th>
-                                            <th className="py-3 px-3 text-right">Selling Price</th>
-                                            <th className="py-3 px-3 text-center">Stock Qty</th>
-                                            <th className="py-3 px-3 text-center">Status</th>
-                                            <th className="py-3 px-3 text-center hidden lg:table-cell">Expiry Alert</th>
-                                            <th className="py-3 px-3 text-center">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100 text-xs">
-                                        {paginatedProducts.map((p, idx) => {
-                                            const stk = stockData[p.pid] || 0;
-                                            const pBatches = productBatches[p.pid] || [];
-                                            const nearestBatch = pBatches[0];
-                                            const nearestDays = nearestBatch ? getDaysUntilExpiry(nearestBatch.expiry_date) : null;
-                                            const isExpanded = expandedRows.has(p.pid);
-                                            const isSelected = selectedPids.has(p.pid);
 
-                                            return (
-                                                <>
-                                                    <tr
-                                                        key={p.pid}
-                                                        className={`transition-colors hover:bg-green-50/40 cursor-pointer ${
-                                                            isSelected ? 'bg-green-50/60' : isExpanded ? 'bg-green-50/30' : idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/30'
-                                                        }`}
+                                    return (
+                                        <>
+                                            <tr
+                                                key={p.pid}
+                                                className={`transition-colors hover:bg-emerald-50/40 cursor-pointer ${
+                                                    isSelected ? 'bg-emerald-50/60' : isExpanded ? 'bg-emerald-50/30' : idx % 2 === 0 ? 'bg-white/60' : 'bg-slate-50/30'
+                                                }`}
+                                                onClick={() => {
+                                                    const s = new Set(expandedRows);
+                                                    if (s.has(p.pid)) s.delete(p.pid);
+                                                    else s.add(p.pid);
+                                                    setExpandedRows(s);
+                                                }}
+                                            >
+                                                {/* Expandable Chevron Toggle Button */}
+                                                <td className="py-3 px-2 text-center" onClick={(e) => e.stopPropagation()}>
+                                                    <button
+                                                        type="button"
                                                         onClick={() => {
                                                             const s = new Set(expandedRows);
                                                             if (s.has(p.pid)) s.delete(p.pid);
                                                             else s.add(p.pid);
                                                             setExpandedRows(s);
                                                         }}
+                                                        className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold transition-all ${
+                                                            isExpanded
+                                                                ? 'bg-emerald-600 text-white rotate-90 shadow-xs'
+                                                                : 'bg-slate-100 text-slate-700 hover:bg-emerald-100 hover:text-emerald-800'
+                                                        }`}
+                                                        title={isExpanded ? 'Collapse Batches' : 'Expand Batches'}
                                                     >
-                                                        {/* Checkbox */}
-                                                        <td className="py-3 px-2 text-center" onClick={e => e.stopPropagation()}>
-                                                            <input type="checkbox" checked={isSelected} onChange={() => toggleSelectPid(p.pid)} className="w-4 h-4 rounded accent-green-600 cursor-pointer" />
-                                                        </td>
+                                                        ▶
+                                                    </button>
+                                                </td>
 
-                                                        {/* Expand toggle */}
-                                                        <td className="py-3 px-2 text-center" onClick={e => e.stopPropagation()}>
-                                                            <button
-                                                                onClick={() => { const s = new Set(expandedRows); if (s.has(p.pid)) s.delete(p.pid); else s.add(p.pid); setExpandedRows(s); }}
-                                                                className={`w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold transition-all ${isExpanded ? 'bg-green-700 text-white rotate-90' : 'bg-slate-100 text-slate-500 hover:bg-green-100'}`}
-                                                            >â–¶</button>
-                                                        </td>
+                                                {/* Checkbox */}
+                                                <td className="py-3 px-2 text-center" onClick={(e) => e.stopPropagation()}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => toggleSelectPid(p.pid)}
+                                                        className="w-4 h-4 rounded accent-emerald-600 cursor-pointer"
+                                                    />
+                                                </td>
 
-                                                        {/* Image */}
-                                                        <td className="py-3 px-2 text-center">
-                                                            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-100 to-emerald-100 border border-green-200 flex items-center justify-center text-green-800 font-black text-sm mx-auto flex-shrink-0">
-                                                                {p.photo ? (
-                                                                    <img src={p.photo} alt="" className="w-full h-full object-cover rounded-xl" onError={e => { (e.target as HTMLElement).style.display = 'none'; }} />
-                                                                ) : (
-                                                                    <span className="text-xs">{p.product_name.charAt(0)}</span>
+                                                {/* Name & Generic */}
+                                                <td className="py-3 px-3.5">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-black text-sm flex-shrink-0 shadow-xs">
+                                                            {p.photo ? (
+                                                                <img
+                                                                    src={p.photo}
+                                                                    alt=""
+                                                                    className="w-full h-full object-cover rounded-xl"
+                                                                    onError={e => { (e.target as HTMLElement).style.display = 'none'; }}
+                                                                />
+                                                            ) : (
+                                                                p.product_name.charAt(0)
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-bold text-slate-900 hover:text-blue-700 cursor-pointer" onClick={() => openEditModal(p)}>
+                                                                    {p.product_name}
+                                                                </span>
+                                                                {p.requires_prescription && (
+                                                                    <span className="px-1.5 py-0.2 rounded bg-red-50 text-red-600 border border-red-200 text-[10px] font-black">
+                                                                        ℞
+                                                                    </span>
                                                                 )}
                                                             </div>
-                                                        </td>
-
-                                                        {/* Product Name */}
-                                                        <td className="py-3 px-3">
-                                                            <div className="flex items-center gap-2">
-                                                                <div>
-                                                                    <span className="font-bold text-slate-900 hover:text-green-700 cursor-pointer" onClick={e => { e.stopPropagation(); openEditModal(p); }}>
-                                                                        {p.product_name}
-                                                                    </span>
-                                                                    {p.requires_prescription && (
-                                                                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-200 text-[10px] font-black">â„ž</span>
-                                                                    )}
-                                                                    <div className="flex items-center gap-1.5 mt-0.5">
-                                                                        <span className="font-mono text-[10px] text-green-700 font-bold">{p.product_code}</span>
-                                                                        {p.dosage && <span className="text-[10px] text-slate-400">â€¢ {p.dosage}</span>}
-                                                                    </div>
-                                                                </div>
+                                                            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400">
+                                                                <span className="font-mono text-blue-600 font-bold">{p.product_code}</span>
+                                                                {p.generic_name && (
+                                                                    <>
+                                                                        <span>•</span>
+                                                                        <span className="italic text-slate-500">{p.generic_name}</span>
+                                                                    </>
+                                                                )}
                                                             </div>
-                                                        </td>
+                                                        </div>
+                                                    </div>
+                                                </td>
 
-                                                        {/* Generic Name */}
-                                                        <td className="py-3 px-3 hidden md:table-cell text-slate-500 italic text-xs">
-                                                            {p.generic_name || 'â€”'}
-                                                        </td>
+                                                {/* Category */}
+                                                <td className="py-3 px-3.5 hidden md:table-cell">
+                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-100 rounded-lg text-[11px] font-bold shadow-2xs">
+                                                        <FiTag size={10} /> {p.category || 'General'}
+                                                    </span>
+                                                </td>
 
-                                                        {/* Category */}
-                                                        <td className="py-3 px-3 hidden md:table-cell">
-                                                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 border border-purple-100 rounded-lg text-[11px] font-bold">
-                                                                {p.category || 'General'}
-                                                            </span>
-                                                        </td>
+                                                {/* Formulation */}
+                                                <td className="py-3 px-3.5 hidden lg:table-cell">
+                                                    <div className="text-slate-700 font-medium">
+                                                        {p.drug_type || 'Tablet'}
+                                                    </div>
+                                                    <div className="text-[10px] text-slate-400">
+                                                        {p.dosage || 'Standard'} • {p.sales_unit || 'Piece'}
+                                                    </div>
+                                                </td>
 
-                                                        {/* Barcode */}
-                                                        <td className="py-3 px-3 hidden lg:table-cell font-mono text-[11px] text-slate-600">
-                                                            {p.barcode || 'â€”'}
-                                                        </td>
-
-                                                        {/* Selling Price */}
-                                                        <td className="py-3 px-3 text-right font-black text-slate-900">
-                                                            Ksh {(p.sales_cost || 0).toLocaleString()}
-                                                        </td>
-
-                                                        {/* Stock Qty */}
-                                                        <td className="py-3 px-3 text-center">
-                                                            {(() => {
-                                                                const ppp = p.pieces_per_package || 1;
-                                                                const breakdown = calculateStockBreakdown(stk, ppp, p.purchase_unit, p.sales_unit);
-                                                                return (
-                                                                    <span className={`inline-block px-2.5 py-0.5 rounded-lg text-xs font-black ${
-                                                                        stk <= 0 ? 'bg-red-100 text-red-700 border border-red-200' :
-                                                                        stk <= (p.reorder_point || 10) ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-                                                                        'bg-green-50 text-green-800 border border-green-200'
-                                                                    }`}>
-                                                                        {breakdown.boxes > 0 ? `${breakdown.boxes} Box + ${breakdown.loosePieces}` : `${stk}`}
-                                                                    </span>
-                                                                );
-                                                            })()}
-                                                        </td>
-
-                                                        {/* Status */}
-                                                        <td className="py-3 px-3 text-center">
-                                                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                                                                p.active ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-slate-100 text-slate-500'
-                                                            }`}>
-                                                                <span className={`w-1.5 h-1.5 rounded-full ${p.active ? 'bg-green-500' : 'bg-slate-400'}`} />
-                                                                {p.active ? 'Active' : 'Inactive'}
-                                                            </span>
-                                                        </td>
-
-                                                        {/* Expiry Alert */}
-                                                        <td className="py-3 px-3 text-center hidden lg:table-cell">
-                                                            {nearestDays !== null ? getExpiryBadge(nearestDays) : <span className="text-slate-300 text-[11px]">â€”</span>}
-                                                        </td>
-
-                                                        {/* Actions */}
-                                                        <td className="py-3 px-3 text-center" onClick={e => e.stopPropagation()}>
-                                                            <div className="flex items-center justify-center gap-1">
-                                                                <button onClick={() => openEditModal(p)} className="p-1.5 text-slate-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition" title="Edit"><FiEdit2 size={13} /></button>
-                                                                <button onClick={() => openStockHistory(p)} className="p-1.5 text-slate-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition" title="Stock Ledger"><FiClock size={13} /></button>
-                                                                <button onClick={() => openPriceHistory(p)} className="p-1.5 text-slate-500 hover:text-purple-700 hover:bg-purple-50 rounded-lg transition" title="Price History"><FiTrendingUp size={13} /></button>
-                                                                <button onClick={() => openStockAdjust(p)} className="p-1.5 text-slate-500 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition" title="Adjust Stock"><FiSliders size={13} /></button>
-                                                                <button onClick={() => deleteProduct(p)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete"><FiTrash2 size={13} /></button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-
-                                                    {/* Expandable Batches Sub-Table */}
-                                                    {isExpanded && (
-                                                        <tr key={`batches-${p.pid}`} className="bg-green-50/20">
-                                                            <td colSpan={12} className="py-3 px-4 sm:px-6">
-                                                                <div className="bg-white rounded-2xl border-2 border-green-300 overflow-hidden shadow-md">
-                                                                    <div className="bg-gradient-to-r from-green-900 to-green-800 px-4 py-2.5 text-xs font-bold text-white flex flex-wrap items-center justify-between gap-2 border-b border-green-600">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="font-black text-white text-xs">ðŸ“¦ FEFO Batch Register â€” <span className="text-green-300">{p.product_name}</span> ({pBatches.length} batch{pBatches.length === 1 ? '' : 'es'})</span>
-                                                                            <span className="px-2 py-0.5 rounded text-[10px] font-black bg-green-500 text-white">{p.pieces_per_package || 1} pcs/{p.purchase_unit || 'Box'}</span>
-                                                                        </div>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="text-[11px] text-green-200">Total Stock: <strong className="text-green-300 font-black">{stk} {p.sales_unit || 'Pcs'}</strong></span>
-                                                                            <button onClick={e => { e.stopPropagation(); openEditModal(p); }} className="px-2.5 py-1 bg-green-600 hover:bg-green-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1">+ Manage Batches</button>
-                                                                        </div>
-                                                                    </div>
-                                                                    {pBatches.length === 0 ? (
-                                                                        <div className="p-6 text-center text-slate-500 space-y-2">
-                                                                            <p className="font-bold text-slate-700 text-xs">No active batches for {p.product_name} yet.</p>
-                                                                            <button onClick={e => { e.stopPropagation(); openEditModal(p); }} className="mt-1 px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-800 border border-green-200 rounded-xl text-xs font-bold transition">âž• Add Batches</button>
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="overflow-x-auto w-full">
-                                                                            <table className="w-full text-xs">
-                                                                                <thead className="bg-green-900 border-b-2 border-green-600 text-white font-black uppercase text-[10px] tracking-wider">
-                                                                                    <tr>
-                                                                                        <th className="py-2.5 px-3 text-left">#</th>
-                                                                                        <th className="py-2.5 px-3 text-left">Batch / Lot #</th>
-                                                                                        <th className="py-2.5 px-3 text-center">Expiry Date</th>
-                                                                                        <th className="py-2.5 px-3 text-center">Status</th>
-                                                                                        <th className="py-2.5 px-3 text-right">Remaining Stock</th>
-                                                                                        <th className="py-2.5 px-3 text-right">Buy Cost</th>
-                                                                                        <th className="py-2.5 px-3 text-right">Sell Price</th>
-                                                                                        <th className="py-2.5 px-3 text-left">Supplier / Invoice</th>
-                                                                                    </tr>
-                                                                                </thead>
-                                                                                <tbody className="divide-y divide-slate-100 text-slate-900 font-medium">
-                                                                                    {pBatches.map((b, bIdx) => {
-                                                                                        const d = getDaysUntilExpiry(b.expiry_date);
-                                                                                        const ppp = p.pieces_per_package || 1;
-                                                                                        const rem = Number(b.remaining_qty ?? b.quantity ?? 0);
-                                                                                        const bBreakdown = calculateStockBreakdown(rem, ppp, p.purchase_unit, p.sales_unit);
-                                                                                        return (
-                                                                                            <tr key={b.batch_id || bIdx} className="hover:bg-green-50/40 transition">
-                                                                                                <td className="py-2.5 px-3 text-slate-400 font-bold">{bIdx + 1}</td>
-                                                                                                <td className="py-2.5 px-3"><span className="px-2 py-0.5 rounded font-mono font-bold text-xs bg-indigo-50 text-indigo-800 border border-indigo-200">{b.batch_number}</span></td>
-                                                                                                <td className="py-2.5 px-3 text-center font-mono font-semibold text-slate-700">{b.expiry_date ? new Date(b.expiry_date).toLocaleDateString('en-GB') : 'â€”'}</td>
-                                                                                                <td className="py-2.5 px-3 text-center">{getExpiryBadge(d)}</td>
-                                                                                                <td className="py-2.5 px-3 text-right font-black text-slate-950">{bBreakdown.boxes > 0 ? `${bBreakdown.boxes} Box + ${bBreakdown.loosePieces} Pcs` : `${rem} ${p.sales_unit || 'Pcs'}`}</td>
-                                                                                                <td className="py-2.5 px-3 text-right font-mono text-slate-600">Ksh {(b.purchase_cost || p.purchase_cost || 0).toLocaleString()}</td>
-                                                                                                <td className="py-2.5 px-3 text-right font-mono font-black text-green-800">Ksh {(b.selling_price || p.sales_cost || 0).toLocaleString()}</td>
-                                                                                                <td className="py-2.5 px-3 text-slate-600"><p className="font-bold text-slate-800">{b.supplier_name || 'Generic Distributor'}</p><span className="text-[10px] font-mono text-slate-400">Invoice: {b.purchase_invoice || 'â€”'}</span></td>
-                                                                                            </tr>
-                                                                                        );
-                                                                                    })}
-                                                                                </tbody>
-                                                                            </table>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                        </tr>
+                                                {/* Purchase Cost */}
+                                                <td className="py-3 px-3.5 text-right font-medium text-slate-600">
+                                                    KES {(p.purchase_cost || 0).toLocaleString()}
+                                                    {p.pieces_per_package && p.pieces_per_package > 1 && (
+                                                        <div className="text-[10px] text-slate-400">
+                                                            KES {(p.purchase_cost / p.pieces_per_package).toFixed(1)}/pc
+                                                        </div>
                                                     )}
-                                                </>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
+                                                </td>
 
-                        {/* â”â”â” PAGINATION FOOTER â”â”â” */}
-                        <div className="px-4 py-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 bg-white rounded-b-2xl">
-                            <div className="flex items-center gap-2">
-                                <span>Rows per page:</span>
-                                <select
-                                    value={perPage}
-                                    onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }}
-                                    className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg font-bold text-slate-700 outline-none"
-                                >
-                                    {[15, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
-                                </select>
-                                <span className="text-slate-400">|</span>
-                                <span>Total <b>{filteredProducts.length}</b> drugs</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                                <button onClick={() => setPage(1)} disabled={page === 1} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed">
-                                    <FiChevronsLeft size={14} />
-                                </button>
-                                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed">
-                                    <FiChevronLeft size={14} />
-                                </button>
-                                {Array.from({ length: Math.min(3, totalPages || 1) }, (_, i) => {
-                                    const pg = Math.max(1, Math.min(page - 1, (totalPages || 1) - 2)) + i;
-                                    return (
-                                        <button key={pg} onClick={() => setPage(pg)} className={`w-8 h-8 rounded-lg text-xs font-bold border transition ${pg === page ? 'bg-green-700 text-white border-green-700' : 'border-slate-200 text-slate-600 hover:bg-slate-100'}`}>{pg}</button>
+                                                {/* Selling Price */}
+                                                <td className="py-3 px-3.5 text-right font-black text-slate-900">
+                                                    KES {(p.sales_cost || 0).toLocaleString()}
+                                                </td>
+
+                                                {/* Margin */}
+                                                <td className="py-3 px-3.5 text-center">
+                                                    <span className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-black ${
+                                                        (p.margin_per || 0) >= 30
+                                                            ? 'bg-sky-50 text-sky-700 border border-sky-200'
+                                                            : (p.margin_per || 0) >= 15
+                                                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                                            : 'bg-red-50 text-red-700 border border-red-200'
+                                                    }`}>
+                                                        {(p.margin_per || 0).toFixed(1)}%
+                                                    </span>
+                                                </td>
+
+                                                {/* Current Stock */}
+                                                <td className="py-3 px-3.5 text-center">
+                                                    <div className="flex flex-col items-center">
+                                                        {(() => {
+                                                            const ppp = p.pieces_per_package || 1;
+                                                            const breakdown = calculateStockBreakdown(stk, ppp, p.purchase_unit, p.sales_unit);
+                                                            return (
+                                                                <>
+                                                                    <span className={`inline-block px-2.5 py-0.5 rounded-lg text-xs font-black ${
+                                                                        stk <= 0
+                                                                            ? 'bg-red-100 text-red-700 border border-red-200'
+                                                                            : stk <= (p.reorder_point || 10)
+                                                                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                                                            : breakdown.boxes > 0
+                                                                            ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 font-black shadow-2xs'
+                                                                            : 'bg-sky-50 text-sky-800 border border-sky-200'
+                                                                    }`}
+                                                                    title={`Total Stock: ${stk} ${p.sales_unit || 'Pcs'}\nBreakdown: ${breakdown.displayText}`}
+                                                                    >
+                                                                        {breakdown.boxes > 0 ? `${breakdown.boxes} Box + ${breakdown.loosePieces} Pcs` : `${stk} ${p.sales_unit || 'Pcs'}`}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-slate-400 mt-0.5">
+                                                                        {breakdown.boxes > 0 ? `(${stk} total pcs)` : `Min: ${p.reorder_point || 10}`}
+                                                                    </span>
+                                                                </>
+                                                            );
+                                                        })()}
+                                                    </div>
+                                                </td>
+
+                                                {/* Batches / Expiry */}
+                                                <td className="py-3 px-3.5 text-center">
+                                                    {pBatches.length > 0 ? (
+                                                        <button
+                                                            onClick={() => {
+                                                                const s = new Set(expandedRows);
+                                                                if (s.has(p.pid)) s.delete(p.pid);
+                                                                else s.add(p.pid);
+                                                                setExpandedRows(s);
+                                                            }}
+                                                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 transition text-[11px] font-bold text-slate-700"
+                                                        >
+                                                            <span>{pBatches.length} batch{pBatches.length > 1 ? 'es' : ''}</span>
+                                                            {nearestDays !== null && getExpiryBadge(nearestDays)}
+                                                            <FiChevronRight size={12} className={`text-slate-400 transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-[11px] text-slate-400 italic">No batches</span>
+                                                    )}
+                                                </td>
+
+                                                {/* Regulatory Status */}
+                                                <td className="py-3 px-3.5 text-center">
+                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                                        p.active
+                                                            ? 'bg-sky-50 text-sky-700 border border-sky-200'
+                                                            : 'bg-slate-100 text-slate-500'
+                                                    }`}>
+                                                        <span className={`w-1.5 h-1.5 rounded-full ${p.active ? 'bg-sky-500' : 'bg-slate-400'}`} />
+                                                        {p.active ? 'Active' : 'Disabled'}
+                                                    </span>
+                                                </td>
+
+                                                {/* Actions */}
+                                                <td className="py-3 px-3.5 text-center">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <button
+                                                            onClick={() => openEditModal(p)}
+                                                            className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                                            title="Edit Details"
+                                                        >
+                                                            <FiEdit2 size={13} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => openStockHistory(p)}
+                                                            className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                                            title="Stock Movement Ledger"
+                                                        >
+                                                            <FiClock size={13} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => openPriceHistory(p)}
+                                                            className="p-1.5 text-slate-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition"
+                                                            title="Price History Audit"
+                                                        >
+                                                            <FiTrendingUp size={13} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => openStockAdjust(p)}
+                                                            className="p-1.5 text-slate-600 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"
+                                                            title="Adjust Inventory"
+                                                        >
+                                                            <FiSliders size={13} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => deleteProduct(p)}
+                                                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                                                            title="Delete"
+                                                        >
+                                                            <FiTrash2 size={13} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+
+                                            {/* Expandable Batches Sub-Table (100% High-Contrast & Detailed) */}
+                                            {isExpanded && (
+                                                <tr key={`batches-${p.pid}`} className="bg-emerald-50/20">
+                                                    <td colSpan={12} className="py-3 px-4 sm:px-6">
+                                                        <div className="bg-white rounded-2xl border-2 border-emerald-300 overflow-hidden shadow-md">
+                                                            <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-4 py-2.5 text-xs font-bold text-white flex flex-wrap items-center justify-between gap-2 border-b border-emerald-500">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-xs">
+                                                                        📦
+                                                                    </div>
+                                                                    <span className="font-black text-white text-xs">
+                                                                        FEFO Batch Register for <span className="text-emerald-400">{p.product_name}</span> ({pBatches.length} batch{pBatches.length === 1 ? '' : 'es'})
+                                                                    </span>
+                                                                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-500 text-slate-950">
+                                                                        Pack: {p.pieces_per_package || 1} pcs/{p.purchase_unit || 'Box'}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[11px] text-slate-300 font-medium">
+                                                                        Total Physical Stock: <strong className="text-emerald-300 font-black">{stk} {p.sales_unit || 'Pcs'}</strong>
+                                                                    </span>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            openEditModal(p);
+                                                                        }}
+                                                                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-2xs"
+                                                                    >
+                                                                        <span>+</span> Manage Batches
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+
+                                                            {pBatches.length === 0 ? (
+                                                                <div className="p-6 text-center text-slate-500 space-y-2">
+                                                                    <p className="font-bold text-slate-700 text-xs">No active batches registered for {p.product_name} yet.</p>
+                                                                    <p className="text-[11px] text-slate-400">Batches are automatically tracked when you receive shipments via Purchases &amp; GRN.</p>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            openEditModal(p);
+                                                                        }}
+                                                                        className="mt-1 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition inline-flex items-center gap-1.5"
+                                                                    >
+                                                                        <span>➕</span> Manage / Add Batches
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <div className="overflow-x-auto w-full">
+                                                                    <table className="w-full text-xs">
+                                                                        <thead className="bg-slate-900 border-b-2 border-emerald-500 text-white font-black uppercase text-[10px] tracking-wider">
+                                                                            <tr>
+                                                                                <th className="py-2.5 px-3 text-left text-white font-black">#</th>
+                                                                                <th className="py-2.5 px-3 text-left text-white font-black">Batch / Lot #</th>
+                                                                                <th className="py-2.5 px-3 text-center text-white font-black">Expiry Date</th>
+                                                                                <th className="py-2.5 px-3 text-center text-white font-black">Lifespan / Status</th>
+                                                                                <th className="py-2.5 px-3 text-right text-white font-black">Remaining Stock</th>
+                                                                                <th className="py-2.5 px-3 text-right text-white font-black">Unit Buy Cost</th>
+                                                                                <th className="py-2.5 px-3 text-right text-white font-black">Retail Sell Price</th>
+                                                                                <th className="py-2.5 px-3 text-left text-white font-black">Supplier / GRN Invoice</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody className="divide-y divide-slate-100 text-slate-900 font-medium">
+                                                                            {pBatches.map((b, bIdx) => {
+                                                                                const d = getDaysUntilExpiry(b.expiry_date);
+                                                                                const ppp = p.pieces_per_package || 1;
+                                                                                const rem = Number(b.remaining_qty ?? b.quantity ?? 0);
+                                                                                const bBreakdown = calculateStockBreakdown(rem, ppp, p.purchase_unit, p.sales_unit);
+
+                                                                                return (
+                                                                                    <tr key={b.batch_id || bIdx} className="hover:bg-emerald-50/40 transition">
+                                                                                        <td className="py-2.5 px-3 text-slate-400 font-bold">{bIdx + 1}</td>
+                                                                                        <td className="py-2.5 px-3">
+                                                                                            <span className="px-2 py-0.5 rounded font-mono font-bold text-xs bg-indigo-50 text-indigo-800 border border-indigo-200">
+                                                                                                {b.batch_number}
+                                                                                            </span>
+                                                                                        </td>
+                                                                                        <td className="py-2.5 px-3 text-center font-mono font-semibold text-slate-700">
+                                                                                            {b.expiry_date ? new Date(b.expiry_date).toLocaleDateString('en-GB') : '-'}
+                                                                                        </td>
+                                                                                        <td className="py-2.5 px-3 text-center">
+                                                                                            {getExpiryBadge(d)}
+                                                                                        </td>
+                                                                                        <td className="py-2.5 px-3 text-right font-black text-slate-950">
+                                                                                            <span className="text-emerald-950 font-black">
+                                                                                                {bBreakdown.boxes > 0 ? `${bBreakdown.boxes} Box + ${bBreakdown.loosePieces} Pcs` : `${rem} ${p.sales_unit || 'Pcs'}`}
+                                                                                            </span>
+                                                                                            <span className="text-[10px] text-slate-400 block font-normal">
+                                                                                                ({rem} total / {b.quantity || rem})
+                                                                                            </span>
+                                                                                        </td>
+                                                                                        <td className="py-2.5 px-3 text-right font-mono text-slate-600">
+                                                                                            KES {(b.purchase_cost || p.purchase_cost || 0).toLocaleString()}
+                                                                                        </td>
+                                                                                        <td className="py-2.5 px-3 text-right font-mono font-black text-emerald-800">
+                                                                                            KES {(b.selling_price || p.sales_cost || 0).toLocaleString()}
+                                                                                        </td>
+                                                                                        <td className="py-2.5 px-3 text-slate-600">
+                                                                                            <p className="font-bold text-slate-800">{b.supplier_name || 'Generic Distributor'}</p>
+                                                                                            <span className="text-[10px] font-mono text-slate-400">
+                                                                                                Invoice: {b.purchase_invoice || '—'}
+                                                                                            </span>
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                );
+                                                                            })}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </>
                                     );
                                 })}
-                                <button onClick={() => setPage(p => Math.min(totalPages || 1, p + 1))} disabled={page >= totalPages} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed">
-                                    <FiChevronRight size={14} />
-                                </button>
-                                <button onClick={() => setPage(totalPages || 1)} disabled={page >= totalPages} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed">
-                                    <FiChevronsRight size={14} />
-                                </button>
-                                <span className="ml-1 text-slate-500 font-medium">Page {page} of {totalPages || 1}</span>
-                            </div>
-                        </div>
+                            </tbody>
+                        </table>
                     </div>
+                </div>
+            )}
 
-                    {/* â”â”â” BOTTOM ROW: QUICK ACTIONS + STOCK ALERTS + INVENTORY SUMMARY â”â”â” */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* ━━━ PAGINATION FOOTER ━━━ */}
+            <div className="glass-card border border-white/80 px-5 py-3 shadow-md shadow-slate-200/30 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+                <div className="flex items-center gap-2">
+                    <span>Rows per page:</span>
+                    <select
+                        value={perPage}
+                        onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }}
+                        className="px-2.5 py-1 bg-white/90 border border-slate-200 rounded-lg font-bold text-slate-700 outline-none shadow-2xs"
+                    >
+                        {[15, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
+                    </select>
+                    <span className="text-slate-400">|</span>
+                    <span>Total <b>{filteredProducts.length}</b> drugs</span>
+                </div>
 
-                        {/* Quick Actions */}
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-                            <div className="flex items-center gap-2 mb-3">
-                                <span className="text-amber-500 text-base">âš¡</span>
-                                <h3 className="text-sm font-black text-slate-800">Quick Actions</h3>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2">
-                                {[
-                                    { label: 'New Product', icon: <FiPlus size={18} className="text-green-700" />, shortcut: 'F1', onClick: openAddModal, bg: 'bg-green-50 border-green-200 hover:bg-green-100' },
-                                    { label: 'Stock In', icon: <FiBox size={18} className="text-blue-600" />, shortcut: 'F2', onClick: () => paginatedProducts.length > 0 && openStockAdjust(paginatedProducts[0]), bg: 'bg-blue-50 border-blue-200 hover:bg-blue-100' },
-                                    { label: 'Stock Adjust', icon: <FiSliders size={18} className="text-purple-600" />, shortcut: 'F3', onClick: () => paginatedProducts.length > 0 && openStockAdjust(paginatedProducts[0]), bg: 'bg-purple-50 border-purple-200 hover:bg-purple-100' },
-                                    { label: 'Print Labels', icon: <FiPrinter size={18} className="text-orange-600" />, shortcut: 'F4', onClick: () => { setShowLabelModal(true); setLabelProducts(paginatedProducts.slice(0, 8).map(p => p.pid)); const qMap: Record<number, number> = {}; paginatedProducts.slice(0, 8).forEach(p => qMap[p.pid] = 1); setLabelQty(qMap); }, bg: 'bg-orange-50 border-orange-200 hover:bg-orange-100' },
-                                    { label: 'View Reports', icon: <FiTrendingUp size={18} className="text-teal-600" />, shortcut: 'F5', onClick: () => toast('Go to Reports page'), bg: 'bg-teal-50 border-teal-200 hover:bg-teal-100' },
-                                    { label: 'Purchase Orders', icon: <FiShoppingCart size={18} className="text-green-700" />, shortcut: 'F6', onClick: () => toast('Go to Purchases page'), bg: 'bg-green-50 border-green-200 hover:bg-green-100' },
-                                ].map(action => (
-                                    <button
-                                        key={action.label}
-                                        onClick={action.onClick}
-                                        className={`flex flex-col items-center justify-center gap-1 p-3 rounded-xl border text-center transition ${action.bg}`}
-                                    >
-                                        {action.icon}
-                                        <span className="text-[10px] font-bold text-slate-700 leading-tight">{action.label}</span>
-                                        <span className="text-[9px] text-slate-400 font-mono">({action.shortcut})</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
+                <div className="flex items-center gap-1.5">
+                    <button
+                        onClick={() => setPage(1)}
+                        disabled={page === 1}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs"
+                    >
+                        <FiChevronsLeft size={14} />
+                    </button>
+                    <button
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs"
+                    >
+                        <FiChevronLeft size={14} />
+                    </button>
 
-                        {/* Stock Alerts */}
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-red-500 text-base">ðŸ””</span>
-                                    <h3 className="text-sm font-black text-slate-800">Stock Alerts</h3>
-                                </div>
-                                <button onClick={() => setActiveFastFilter('low_stock')} className="text-xs text-green-700 font-bold hover:underline">View All â†’</button>
-                            </div>
-                            <div className="space-y-2">
-                                {stockAlerts.length === 0 ? (
-                                    <p className="text-xs text-slate-400 text-center py-4">No alerts â€” all stock levels healthy âœ“</p>
-                                ) : stockAlerts.map((alert, i) => (
-                                    <div key={i} className="flex items-center gap-2 text-xs">
-                                        <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${alert.color}`} />
-                                        <span className="text-slate-700 font-medium truncate flex-1">{alert.name}</span>
-                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                            alert.type === 'out' ? 'bg-red-100 text-red-700' :
-                                            alert.type === 'low' ? 'bg-orange-100 text-orange-700' :
-                                            'bg-amber-100 text-amber-700'
-                                        }`}>
-                                            {alert.type === 'out' ? 'Out of Stock' : alert.type === 'low' ? 'Low Stock' : 'Expiring Soon'}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
+                    <span className="px-3 py-1 font-bold text-slate-800">
+                        Page {page} of {totalPages || 1}
+                    </span>
 
-                        {/* Inventory Summary Donut */}
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
-                            <div className="flex items-center gap-2 mb-3">
-                                <span className="text-green-700 text-base">💊</span>
-                                <h3 className="text-sm font-black text-slate-800">Inventory Summary</h3>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                {/* Donut */}
-                                <div className="relative w-24 h-24 flex-shrink-0">
-                                    <svg viewBox="0 0 36 36" className="w-24 h-24 -rotate-90">
-                                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f1f5f9" strokeWidth="3.8" />
-                                        {/* In Stock arc */}
-                                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#16a34a" strokeWidth="3.8"
-                                            strokeDasharray={`${kpiData.totalProducts > 0 ? (kpiData.activeSkus - kpiData.lowStockCount - kpiData.outOfStockCount) / kpiData.totalProducts * 100 : 0} 100`}
-                                            strokeLinecap="round" />
-                                        {/* Low stock arc */}
-                                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#f59e0b" strokeWidth="3.8"
-                                            strokeDasharray={`${kpiData.totalProducts > 0 ? kpiData.lowStockCount / kpiData.totalProducts * 100 : 0} 100`}
-                                            strokeDashoffset={`-${kpiData.totalProducts > 0 ? (kpiData.activeSkus - kpiData.lowStockCount - kpiData.outOfStockCount) / kpiData.totalProducts * 100 : 0}`}
-                                            strokeLinecap="round" />
-                                        {/* Out of stock arc */}
-                                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="#ef4444" strokeWidth="3.8"
-                                            strokeDasharray={`${kpiData.totalProducts > 0 ? kpiData.outOfStockCount / kpiData.totalProducts * 100 : 0} 100`}
-                                            strokeDashoffset={`-${kpiData.totalProducts > 0 ? (kpiData.activeSkus - kpiData.outOfStockCount) / kpiData.totalProducts * 100 : 0}`}
-                                            strokeLinecap="round" />
-                                    </svg>
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <div className="text-center">
-                                            <p className="text-lg font-black text-slate-800">
-                                                {kpiData.totalProducts > 0 ? Math.round(((kpiData.activeSkus - kpiData.outOfStockCount) / kpiData.totalProducts) * 100) : 0}%
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="space-y-2 flex-1">
-                                    <div className="flex items-center justify-between text-xs">
-                                        <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-600" /><span className="text-slate-600 font-medium">In Stock</span></div>
-                                        <span className="font-black text-slate-800">{kpiData.activeSkus - kpiData.outOfStockCount - kpiData.lowStockCount}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-xs">
-                                        <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-400" /><span className="text-slate-600 font-medium">Low Stock</span></div>
-                                        <span className="font-black text-slate-800">{kpiData.lowStockCount}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-xs">
-                                        <div className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500" /><span className="text-slate-600 font-medium">Out of Stock</span></div>
-                                        <span className="font-black text-slate-800">{kpiData.outOfStockCount}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <button
+                        onClick={() => setPage(p => Math.min(totalPages || 1, p + 1))}
+                        disabled={page >= totalPages}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs"
+                    >
+                        <FiChevronRight size={14} />
+                    </button>
+                    <button
+                        onClick={() => setPage(totalPages || 1)}
+                        disabled={page >= totalPages}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed shadow-2xs"
+                    >
+                        <FiChevronsRight size={14} />
+                    </button>
+                </div>
+            </div>
 
-                </div>{/* end main content */}
-            </div>{/* end flex row */}
-
+            {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                ADD/EDIT PRODUCT MODAL (COMPACT BALANCED WIDTH: max-w-3xl)
+               ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
             {showModal && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 md:p-6 overflow-y-auto">
+                    {/* Modal container: REDUCED WIDTH TO max-w-3xl to ensure clean, balanced proportions without being too long */}
                     <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden animate-scaleUp">
                         {/* Modal Header */}
                         <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-5 py-4 text-white flex items-center justify-between flex-shrink-0">
@@ -2595,7 +2895,7 @@ export default function ProductsPage() {
                         {/* Modal Body Content (Comfortable 2-Column Responsive Form) */}
                         <div className="p-5 overflow-y-auto flex-1 space-y-4">
 
-                            {/* â”€â”€â”€ TAB 1: IDENTIFICATION & CLASSIFICATION â”€â”€â”€ */}
+                            {/* ─── TAB 1: IDENTIFICATION & CLASSIFICATION ─── */}
                             {modalTab === 'general' && (
                                 <div className="space-y-3.5 animate-fadeIn">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -2637,7 +2937,7 @@ export default function ProductsPage() {
                                                     }}
                                                     className="text-[10px] text-blue-600 hover:underline font-bold"
                                                 >
-                                                    âš¡ Generate
+                                                    ⚡ Generate
                                                 </button>
                                             </label>
                                             <input
@@ -2710,7 +3010,7 @@ export default function ProductsPage() {
                                 </div>
                             )}
 
-                            {/* â”€â”€â”€ TAB 2: CLINICAL & REGULATORY â”€â”€â”€ */}
+                            {/* ─── TAB 2: CLINICAL & REGULATORY ─── */}
                             {modalTab === 'clinical' && (
                                 <div className="space-y-4 animate-fadeIn">
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -2750,7 +3050,7 @@ export default function ProductsPage() {
                                                 type="text"
                                                 value={formData.storage_conditions || ''}
                                                 onChange={e => setFormData({ ...formData, storage_conditions: e.target.value })}
-                                                placeholder="e.g. Below 25Â°C in a dry place"
+                                                placeholder="e.g. Below 25°C in a dry place"
                                                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800"
                                             />
                                             {/* Preset Chips */}
@@ -2785,7 +3085,7 @@ export default function ProductsPage() {
                                                 className="w-4 h-4 accent-red-600 rounded cursor-pointer"
                                             />
                                             <div>
-                                                <p className="text-xs font-black text-red-700">â„ž Prescription Only (POM)</p>
+                                                <p className="text-xs font-black text-red-700">℞ Prescription Only (POM)</p>
                                                 <p className="text-[10px] text-slate-500">Requires verified doctor prescription at POS</p>
                                             </div>
                                         </label>
@@ -2823,7 +3123,7 @@ export default function ProductsPage() {
                                 </div>
                             )}
 
-                            {/* â”€â”€â”€ TAB 3: PACKAGING, PRICING & MARGIN ENGINE â”€â”€â”€ */}
+                            {/* ─── TAB 3: PACKAGING, PRICING & MARGIN ENGINE ─── */}
                             {modalTab === 'pricing' && (
                                 <div className="space-y-4 animate-fadeIn">
                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -2956,7 +3256,7 @@ export default function ProductsPage() {
                                 </div>
                             )}
 
-                            {/* â”€â”€â”€ TAB 4: DIRECT OPENING BATCHES â”€â”€â”€ */}
+                            {/* ─── TAB 4: DIRECT OPENING BATCHES ─── */}
                             {modalTab === 'batches' && (
                                 <div className="space-y-3.5 animate-fadeIn">
                                     <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2.5">
@@ -3080,7 +3380,7 @@ export default function ProductsPage() {
                                 </div>
                             )}
 
-                            {/* â”€â”€â”€ TAB 5: POS DISPLAY â”€â”€â”€ */}
+                            {/* ─── TAB 5: POS DISPLAY ─── */}
                             {modalTab === 'media' && (
                                 <div className="space-y-3.5 animate-fadeIn">
                                     <div>
@@ -3153,9 +3453,9 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+            {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                 SUPER MASSIVE ULTRA IMPORT MODAL (SELECT IMPORT, BATCHES, 0 QTY, OVERWRITE)
-               â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â” */}
+               ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
             {showImportModal && (
                 <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-3 md:p-6 overflow-y-auto">
                     <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-5xl max-h-[94vh] flex flex-col overflow-hidden animate-scaleUp">
@@ -3183,7 +3483,7 @@ export default function ProductsPage() {
                         {/* Modal Body */}
                         <div className="p-6 overflow-y-auto flex-1 space-y-5">
 
-                            {/* â”€â”€â”€ STATUS: SUCCESS AUDIT â”€â”€â”€ */}
+                            {/* ─── STATUS: SUCCESS AUDIT ─── */}
                             {importStatus === 'success' && (
                                 <div className="text-center py-6 space-y-4">
                                     <div className="w-16 h-16 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center mx-auto shadow-md">
@@ -3223,7 +3523,7 @@ export default function ProductsPage() {
                                             <div className="space-y-1">
                                                 {importErrors.map((e, idx) => (
                                                     <p key={idx} className="text-[11px] text-red-600 font-medium">
-                                                        â€¢ Row {e.row} ({e.item}): {e.error}
+                                                        • Row {e.row} ({e.item}): {e.error}
                                                     </p>
                                                 ))}
                                             </div>
@@ -3241,7 +3541,7 @@ export default function ProductsPage() {
                                 </div>
                             )}
 
-                            {/* â”€â”€â”€ STATUS: IMPORTING IN PROGRESS â”€â”€â”€ */}
+                            {/* ─── STATUS: IMPORTING IN PROGRESS ─── */}
                             {importStatus === 'importing' && (
                                 <div className="py-12 text-center space-y-4">
                                     <div className="w-14 h-14 border-4 border-blue-100 border-t-blue-600 rounded-full animate-spin mx-auto" />
@@ -3263,7 +3563,7 @@ export default function ProductsPage() {
                                 </div>
                             )}
 
-                            {/* â”€â”€â”€ STATUS: IDLE (FILE PICKER & CONTROLS) â”€â”€â”€ */}
+                            {/* ─── STATUS: IDLE (FILE PICKER & CONTROLS) ─── */}
                             {importStatus === 'idle' && (
                                 <div className="space-y-5">
                                     {/* Upload Dropzone */}
@@ -3296,7 +3596,7 @@ export default function ProductsPage() {
                                                 {[
                                                     { id: 'add_new', label: 'Append New Items Only', desc: 'Skip existing products by name/barcode' },
                                                     { id: 'update', label: 'Update & Append', desc: 'Update prices of existing, add new' },
-                                                    { id: 'overwrite_all', label: 'âš ï¸ Overwrite All', desc: 'Wipe catalog & re-import from fresh' }
+                                                    { id: 'overwrite_all', label: '⚠️ Overwrite All', desc: 'Wipe catalog & re-import from fresh' }
                                                 ].map(m => (
                                                     <label key={m.id} className={`flex items-start gap-2 p-2 rounded-xl border cursor-pointer transition ${
                                                         importMode === m.id ? 'bg-white border-blue-400 shadow-xs' : 'border-transparent hover:bg-slate-100'
@@ -3398,7 +3698,7 @@ export default function ProductsPage() {
                                 </div>
                             )}
 
-                            {/* â”€â”€â”€ STATUS: PARSED (DATA GRID PREVIEW & SELECTIVE IMPORT) â”€â”€â”€ */}
+                            {/* ─── STATUS: PARSED (DATA GRID PREVIEW & SELECTIVE IMPORT) ─── */}
                             {importStatus === 'parsed' && (
                                 <div className="space-y-4">
                                     {/* Preview Header & Stats */}
@@ -3513,11 +3813,11 @@ export default function ProductsPage() {
                                                         <td className="py-2 px-3">
                                                             {r.valid ? (
                                                                 <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200">
-                                                                    Ready âœ“
+                                                                    Ready ✓
                                                                 </span>
                                                             ) : (
                                                                 <span className="text-[10px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-full border border-red-200" title={r.errors.join(', ')}>
-                                                                    âš ï¸ {r.errors[0]}
+                                                                    ⚠️ {r.errors[0]}
                                                                 </span>
                                                             )}
                                                         </td>
@@ -3612,9 +3912,9 @@ export default function ProductsPage() {
             )}
 
 
-            {/* â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+            {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                 1. STOCK MOVEMENT LEDGER MODAL (QUICK ACTION)
-               â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â” */}
+               ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
             {showStockHistoryModal && stockHistoryProduct && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 md:p-6 animate-fadeIn">
                     <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[88vh] flex flex-col overflow-hidden animate-scaleUp">
@@ -3626,7 +3926,7 @@ export default function ProductsPage() {
                                 </div>
                                 <div>
                                     <h3 className="text-base font-black tracking-tight">{stockHistoryProduct.product_name}</h3>
-                                    <p className="text-xs text-blue-100 font-mono">Stock Movement Ledger â€¢ Code: {stockHistoryProduct.product_code}</p>
+                                    <p className="text-xs text-blue-100 font-mono">Stock Movement Ledger • Code: {stockHistoryProduct.product_code}</p>
                                 </div>
                             </div>
                             <button
@@ -3717,9 +4017,9 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+            {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                 2. PRICE HISTORY AUDIT MODAL (QUICK ACTION)
-               â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â” */}
+               ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
             {showPriceHistoryModal && priceHistoryProduct && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 md:p-6 animate-fadeIn">
                     <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-scaleUp">
@@ -3731,7 +4031,7 @@ export default function ProductsPage() {
                                 </div>
                                 <div>
                                     <h3 className="text-base font-black tracking-tight">{priceHistoryProduct.product_name}</h3>
-                                    <p className="text-xs text-purple-100 font-mono">Price Audit Trail â€¢ Code: {priceHistoryProduct.product_code}</p>
+                                    <p className="text-xs text-purple-100 font-mono">Price Audit Trail • Code: {priceHistoryProduct.product_code}</p>
                                 </div>
                             </div>
                             <button
@@ -3788,9 +4088,9 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+            {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                 3. STOCK ADJUSTMENT MODAL (QUICK ACTION)
-               â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â” */}
+               ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
             {showStockAdjustModal && adjustProduct && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 md:p-6 animate-fadeIn">
                     <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-lg w-full flex flex-col overflow-hidden animate-scaleUp">
@@ -3853,7 +4153,7 @@ export default function ProductsPage() {
                                             }`}
                                         >
                                             <span>General Inventory (No batch linked)</span>
-                                            {selectedBatchId === null && <span className="text-blue-600 font-black">âœ“</span>}
+                                            {selectedBatchId === null && <span className="text-blue-600 font-black">✓</span>}
                                         </button>
                                         {adjustBatches.map(b => {
                                             const isSelected = selectedBatchId === b.batch_id;
@@ -3879,7 +4179,7 @@ export default function ProductsPage() {
                                                             )}
                                                         </div>
                                                         <span className={`text-[10px] ${isSelected ? 'text-blue-100' : 'text-slate-500'}`}>
-                                                            Exp: {b.expiry_date || 'N/A'} {b.supplier_name ? `â€¢ ${b.supplier_name}` : ''}
+                                                            Exp: {b.expiry_date || 'N/A'} {b.supplier_name ? `• ${b.supplier_name}` : ''}
                                                         </span>
                                                     </div>
                                                     <div className="text-right">
@@ -3968,7 +4268,7 @@ export default function ProductsPage() {
                                     <div className="text-right">
                                         <span className="text-[10px] text-slate-500 block">Projected:</span>
                                         <span className="font-black text-blue-700">
-                                            {Number(adjustBatches.find(b => b.batch_id === selectedBatchId)?.remaining_qty ?? 0)} â†’ {
+                                            {Number(adjustBatches.find(b => b.batch_id === selectedBatchId)?.remaining_qty ?? 0)} → {
                                                 Math.max(0, Number(adjustBatches.find(b => b.batch_id === selectedBatchId)?.remaining_qty ?? 0) + (adjustType === 'add' ? (adjustBags + adjustPieces) : -(adjustBags + adjustPieces)))
                                             } {adjustProduct.sales_unit || 'Pcs'}
                                         </span>
@@ -4019,9 +4319,9 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+            {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                 4. BARCODE & SHELF LABEL GENERATOR MODAL (QUICK ACTION)
-               â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â” */}
+               ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
             {showLabelModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 md:p-6 animate-fadeIn">
                     <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-scaleUp">
@@ -4109,7 +4409,7 @@ export default function ProductsPage() {
                                                     }}
                                                     className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-rose-500 text-white text-xs font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-sm"
                                                 >
-                                                    Ã—
+                                                    ×
                                                 </button>
                                                 <div>
                                                     <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Alpha Pharmacy</p>
@@ -4165,9 +4465,9 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+            {/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                 5. FAST BARCODE SCANNER & FORMULARY LOOKUP MODAL (QUICK ACTION)
-               â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â” */}
+               ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */}
             {showLookupModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-3 md:p-6 animate-fadeIn">
                     <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-xl w-full flex flex-col overflow-hidden animate-scaleUp">
